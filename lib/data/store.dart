@@ -7,6 +7,7 @@ import '../core/cycle.dart';
 import '../core/money.dart';
 import 'finance.dart';
 import 'models.dart';
+import 'validation.dart';
 
 /// Estado do app + persistência local. Toda alteração passa por aqui, salva
 /// e notifica a UI.
@@ -14,8 +15,11 @@ class Store extends ChangeNotifier {
   static const _key = 'mare_v1';
   final SharedPreferences _prefs;
   AppData data;
+  VoidCallback? onLocalChange;
 
   Store._(this._prefs, this.data);
+
+  SharedPreferences get prefs => _prefs;
 
   static Future<Store> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -28,13 +32,15 @@ class Store extends ChangeNotifier {
     } catch (_) {
       // Nunca travar o app por causa de dado corrompido: guarda uma cópia e recomeça.
       final raw = prefs.getString(_key);
-      if (raw != null)
+      if (raw != null) {
         await prefs.setString(
           '${_key}_corrupt_${DateTime.now().millisecondsSinceEpoch}',
           raw,
         );
+      }
       d = AppData();
     }
+    sanitizeAppData(d);
     return Store._(prefs, d);
   }
 
@@ -43,10 +49,22 @@ class Store extends ChangeNotifier {
   Cycle get cycle => f.current;
   int _keyOf(DateTime d) => Cycle.of(d, data.cycleStartDay).key;
 
-  void _commit() {
+  void _commit({bool isRemote = false}) {
+    if (!isRemote) {
+      data.updatedAt = DateTime.now().toUtc();
+    }
     _prefs.setString(_key, jsonEncode(data.toJson()));
     notifyListeners();
+    if (!isRemote) onLocalChange?.call();
   }
+
+  /// Indica se já existem dados financeiros/configuração relevantes neste aparelho.
+  bool get hasMeaningfulData =>
+      data.onboardingDone ||
+      data.expenses.isNotEmpty ||
+      data.boxes.isNotEmpty ||
+      data.salaries.isNotEmpty ||
+      data.cards.isNotEmpty;
 
   // ── Perfil / preferências ─────────────────────────────────
 
@@ -100,13 +118,16 @@ class Store extends ChangeNotifier {
   }
 
   /// O salário vale a partir do ciclo atual; ciclos anteriores mantêm o valor antigo.
-  void setSalary(Cents cents) {
+  String? setSalary(Cents cents) {
+    final err = validateSalary(cents);
+    if (err != null) return err;
     final k = cycle.key;
     data.salaries
       ..removeWhere((s) => s.fromKey >= k)
       ..add(SalaryEntry(k, cents))
       ..sort((a, b) => a.fromKey.compareTo(b.fromKey));
     _commit();
+    return null;
   }
 
   void finishOnboarding({
@@ -120,25 +141,35 @@ class Store extends ChangeNotifier {
       ..avatarPath = avatarPath ?? data.avatarPath
       ..cycleStartDay = startDay.clamp(1, 31)
       ..onboardingDone = true;
-    if (salary > 0) {
-      data.salaries = [SalaryEntry(cycle.key, salary)];
+    final cleanSalary = salary.clamp(0, MoneyLimits.maxCents);
+    if (cleanSalary > 0) {
+      data.salaries = [SalaryEntry(cycle.key, cleanSalary)];
     }
     _commit();
   }
 
   // ── Gastos ────────────────────────────────────────────────
 
-  void addExpense(Expense e) {
+  String? addExpense(Expense e) {
+    final validCards = data.cards.map((c) => c.id).toSet();
+    final err = validateExpense(e, validCardIds: validCards);
+    if (err != null) return err;
+    normalizeExpense(e, validCardIds: validCards);
     data.expenses.add(e);
     _commit();
+    return null;
   }
 
   /// Edita um gasto. Se for recorrente, já tiver vigorado em ciclos anteriores
   /// e o valor mudou, o histórico é preservado: o antigo encerra no ciclo
   /// anterior e o novo passa a valer a partir de agora.
-  void updateExpense(Expense edited) {
+  String? updateExpense(Expense edited) {
     final i = data.expenses.indexWhere((e) => e.id == edited.id);
-    if (i < 0) return;
+    if (i < 0) return 'Gasto não encontrado.';
+    final validCards = data.cards.map((c) => c.id).toSet();
+    final err = validateExpense(edited, validCardIds: validCards);
+    if (err != null) return err;
+    normalizeExpense(edited, validCardIds: validCards);
     final old = data.expenses[i];
     final cur = cycle;
     final startedBefore = Cycle.of(old.date, data.cycleStartDay).key < cur.key;
@@ -162,6 +193,7 @@ class Store extends ChangeNotifier {
       data.expenses[i] = edited;
     }
     _commit();
+    return null;
   }
 
   /// Para de cobrar um recorrente: continua valendo neste ciclo e some do próximo.
@@ -196,7 +228,7 @@ class Store extends ChangeNotifier {
 
   Caixinha? box(String id) => data.boxes.where((b) => b.id == id).firstOrNull;
 
-  void addBox({
+  String? addBox({
     required String name,
     required String icon,
     required int color,
@@ -204,22 +236,31 @@ class Store extends ChangeNotifier {
     required int amount,
     Cents? goal,
   }) {
+    final err = validateBoxParams(
+      name: name,
+      mode: mode,
+      amount: amount,
+      goal: goal,
+    );
+    if (err != null) return err;
     final k = cycle.key;
+    final cleanGoal = (goal != null && goal > 0) ? goal : null;
     data.boxes.add(
       Caixinha(
         name: name.trim(),
-        icon: icon,
+        icon: boxIcons.containsKey(icon) ? icon : 'piggy',
         color: color,
-        goalCents: goal,
+        goalCents: cleanGoal,
         createdKey: k,
         plans: [ContributionPlan(k, mode, amount)],
       ),
     );
     _commit();
+    return null;
   }
 
   /// Mudar o aporte só afeta deste ciclo em diante.
-  void updateBox(
+  String? updateBox(
     String id, {
     required String name,
     required String icon,
@@ -229,20 +270,35 @@ class Store extends ChangeNotifier {
     Cents? goal,
   }) {
     final b = box(id);
-    if (b == null) return;
-    b
-      ..name = name.trim()
-      ..icon = icon
-      ..color = color
-      ..goalCents = goal;
+    if (b == null) return 'Caixinha não encontrada.';
+    final err = validateBoxParams(
+      name: name,
+      mode: mode,
+      amount: amount,
+      goal: goal,
+    );
+    if (err != null) return err;
     final k = cycle.key;
     final cur = b.currentPlan;
     if (cur.mode != mode || cur.amount != amount) {
+      final sim = Caixinha.fromJson(b.toJson());
+      sim.plans
+        ..removeWhere((p) => p.fromKey >= k)
+        ..add(ContributionPlan(k, mode, amount));
+      if (f.boxRawBalance(sim) < 0) {
+        return 'Esse aporte deixaria o saldo da caixinha negativo.';
+      }
       b.plans
         ..removeWhere((p) => p.fromKey >= k)
         ..add(ContributionPlan(k, mode, amount));
     }
+    b
+      ..name = name.trim()
+      ..icon = boxIcons.containsKey(icon) ? icon : 'piggy'
+      ..color = color
+      ..goalCents = (goal != null && goal > 0) ? goal : null;
     _commit();
+    return null;
   }
 
   /// Apaga a caixinha e todo o histórico dela (como se nunca tivesse existido).
@@ -270,22 +326,44 @@ class Store extends ChangeNotifier {
     _commit();
   }
 
-  void addMovement(String boxId, Movement m) {
-    box(boxId)?.movements.add(m);
-    _commit();
-  }
-
-  void updateMovement(String boxId, Movement m) {
+  String? addMovement(String boxId, Movement m) {
     final b = box(boxId);
-    if (b == null) return;
-    final i = b.movements.indexWhere((x) => x.id == m.id);
-    if (i >= 0) b.movements[i] = m;
+    final err = validateMovement(f, b, m);
+    if (err != null) return err;
+    normalizeMovement(m);
+    b!.movements.add(m);
     _commit();
+    return null;
   }
 
-  void deleteMovement(String boxId, String movementId) {
-    box(boxId)?.movements.removeWhere((m) => m.id == movementId);
+  String? updateMovement(String boxId, Movement m) {
+    final b = box(boxId);
+    if (b == null) return 'Caixinha não encontrada.';
+    final i = b.movements.indexWhere((x) => x.id == m.id);
+    if (i < 0) return 'Movimentação não encontrada.';
+    final err = validateMovement(f, b, m, replacingId: m.id);
+    if (err != null) return err;
+    normalizeMovement(m);
+    b.movements[i] = m;
     _commit();
+    return null;
+  }
+
+  String? deleteMovement(String boxId, String movementId) {
+    final b = box(boxId);
+    if (b == null) return 'Caixinha não encontrada.';
+    final existing = b.movements.where((m) => m.id == movementId).firstOrNull;
+    if (existing == null) return null;
+    if (existing.sign > 0 && b.isOpen) {
+      final sim = Caixinha.fromJson(b.toJson());
+      sim.movements.removeWhere((m) => m.id == movementId);
+      if (f.boxRawBalance(sim) < 0) {
+        return 'Não é possível excluir este depósito porque parte do saldo já foi usada ou resgatada.';
+      }
+    }
+    b.movements.removeWhere((m) => m.id == movementId);
+    _commit();
+    return null;
   }
 
   void endMovement(String boxId, String movementId) {
@@ -302,7 +380,10 @@ class Store extends ChangeNotifier {
   PayCard? card(String? id) =>
       id == null ? null : data.cards.where((c) => c.id == id).firstOrNull;
 
-  void saveCard(PayCard c) {
+  String? saveCard(PayCard c) {
+    final err = validateCard(c);
+    if (err != null) return err;
+    normalizeCard(c);
     final i = data.cards.indexWhere((x) => x.id == c.id);
     if (i >= 0) {
       data.cards[i] = c;
@@ -310,6 +391,7 @@ class Store extends ChangeNotifier {
       data.cards.add(c);
     }
     _commit();
+    return null;
   }
 
   void deleteCard(String id) {
@@ -326,7 +408,11 @@ class Store extends ChangeNotifier {
       const JsonEncoder.withIndent('  ').convert(data.toJson());
 
   /// Aceita backup do maré ou do app web antigo (finapp). Retorna mensagem de erro ou null.
-  String? importJson(String raw) {
+  String? importJson(
+    String raw, {
+    bool fromCloud = false,
+    DateTime? cloudUpdatedAt,
+  }) {
     try {
       final j = jsonDecode(raw.trim());
       if (j is! Map) return 'O conteúdo não é um backup válido.';
@@ -341,7 +427,12 @@ class Store extends ChangeNotifier {
         return 'Não reconheci esse formato de backup.';
       }
       data.onboardingDone = true;
-      _commit();
+      sanitizeAppData(data);
+      if (fromCloud) {
+        data.updatedAt =
+            (data.updatedAt ?? cloudUpdatedAt ?? DateTime.now()).toUtc();
+      }
+      _commit(isRemote: fromCloud);
       return null;
     } catch (_) {
       return 'Não consegui ler esse texto. Confira se copiou o backup inteiro.';

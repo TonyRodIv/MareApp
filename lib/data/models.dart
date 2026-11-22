@@ -529,6 +529,9 @@ class AppData {
   /// IDs dos widgets ocultados pelo usuário na Carteira.
   List<String> hiddenWidgets;
 
+  /// Última alteração local (UTC), usada para sincronização com o Google Drive.
+  DateTime? updatedAt;
+
   AppData({
     this.userName = '',
     this.avatarPath,
@@ -545,6 +548,7 @@ class AppData {
     Map<String, int>? cardSpans,
     List<String>? widgetOrder,
     List<String>? hiddenWidgets,
+    this.updatedAt,
   }) : cardSpans = cardSpans ?? {},
        widgetOrder = widgetOrder ?? [],
        hiddenWidgets = hiddenWidgets ?? [],
@@ -558,6 +562,7 @@ class AppData {
 
   Map<String, dynamic> toJson() => {
     'mareVersion': schemaVersion,
+    'updatedAt': _iso(updatedAt?.toUtc()),
     'userName': userName,
     'avatarPath': avatarPath,
     'userSince': userSince,
@@ -607,6 +612,7 @@ class AppData {
       hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? [])
           .map((e) => '$e')
           .toList(),
+      updatedAt: _date(j['updatedAt'])?.toUtc(),
     );
   }
 

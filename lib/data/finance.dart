@@ -42,10 +42,11 @@ class Finance {
   Cents salaryFor(Cycle c) {
     SalaryEntry? found;
     for (final s in d.salaries) {
-      if (s.fromKey <= c.key && (found == null || s.fromKey >= found.fromKey))
+      if (s.fromKey <= c.key && (found == null || s.fromKey >= found.fromKey)) {
         found = s;
+      }
     }
-    return found?.cents ?? 0;
+    return max(0, found?.cents ?? 0);
   }
 
   Cents get salary => salaryFor(current);
@@ -72,9 +73,9 @@ class Finance {
     if (c.key < b.createdKey) return 0;
     if (b.closedKey != null && c.key > b.closedKey!) return 0;
     final p = b.planFor(c.key);
-    if (p == null) return 0;
-    if (p.mode == PlanMode.fixed) return p.amount;
-    return (salaryFor(c) * p.amount / 10000).round();
+    if (p == null || p.amount <= 0) return 0;
+    if (p.mode == PlanMode.fixed) return max(0, p.amount);
+    return max(0, (salaryFor(c) * p.amount / 10000).round());
   }
 
   Cents contributionsTotal(Cycle c) =>
@@ -82,13 +83,11 @@ class Finance {
 
   Cents _movementsIn(Caixinha b, Cycle c, MovementType t) => b.movements
       .where((m) => m.type == t && movementActive(m, c))
-      .fold(0, (s, m) => s + m.cents);
+      .fold(0, (s, m) => s + max(0, m.cents));
 
-  /// Saldo acumulado da caixinha até o fim do ciclo [upTo] (inclusivo).
-  /// Correção central: no original o saldo era só o aporte do mês atual —
-  /// a caixinha nunca acumulava, e "dívidas únicas" sumiam no mês seguinte,
-  /// fazendo o dinheiro reaparecer.
-  Cents boxBalance(Caixinha b, {Cycle? upTo}) {
+  /// Saldo bruto acumulado da caixinha até o fim do ciclo [upTo] (inclusivo),
+  /// sem clamp em zero — usado pelo validador para detectar déficit real.
+  Cents boxRawBalance(Caixinha b, {Cycle? upTo}) {
     final last = (upTo ?? current).key;
     var total = 0;
     final firstMove = b.movements.isEmpty
@@ -98,11 +97,16 @@ class Finance {
       final c = fromKey(k);
       total += contributionFor(b, c);
       for (final m in b.movements) {
-        if (movementActive(m, c)) total += m.sign * m.cents;
+        if (movementActive(m, c)) total += m.sign * max(0, m.cents);
       }
     }
     return total;
   }
+
+  /// Saldo acumulado da caixinha até o fim do ciclo [upTo] (inclusivo).
+  /// Nunca fica negativo (garantido pela validação e protegido contra dados legados).
+  Cents boxBalance(Caixinha b, {Cycle? upTo}) =>
+      max(0, boxRawBalance(b, upTo: upTo));
 
   List<Caixinha> get openBoxes => d.boxes.where((b) => b.isOpen).toList();
   Cents boxesBalanceTotal() => openBoxes.fold(0, (s, b) => s + boxBalance(b));

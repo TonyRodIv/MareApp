@@ -289,6 +289,122 @@ void main() {
       expect(store.importJson('isso não é json'), isNotNull);
       expect(store.importJson('{"foo":1}'), isNotNull);
     });
+
+    test('validação impede caixinha negativa e valores inválidos', () {
+      expect(store.setSalary(-100), isNotNull);
+      expect(store.setSalary(300000), isNull);
+
+      // Gasto inválido (zero ou data final anterior)
+      expect(store.addExpense(exp('Zero', 0, DateTime.now())), isNotNull);
+      expect(
+        store.addExpense(
+          exp(
+            'Invertido',
+            5000,
+            DateTime(2026, 5, 10),
+            rec: Recurrence.monthly,
+            end: DateTime(2026, 4, 1),
+          ),
+        ),
+        isNotNull,
+      );
+
+      // Caixinha com R$ 100,00
+      expect(
+        store.addBox(
+          name: 'Setup',
+          icon: 'piggy',
+          color: 0xFF30B0C7,
+          mode: PlanMode.fixed,
+          amount: 10000,
+        ),
+        isNull,
+      );
+      final b = store.data.boxes.single;
+      expect(store.f.boxBalance(b), 10000);
+
+      // Não permite gastar nem resgatar acima do saldo (impede saldo negativo)
+      expect(
+        store.addMovement(
+          b.id,
+          Movement(
+            name: 'Caro',
+            cents: 15000,
+            type: MovementType.spend,
+            date: DateTime.now(),
+          ),
+        ),
+        isNotNull,
+      );
+      expect(
+        store.addMovement(
+          b.id,
+          Movement(
+            name: 'Resgate alto',
+            cents: 10001,
+            type: MovementType.redeem,
+            date: DateTime.now(),
+          ),
+        ),
+        isNotNull,
+      );
+      expect(store.f.boxBalance(b), 10000);
+
+      // Permite usar até o saldo exato
+      expect(
+        store.addMovement(
+          b.id,
+          Movement(
+            name: 'Suporte',
+            cents: 10000,
+            type: MovementType.spend,
+            date: DateTime.now(),
+          ),
+        ),
+        isNull,
+      );
+      expect(store.f.boxBalance(b), 0);
+
+      // Não permite excluir depósito se parte já foi usada
+      final dep = Movement(
+        name: 'Extra',
+        cents: 5000,
+        type: MovementType.deposit,
+        date: DateTime.now(),
+      );
+      expect(store.addMovement(b.id, dep), isNull);
+      expect(
+        store.addMovement(
+          b.id,
+          Movement(
+            name: 'Mouse',
+            cents: 4000,
+            type: MovementType.spend,
+            date: DateTime.now(),
+          ),
+        ),
+        isNull,
+      );
+      expect(store.deleteMovement(b.id, dep.id), isNotNull);
+
+      // Saldo calculado de dados legados nunca fica negativo
+      final legacy = Caixinha(
+        name: 'Legado',
+        icon: 'piggy',
+        color: 0xFF30B0C7,
+        createdKey: store.cycle.key,
+        plans: [ContributionPlan(store.cycle.key, PlanMode.fixed, 5000)],
+        movements: [
+          Movement(
+            name: 'Antigo',
+            cents: 12000,
+            type: MovementType.spend,
+            date: DateTime.now(),
+          ),
+        ],
+      );
+      expect(store.f.boxBalance(legacy), 0);
+    });
   });
 
   group('Importação legada (finapp_v3)', () {
