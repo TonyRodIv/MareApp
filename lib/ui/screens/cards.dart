@@ -1,12 +1,14 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../data/brands.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
+import 'add_expense.dart';
 import 'extrato.dart';
 import 'shell.dart';
 
@@ -120,9 +122,9 @@ class _CardsStripState extends State<CardsStrip> {
                         separatorBuilder: (_, _) =>
                             const SizedBox(width: Space.sm),
                         itemBuilder: (_, i) => Pressable(
-                          onTap: () => ShellScope.of(context)?.goTo(
-                            1,
-                            filter: ExtratoFilter(cardId: cards[i].id),
+                          onTap: () => push(
+                            context,
+                            CardDetailScreen(cardId: cards[i].id),
                           ),
                           onLongPress: () => editCard(context, card: cards[i]),
                           child: CardChip(card: cards[i]),
@@ -149,20 +151,23 @@ class CardChip extends StatelessWidget {
         ? Palette.neutral800
         : Palette.neutral0;
     final hasLast4 = card.last4.trim().isNotEmpty;
+    final subtitle = card.isCard
+        ? (hasLast4 ? '•••${card.last4}' : 'Cartão')
+        : 'Conta';
     return Container(
       width: width,
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 6),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(Space.radiusMd),
+        borderRadius: BorderRadius.circular(Space.radiusSm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            card.name.isEmpty ? 'Conta' : card.name,
+            card.name.isEmpty ? (card.isCard ? 'Cartão' : 'Conta') : card.name,
             style: T.micro.copyWith(
               color: onColor,
               fontWeight: FontWeight.w600,
@@ -174,14 +179,14 @@ class CardChip extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  hasLast4 ? '•••${card.last4}' : 'Conta',
+                  subtitle,
                   style: T.tiny.copyWith(
                     color: onColor.withValues(alpha: 0.85),
                   ),
                   maxLines: 1,
                 ),
               ),
-              if (hasLast4)
+              if (card.isCard)
                 BrandBadge(brand: card.brand)
               else
                 Icon(
@@ -281,9 +286,349 @@ class BrandBadge extends StatelessWidget {
   }
 }
 
-/// Sheet estilo iOS de criar/editar cartão.
+/// Detecta a cor oficial de bancos/carteiras conhecidos a partir do nome digitado
+/// (sem exigir acentos nem caixa exata). Para nomes personalizados, escolhe uma
+/// cor fixa da paleta de cartões de forma determinística.
+Color bankColorFor(String rawName) {
+  final q = foldText(rawName);
+  if (q.isEmpty) return cardColors.first;
+
+  for (final (keywords, color) in _knownBankColors) {
+    for (final kw in keywords) {
+      if (kw.length <= 2) {
+        final tokens = q.split(RegExp(r'[^a-z0-9]+'));
+        if (tokens.contains(kw)) return color;
+      } else if (q.contains(kw)) {
+        return color;
+      }
+    }
+  }
+
+  var hash = 0;
+  for (final code in q.codeUnits) {
+    hash = (hash * 31 + code) & 0x7FFFFFFF;
+  }
+  return cardColors[hash % cardColors.length];
+}
+
+const _knownBankColors = <(List<String>, Color)>[
+  (['nubank', 'nuconta', 'ultravioleta', 'nu'], Color(0xFF820AD1)),
+  (['itau', 'personnalite', 'credicard', 'iti'], Color(0xFFEC7000)),
+  (['bradesco', 'bradescard', 'next'], Color(0xFFCC092F)),
+  (['inter'], Color(0xFFFF7A00)),
+  (['santander', 'way'], Color(0xFFEC0000)),
+  (['banco do brasil', 'ourocard', 'bb'], Color(0xFFE5B800)),
+  (['caixa'], Color(0xFF005CA9)),
+  (['c6'], Color(0xFF1C1C22)),
+  (['mercado pago', 'mercadopago', 'mp'], Color(0xFF009EE3)),
+  (['picpay', 'pic pay'], Color(0xFF11C76F)),
+  (['pagbank', 'pagseguro'], Color(0xFF00A859)),
+  (['btg'], Color(0xFF001E62)),
+  (['xp', 'rico', 'clear'], Color(0xFF1A1A1E)),
+  (['sicredi'], Color(0xFF3FA110)),
+  (['sicoob'], Color(0xFF003641)),
+  (['neon'], Color(0xFF00A4DF)),
+  (['will'], Color(0xFFFFD900)),
+  (['pan'], Color(0xFF00A8E8)),
+  (['original'], Color(0xFF00A859)),
+  (['safra'], Color(0xFF1C2A48)),
+  (['bv'], Color(0xFF0057A8)),
+  (['banrisul'], Color(0xFF0066B3)),
+  (['brb'], Color(0xFF006CB5)),
+  (['stone', 'ton'], Color(0xFF00A868)),
+  (['recargapay'], Color(0xFF0089E0)),
+  (['99pay'], Color(0xFFFFCA00)),
+  (['wise', 'transferwise'], Color(0xFF37517E)),
+  (['nomad'], Color(0xFFE5B800)),
+  (['revolut'], Color(0xFF191C1F)),
+  (['paypal'], Color(0xFF003087)),
+  (['apple'], Color(0xFF2C2C2E)),
+  (['ame'], Color(0xFFE6005A)),
+  (['dinheiro', 'carteira', 'especie'], Color(0xFF2E7D32)),
+];
+
+/// Detalhe de conta ou cartão no mesmo padrão visual de `BoxDetail` (Caixinhas):
+/// anel circular centralizado com participação no ciclo, ações rápidas e lista
+/// dos lançamentos ligados à conta/cartão.
+class CardDetailScreen extends StatelessWidget {
+  final String cardId;
+  const CardDetailScreen({super.key, required this.cardId});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final s = context.store;
+    final card = s.card(cardId);
+    if (card == null) {
+      return CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: const SizedBox(),
+      );
+    }
+    final f = s.f;
+    final hidden = s.data.hideValues;
+    final cy = f.current;
+    final prevCy = cy.prev(s.data.cycleStartDay);
+
+    final items = f
+        .expensesIn(cy)
+        .where((e) => e.cardId == card.id)
+        .toList()
+      ..sort((a, b) {
+        final d = b.date.compareTo(a.date);
+        return d != 0 ? d : b.cents.compareTo(a.cents);
+      });
+    final total = items.fold<int>(0, (t, e) => t + e.cents);
+    final cycleTotal = f.expensesTotal(cy);
+    final share = cycleTotal > 0 ? (total / cycleTotal).clamp(0.0, 1.0) : 0.0;
+
+    final prevTotal = f
+        .expensesIn(prevCy)
+        .where((e) => e.cardId == card.id)
+        .fold<int>(0, (t, e) => t + e.cents);
+    final delta = _deltaText(total, prevTotal, hidden);
+
+    final rawColor = Color(card.color);
+    final accent = c.tone(rawColor);
+    final pad = sidePadding(context, maxWidth: 680);
+    final avg = items.isEmpty ? 0 : (total / items.length).round();
+
+    final kindLabel = card.isCard
+        ? (card.last4.trim().isNotEmpty
+              ? 'Cartão •••${card.last4}'
+              : 'Cartão ${_brandLabel(card.brand)}')
+        : 'Conta';
+
+    return SheetScaler(
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: Stack(
+          children: [
+            GlowBackground(
+              tint: c.tone(rawColor, min: 2.5),
+              height: 460,
+            ),
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                PinnedCupertinoBar(
+                  height: 60,
+                  maxWidth: 680,
+                  builder: (ctx, _) => Row(
+                    children: [
+                      const BackChevron(),
+                      Expanded(
+                        child: Text(
+                          card.name,
+                          style: T.bodyStrong.copyWith(color: c.text),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      RoundIconButton(
+                        LucideIcons.ellipsis,
+                        size: 44,
+                        label: 'Mais opções',
+                        glass: true,
+                        onTap: () => _more(context, card),
+                      ),
+                    ],
+                  ),
+                ),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(pad, Space.lg, pad, Space.xl),
+                  sliver: SliverList.list(
+                    children: [
+                      // ── Hero circular centralizado (mesmo padrão de Caixinhas)
+                      Column(
+                        children: [
+                          SpringBuilder(
+                            value: share,
+                            from: 0,
+                            spring: Springs.settle,
+                            builder: (_, v, _) => ProgressRing(
+                              size: 136,
+                              stroke: 8,
+                              fraction: v,
+                              color: accent,
+                              track: c.cardAlt,
+                              child: Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  color: rawColor.withValues(
+                                    alpha: c.isDark ? 0.18 : 0.12,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  card.isCard
+                                      ? LucideIcons.creditCard
+                                      : LucideIcons.landmark,
+                                  size: 40,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: Space.lg),
+                          CountingMoney(
+                            cents: total,
+                            builder: (v) => MoneyText(
+                              v,
+                              hidden: hidden,
+                              style: T.displayLg,
+                            ),
+                          ),
+                          const SizedBox(height: Space.xs),
+                          Text(
+                            cycleTotal > 0
+                                ? '$kindLabel · ${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
+                                : '$kindLabel · Sem gastos em ${cy.label()}',
+                            textAlign: TextAlign.center,
+                            style: T.label.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: Space.lg),
+
+                      // ── Ações rápidas em botões circulares neutros
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          CircleAction(
+                            icon: LucideIcons.plus,
+                            label: 'Novo gasto',
+                            onTap: () => openAddExpense(
+                              context,
+                              initialCardId: card.id,
+                            ),
+                          ),
+                          CircleAction(
+                            icon: LucideIcons.pencil,
+                            label: 'Editar',
+                            onTap: () => editCard(context, card: card),
+                          ),
+                          CircleAction(
+                            icon: LucideIcons.receiptText,
+                            label: 'No Extrato',
+                            onTap: () {
+                              Navigator.of(context).popUntil((r) => r.isFirst);
+                              shellNav.goTo(
+                                1,
+                                filter: ExtratoFilter(cardId: card.id),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      if (items.isEmpty) ...[
+                        SectionHeader('Gastos em ${cy.label()}'),
+                        EmptyState(
+                          icon: card.isCard
+                              ? LucideIcons.creditCard
+                              : LucideIcons.landmark,
+                          title: 'Sem gastos nesta conta',
+                          message:
+                              'Os lançamentos ligados a ${card.name} neste ciclo aparecem aqui.',
+                          action: 'Adicionar gasto',
+                          onAction: () => openAddExpense(
+                            context,
+                            initialCardId: card.id,
+                          ),
+                        ),
+                      ] else ...[
+                        ListGroup(
+                          title: 'Gastos em ${cy.label()}',
+                          trailing: Text(
+                            '${items.length} ${items.length == 1 ? 'item' : 'itens'}',
+                            style: T.smallStrong.copyWith(
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          children: [
+                            for (final e in items)
+                              ExpenseRow(e: e, f: f, hidden: hidden),
+                          ],
+                        ),
+                        const SizedBox(height: Space.base),
+                        Text(
+                          'Média de ${fmtMoney(avg, hidden: hidden)} por lançamento neste ciclo.',
+                          textAlign: TextAlign.center,
+                          style: T.small.copyWith(color: c.textTertiary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _brandLabel(CardBrand b) => switch (b) {
+    CardBrand.mastercard => 'Mastercard',
+    CardBrand.visa => 'Visa',
+    CardBrand.elo => 'Elo',
+    CardBrand.other => '',
+  };
+
+  String? _deltaText(int cur, int prev, bool hidden) {
+    if (prev <= 0) return cur > 0 ? 'novo neste ciclo' : null;
+    final d = cur - prev;
+    if (d == 0) return 'igual ao anterior';
+    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. anterior';
+  }
+
+  Future<void> _more(BuildContext context, PayCard card) async {
+    final s = context.storeRead;
+    final a = await actionSheet<String>(
+      context,
+      title: card.name,
+      actions: const [
+        SheetAction('Editar conta ou cartão', 'edit', icon: LucideIcons.pencil),
+        SheetAction(
+          'Excluir',
+          'delete',
+          destructive: true,
+          icon: LucideIcons.trash2,
+        ),
+      ],
+    );
+    if (!context.mounted) return;
+    if (a == 'edit') {
+      editCard(context, card: card);
+    } else if (a == 'delete') {
+      final ok = await confirm(
+        context,
+        title: 'Excluir "${card.name}"?',
+        message:
+            'Os gastos continuam no extrato, só deixam de estar ligados a esta conta.',
+        action: 'Excluir',
+      );
+      if (ok && context.mounted) {
+        s.deleteCard(card.id);
+        Navigator.pop(context);
+        toast(context, 'Conta excluída', icon: LucideIcons.trash2);
+      }
+    }
+  }
+}
+
+/// Bottom sheet compacto de criar/editar conta ou cartão:
+/// o usuário digita o nome do banco, a cor é ajustada automaticamente pelos
+/// bancos conhecidos e, se for cartão, escolhe apenas a bandeira.
 Future<void> editCard(BuildContext context, {PayCard? card}) {
-  return showIosSheet<void>(context, builder: (ctx) => _CardForm(card: card));
+  return showSheet<void>(
+    context,
+    edgeToEdge: true,
+    builder: (ctx) => _CardForm(card: card),
+  );
 }
 
 class _CardForm extends StatefulWidget {
@@ -295,61 +640,48 @@ class _CardForm extends StatefulWidget {
 
 class _CardFormState extends State<_CardForm> {
   late final _name = TextEditingController(text: widget.card?.name ?? '');
-  late final _last4 = TextEditingController(text: widget.card?.last4 ?? '');
-  late int _color = widget.card?.color ?? cardColors.first.toARGB32();
+  late bool _isCard = widget.card?.isCard ?? false;
   late CardBrand _brand = widget.card?.brand ?? CardBrand.mastercard;
 
   @override
   void initState() {
     super.initState();
     _name.addListener(() => setState(() {}));
-    _last4.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _name.dispose();
-    _last4.dispose();
     super.dispose();
   }
 
-  static const _bankPresets = <(String, Color)>[
-    ('Nubank', Color(0xFF820AD1)),
-    ('Inter', Color(0xFFFF7A00)),
-    ('Itaú', Color(0xFFEC7000)),
-    ('Bradesco', Color(0xFFCC092F)),
-    ('C6 Bank', Color(0xFF1A1A1E)),
-    ('Mercado Pago', Color(0xFF009EE3)),
-    ('Santander', Color(0xFFEC0000)),
-    ('PicPay', Color(0xFF11C76F)),
-  ];
+  int get _resolvedColor {
+    final trimmed = _name.text.trim();
+    if (trimmed.isEmpty) {
+      return widget.card?.color ?? cardColors.first.toARGB32();
+    }
+    return bankColorFor(trimmed).toARGB32();
+  }
 
-  bool get _valid =>
-      _name.text.trim().isNotEmpty &&
-      (_last4.text.isEmpty || _last4.text.length == 4);
+  bool get _valid => _name.text.trim().isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final colorInt = _resolvedColor;
+    final trackBg = c.isDark ? c.bg : c.surfaceLow;
     final preview = PayCard(
       id: 'preview',
-      name: _name.text,
-      last4: _last4.text,
-      color: _color,
+      name: _name.text.trim(),
+      last4: _isCard ? (widget.card?.last4 ?? '') : '',
+      color: colorInt,
       brand: _brand,
+      isCard: _isCard,
     );
-    return SheetBody(
-      bottom: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          PillButton('Salvar conta', onTap: _valid ? _save : null),
-          if (widget.card != null) ...[
-            const SizedBox(height: Space.sm),
-            PillButton('Excluir conta', kind: BtnKind.danger, onTap: _delete),
-          ],
-        ],
-      ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -357,7 +689,10 @@ class _CardFormState extends State<_CardForm> {
               Expanded(
                 child: Text(
                   widget.card == null ? 'Nova conta ou cartão' : 'Editar conta',
-                  style: T.title.copyWith(color: c.text),
+                  style: T.title.copyWith(
+                    color: c.text,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
               RoundIconButton(
@@ -371,60 +706,44 @@ class _CardFormState extends State<_CardForm> {
           ),
           const SizedBox(height: Space.xs),
           Text(
-            'Separe seus gastos por banco ou cartão no extrato.',
-            style: T.small.copyWith(color: c.textSecondary),
+            'Digite o nome do banco — a cor se ajusta automaticamente.',
+            style: T.small.copyWith(
+              color: c.textSecondary,
+              decoration: TextDecoration.none,
+            ),
           ),
           const SizedBox(height: Space.base),
           Center(
             child: SpringBuilder(
-              value: _color.toDouble(),
+              value: colorInt.toDouble(),
               spring: Springs.bouncy,
               builder: (_, _, v) => Transform.rotate(
-                angle: (v / 1e9).clamp(-0.05, 0.05),
+                angle: (v / 1e9).clamp(-0.04, 0.04),
                 child: CardChip(card: preview, width: 156),
               ),
             ),
           ),
           const SizedBox(height: Space.base),
-          const FieldLabel('Bancos rápidos'),
-          Wrap(
-            spacing: Space.sm,
-            runSpacing: Space.sm,
-            children: [
-              for (final (bName, bCol) in _bankPresets)
-                ChipButton(
-                  bName,
-                  dot: bCol,
-                  selected:
-                      _name.text.trim().toLowerCase() == bName.toLowerCase(),
-                  onTap: () => setState(() {
-                    _name.text = bName;
-                    _color = bCol.toARGB32();
-                  }),
-                ),
-            ],
+          Segmented<bool>(
+            value: _isCard,
+            trackColor: trackBg,
+            options: const {false: 'Conta', true: 'Cartão'},
+            onChanged: (v) => setState(() => _isCard = v),
           ),
           const SizedBox(height: Space.base),
-          const FieldLabel('Nome da conta ou banco'),
+          FieldLabel(_isCard ? 'Nome do cartão ou banco' : 'Nome do banco ou conta'),
           AppField(
             controller: _name,
-            placeholder: 'Nubank, Inter, Itaú…',
-            maxLength: 20,
+            placeholder: 'Nubank, Inter, Itaú, PicPay…',
+            capitalization: TextCapitalization.words,
+            maxLength: 24,
           ),
-          const SizedBox(height: Space.md),
-          const FieldLabel('Últimos 4 dígitos do cartão (opcional)'),
-          AppField(
-            controller: _last4,
-            placeholder: 'Deixe vazio se for apenas conta',
-            keyboardType: TextInputType.number,
-            maxLength: 4,
-            formatters: [FilteringTextInputFormatter.digitsOnly],
-          ),
-          if (_last4.text.isNotEmpty) ...[
-            const SizedBox(height: Space.md),
+          if (_isCard) ...[
+            const SizedBox(height: Space.base),
             const FieldLabel('Bandeira'),
             Segmented<CardBrand>(
               value: _brand,
+              trackColor: trackBg,
               options: const {
                 CardBrand.mastercard: 'Master',
                 CardBrand.visa: 'Visa',
@@ -434,32 +753,17 @@ class _CardFormState extends State<_CardForm> {
               onChanged: (b) => setState(() => _brand = b),
             ),
           ],
-          const SizedBox(height: Space.md),
-          const FieldLabel('Cor'),
-          Wrap(
-            spacing: Space.sm,
-            runSpacing: Space.sm,
-            children: [
-              for (final col in cardColors)
-                Pressable(
-                  semanticLabel: 'Cor',
-                  onTap: () => setState(() => _color = col.toARGB32()),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: col,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _color == col.toARGB32() ? c.text : c.border,
-                        width: _color == col.toARGB32() ? 3 : 1,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+          const SizedBox(height: Space.lg),
+          PillButton(
+            widget.card == null
+                ? (_isCard ? 'Adicionar cartão' : 'Adicionar conta')
+                : 'Salvar alterações',
+            onTap: _valid ? _save : null,
           ),
+          if (widget.card != null) ...[
+            const SizedBox(height: Space.sm),
+            PillButton('Excluir', kind: BtnKind.danger, onTap: _delete),
+          ],
         ],
       ),
     );
@@ -467,26 +771,30 @@ class _CardFormState extends State<_CardForm> {
 
   void _save() {
     final s = context.storeRead;
+    final trimmed = _name.text.trim();
     s.saveCard(
       PayCard(
         id: widget.card?.id,
-        name: _name.text.trim(),
-        last4: _last4.text,
-        color: _color,
-        brand: _brand,
+        name: trimmed,
+        last4: _isCard ? (widget.card?.last4 ?? '') : '',
+        color: _resolvedColor,
+        brand: _isCard ? _brand : CardBrand.other,
+        isCard: _isCard,
       ),
     );
     Navigator.pop(context);
     toast(
       context,
-      widget.card == null ? 'Conta adicionada' : 'Conta atualizada',
+      widget.card == null
+          ? (_isCard ? 'Cartão adicionado' : 'Conta adicionada')
+          : 'Salvo com sucesso',
     );
   }
 
   Future<void> _delete() async {
     final ok = await confirm(
       context,
-      title: 'Excluir conta?',
+      title: 'Excluir "${widget.card!.name}"?',
       message:
           'Os gastos continuam no extrato, só deixam de estar ligados a esta conta.',
       action: 'Excluir',

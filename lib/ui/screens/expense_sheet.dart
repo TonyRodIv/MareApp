@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../data/brands.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
@@ -38,8 +40,6 @@ class ExpenseSheet extends StatelessWidget {
     final active = f.expenseActive(e, cur);
     final entryCycle = f.cycleOf(e.date);
     final cycle = e.isRecurring ? cur : entryCycle;
-    final total = f.expensesTotal(cycle);
-    final share = total > 0 ? (e.cents / total).clamp(0.0, 1.0) : 0.0;
     final ended =
         e.isRecurring &&
         e.endDate != null &&
@@ -48,6 +48,31 @@ class ExpenseSheet extends StatelessWidget {
         e.isRecurring &&
         active &&
         (e.endDate == null || f.cycleOf(e.endDate!).key > cur.key);
+
+    // Informações contextuais para o rodapé do detalhe:
+    // - Recorrente com data final → progresso das parcelas até acabar
+    // - Recorrente contínuo → custo anual + ciclos ativos
+    // - Único com histórico do mesmo nome → quantidade e total acumulado
+    final endCycle = (e.isRecurring && e.endDate != null)
+        ? f.cycleOf(e.endDate!)
+        : null;
+    final totalInstallments = endCycle == null
+        ? 0
+        : (endCycle.key - entryCycle.key + 1).clamp(1, 999);
+    final paidInstallments = endCycle == null
+        ? 0
+        : (cur.key - entryCycle.key + 1).clamp(0, totalInstallments);
+    final remainingInstallments =
+        (totalInstallments - paidInstallments).clamp(0, totalInstallments);
+    final activeRecurringCycles = e.isRecurring
+        ? (cur.key - entryCycle.key + 1).clamp(1, 999)
+        : 0;
+    final sameNameExpenses = e.isRecurring
+        ? const <Expense>[]
+        : s.data.expenses
+              .where((x) => foldText(x.name) == foldText(e.name))
+              .toList();
+    final sameNameTotal = sameNameExpenses.fold<int>(0, (t, x) => t + x.cents);
 
     final status = e.isRecurring
         ? (ended
@@ -163,10 +188,7 @@ class ExpenseSheet extends StatelessWidget {
                   icon: LucideIcons.pencil,
                   label: 'Editar',
                   size: canEnd ? 56 : 62,
-                  onTap: () {
-                    close();
-                    openEditExpense(host, e);
-                  },
+                  onTap: () => openEditExpense(context, e),
                 ),
                 CircleAction(
                   icon: LucideIcons.copy,
@@ -216,24 +238,45 @@ class ExpenseSheet extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           _Row(
-            'Cartão',
+            card?.isCard == true ? 'Cartão' : 'Conta',
             trailing: card == null
-                ? _val(c, 'Sem cartão')
+                ? _val(c, 'Sem conta')
                 : Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      BrandBadge(brand: card.brand),
+                      if (card.isCard)
+                        BrandBadge(brand: card.brand)
+                      else
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: Color(card.color),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       const SizedBox(width: 8),
-                      Text(
-                        '•• ${card.last4}',
-                        style: T.bodyStrong.copyWith(color: c.text),
+                      Flexible(
+                        child: Text(
+                          card.last4.isNotEmpty
+                              ? '${card.name} ••${card.last4}'
+                              : card.name,
+                          style: T.bodyStrong.copyWith(color: c.text),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),
           ),
           _Row(
             'Tipo',
-            trailing: _val(c, e.isRecurring ? 'Recorrente' : 'Único'),
+            trailing: _val(
+              c,
+              e.isRecurring
+                  ? (e.endDate != null ? 'Parcelado / até data' : 'Recorrente')
+                  : 'Único',
+            ),
           ),
           _Row('Categoria', trailing: _val(c, cat.label)),
           _Row('Ciclo', trailing: _val(c, cycle.label())),
@@ -255,44 +298,138 @@ class ExpenseSheet extends StatelessWidget {
               color: ended ? c.textSecondary : c.positive,
             ),
           ),
-          const SizedBox(height: 18),
 
-          // Peso no ciclo
-          Container(
-            padding: const EdgeInsets.all(Space.base),
-            decoration: ShapeDecoration(
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(18),
-                side: BorderSide(color: c.borderStrong),
+          // Bloco contextual relevante ao tipo do gasto
+          if (endCycle != null) ...[
+            const SizedBox(height: Space.base),
+            Container(
+              padding: const EdgeInsets.all(Space.base),
+              decoration: ShapeDecoration(
+                color: c.isDark ? c.bg : c.surfaceLow,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Progresso até acabar',
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                      ),
+                      Text(
+                        '$paidInstallments de $totalInstallments',
+                        style: T.bodyStrong.copyWith(color: c.text),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SpringBar(
+                    fraction: paidInstallments / totalInstallments,
+                    color: c.tone(cat.color),
+                    track: c.cardAlt,
+                    height: 8,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    remainingInstallments == 0
+                        ? 'Último ciclo · Total ${fmtMoney(e.cents * totalInstallments, hidden: hidden)}'
+                        : 'Faltam $remainingInstallments ${remainingInstallments == 1 ? 'ciclo' : 'ciclos'} · ${fmtMoney(e.cents * remainingInstallments, hidden: hidden)} restante',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
+                ],
               ),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Peso nos gastos de ${cycle.label()}',
+          ] else if (e.isRecurring) ...[
+            const SizedBox(height: Space.base),
+            Container(
+              padding: const EdgeInsets.all(Space.base),
+              decoration: ShapeDecoration(
+                color: c.isDark ? c.bg : c.surfaceLow,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Custo anual',
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                        const SizedBox(height: 2),
+                        MoneyText(
+                          e.cents * 12,
+                          hidden: hidden,
+                          style: T.headline,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'Ativo há',
                         style: T.small.copyWith(color: c.textSecondary),
                       ),
-                    ),
-                    Text(
-                      '${(share * 100).round()}%',
-                      style: T.bodyStrong.copyWith(color: c.text),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                SpringBar(
-                  fraction: share,
-                  color: c.tone(cat.color),
-                  track: c.surfaceLow,
-                  height: 8,
-                ),
-              ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '$activeRecurringCycles ${activeRecurringCycles == 1 ? 'ciclo' : 'ciclos'}',
+                        style: T.bodyStrong.copyWith(color: c.text),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
+          ] else if (sameNameExpenses.length > 1) ...[
+            const SizedBox(height: Space.base),
+            Container(
+              padding: const EdgeInsets.all(Space.base),
+              decoration: ShapeDecoration(
+                color: c.isDark ? c.bg : c.surfaceLow,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Histórico de "${e.name}"',
+                          style: T.small.copyWith(color: c.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${sameNameExpenses.length} lançamentos registrados',
+                          style: T.bodyMedium.copyWith(color: c.text),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: Space.sm),
+                  MoneyText(
+                    sameNameTotal,
+                    hidden: hidden,
+                    style: T.bodyStrong,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

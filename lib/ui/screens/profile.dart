@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/cycle.dart';
 import '../../core/money.dart';
@@ -12,9 +11,11 @@ import '../../core/theme.dart';
 import '../../data/drive_sync.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
+import '../widgets/avatar_cropper.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
+import 'ai_import.dart';
 import 'backup.dart';
 import 'box_form.dart';
 import 'cards.dart';
@@ -217,7 +218,7 @@ class ProfileScreen extends StatelessWidget {
                                   ? MoneyText(
                                       f.salary,
                                       hidden: hidden,
-                                      style: T.title,
+                                      style: T.cardValue.copyWith(fontSize: 20),
                                     )
                                   : Text(
                                       'Informar salário',
@@ -242,7 +243,7 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: Space.md),
+                  const SizedBox(height: Space.sm),
 
                   // Linha 2 (2 colunas): Contas e cartões + Assinaturas
                   IntrinsicHeight(
@@ -263,7 +264,7 @@ class ProfileScreen extends StatelessWidget {
                                   d.cards.isEmpty
                                       ? 'Nenhuma'
                                       : '${d.cards.length} ${d.cards.length == 1 ? 'conta' : 'contas'}',
-                                  style: T.cardValue.copyWith(color: c.text),
+                                  style: T.headline.copyWith(color: c.text),
                                 ),
                                 const SizedBox(height: 6),
                                 if (d.cards.isEmpty)
@@ -301,7 +302,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: Space.md),
+                        const SizedBox(width: Space.sm),
                         Expanded(
                           child: _FinanceTile(
                             icon: LucideIcons.tv,
@@ -316,14 +317,14 @@ class ProfileScreen extends StatelessWidget {
                                 subs.isEmpty
                                     ? Text(
                                         'Nenhuma',
-                                        style: T.cardValue.copyWith(
+                                        style: T.headline.copyWith(
                                           color: c.text,
                                         ),
                                       )
                                     : MoneyText(
                                         subsTotal,
                                         hidden: hidden,
-                                        style: T.cardValue,
+                                        style: T.headline,
                                       ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -341,7 +342,7 @@ class ProfileScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: Space.md),
+                  const SizedBox(height: Space.sm),
 
                   // Linha 3 (2 colunas): Histórico + Categorias
                   IntrinsicHeight(
@@ -360,7 +361,7 @@ class ProfileScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   '$activeCycles ${activeCycles == 1 ? 'ciclo' : 'ciclos'}',
-                                  style: T.cardValue.copyWith(color: c.text),
+                                  style: T.headline.copyWith(color: c.text),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -375,7 +376,7 @@ class ProfileScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: Space.md),
+                        const SizedBox(width: Space.sm),
                         Expanded(
                           child: _FinanceTile(
                             icon: LucideIcons.chartPie,
@@ -389,7 +390,7 @@ class ProfileScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   topCat?.key.label ?? 'Sem gastos',
-                                  style: T.cardValue.copyWith(color: c.text),
+                                  style: T.headline.copyWith(color: c.text),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -419,8 +420,8 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-/// Card do grid bento de Finanças no Perfil: ícone + título + seta ↗ no topo e
-/// a principal métrica logo abaixo.
+/// Card do grid bento de Finanças no Perfil: título + seta ↗ no topo e
+/// a principal métrica logo abaixo (sem ícones para um visual mais limpo).
 class _FinanceTile extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -437,33 +438,17 @@ class _FinanceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.c;
     return AppCard(
       onTap: onTap,
       expandChild: expandChild,
-      titleWidget: Row(
-        children: [
-          Icon(icon, size: 17, color: c.textSecondary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              title,
-              style: T.label.copyWith(
-                color: c.text,
-                fontWeight: FontWeight.w500,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
+      title: title,
       child: child,
     );
   }
 }
 
-/// Tela de Configurações (Aparência + Seus dados / Sincronização / Backup).
+/// Tela de Configurações categorizada (Personalização, Sincronização e backup,
+/// Aplicativo e Conta).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -475,6 +460,7 @@ class SettingsScreen extends StatelessWidget {
     final d = s.data;
     final pad = sidePadding(context, maxWidth: 640);
     final currentSeed = d.accentColor ?? accentPresets.first.$2.toARGB32();
+    final navTabs = effectiveNavTabs(d);
 
     return SheetScaler(
       child: CupertinoPageScaffold(
@@ -506,12 +492,7 @@ class SettingsScreen extends StatelessWidget {
                     sliver: SliverList.list(
                       children: [
                         LargeTitle('Configurações', style: T.pageTitle),
-                        const SizedBox(height: Space.xs),
-                        Text(
-                          'Aparência, sincronização e backup dos seus dados',
-                          style: T.label.copyWith(color: c.textSecondary),
-                        ),
-                        const SectionHeader('Aparência'),
+                        const SectionHeader('Personalização'),
                         _Group(
                           children: [
                             _Row(
@@ -539,14 +520,21 @@ class SettingsScreen extends StatelessWidget {
                               ),
                               onTap: () => _pickAccent(context),
                             ),
+                            _Row(
+                              icon: LucideIcons.panelBottom,
+                              title: 'Barra de navegação',
+                              subtitle: 'Escolher e ordenar abas fixadas',
+                              value: '${navTabs.length} abas',
+                              onTap: () => _editNavBar(context),
+                            ),
                           ],
                         ),
-                        const SectionHeader('Seus dados'),
+                        const SectionHeader('Sincronização e backup'),
                         _Group(
                           children: [
                             _Row(
                               icon: LucideIcons.cloud,
-                              title: 'Sincronização',
+                              title: 'Google Drive',
                               subtitle: syncSummaryLabel(sync),
                               value: sync.isConnected
                                   ? (sync.pendingConflict != null
@@ -556,6 +544,12 @@ class SettingsScreen extends StatelessWidget {
                               onTap: () => push(context, const SyncScreen()),
                             ),
                             _Row(
+                              icon: LucideIcons.sparkles,
+                              title: 'Importar com IA',
+                              subtitle: 'Gastos em lote ou dados completos',
+                              onTap: () => _openAiImportMenu(context),
+                            ),
+                            _Row(
                               icon: LucideIcons.download,
                               title: 'Exportar backup',
                               subtitle: 'Salvar cópia em JSON',
@@ -563,15 +557,34 @@ class SettingsScreen extends StatelessWidget {
                             ),
                             _Row(
                               icon: LucideIcons.upload,
-                              title: 'Importar backup',
-                              subtitle: 'Restaurar cópia do maré ou FinApp',
+                              title: 'Restaurar backup',
+                              subtitle: 'Arquivo JSON do maré ou FinApp',
                               onTap: () => importBackupFlow(context),
                             ),
+                          ],
+                        ),
+                        const SectionHeader('Aplicativo'),
+                        _Group(
+                          children: [
                             _Row(
-                              icon: LucideIcons.trash2,
-                              title: 'Apagar dados do aparelho',
+                              icon: LucideIcons.info,
+                              title: 'Sobre o maré',
+                              subtitle: 'Versão 1.0 · Desenvolvedor e créditos',
+                              onTap: () => push(context, const AboutScreen()),
+                            ),
+                          ],
+                        ),
+                        const SectionHeader('Conta'),
+                        _Group(
+                          children: [
+                            _Row(
+                              icon: LucideIcons.logOut,
+                              title: 'Sair',
+                              subtitle: sync.isConnected
+                                  ? 'Desconectar conta e limpar aparelho'
+                                  : 'Encerrar sessão local neste aparelho',
                               danger: true,
-                              onTap: () => _resetAll(context),
+                              onTap: () => _signOut(context),
                             ),
                           ],
                         ),
@@ -583,6 +596,234 @@ class SettingsScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _openAiImportMenu(BuildContext context) async {
+    final choice = await actionSheet<AiImportMode>(
+      context,
+      title: 'Importar com agente de IA',
+      message:
+          'Copie as instruções prontas para o ChatGPT, Claude ou Gemini e cole o JSON gerado de volta no app.',
+      actions: const [
+        SheetAction(
+          'Importar gastos em lote',
+          AiImportMode.expenses,
+          icon: LucideIcons.receipt,
+        ),
+        SheetAction(
+          'Importar dados completos',
+          AiImportMode.full,
+          icon: LucideIcons.database,
+        ),
+      ],
+    );
+    if (choice == null || !context.mounted) return;
+    push(context, AiImportScreen(initialMode: choice));
+  }
+
+  Future<void> _editNavBar(BuildContext context) {
+    final s = context.storeRead;
+    var pinned = List<String>.from(effectiveNavTabs(s.data));
+
+    return showIosSheet<void>(
+      context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final c = ctx.c;
+          final wellBg = c.isDark ? c.bg : c.surfaceLow;
+          final ordered = [
+            for (final id in pinned)
+              navDestinations.firstWhere((n) => n.id == id),
+            for (final dest in navDestinations)
+              if (!pinned.contains(dest.id)) dest,
+          ];
+          void commit() => s.setNavTabs(pinned);
+
+          return SheetBody(
+            bottom: PillButton('Concluir', onTap: () => Navigator.pop(ctx)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Barra de navegação',
+                        style: T.title.copyWith(color: c.text),
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+                      onPressed: () {
+                        s.resetNavTabs();
+                        set(
+                          () => pinned = List<String>.from(
+                            effectiveNavTabs(s.data),
+                          ),
+                        );
+                        toast(ctx, 'Barra restaurada ao padrão');
+                      },
+                      child: Text(
+                        'Restaurar',
+                        style: T.labelStrong.copyWith(color: c.primary),
+                      ),
+                    ),
+                    RoundIconButton(
+                      LucideIcons.x,
+                      size: 36,
+                      bg: c.cardAlt,
+                      label: 'Fechar',
+                      onTap: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  'Escolha de 2 a 5 telas fixadas (${pinned.length}/5) e ajuste a ordem com as setas.',
+                  style: T.small.copyWith(color: c.textSecondary),
+                ),
+                const SizedBox(height: Space.base),
+                for (var i = 0; i < ordered.length; i++)
+                  () {
+                    final dest = ordered[i];
+                    final pinIdx = pinned.indexOf(dest.id);
+                    final isPinned = pinIdx >= 0;
+                    final canToggle = dest.locked
+                        ? false
+                        : (isPinned ? pinned.length > 2 : pinned.length < 5);
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: Space.sm),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.md,
+                        vertical: 10,
+                      ),
+                      decoration: ShapeDecoration(
+                        color: wellBg,
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            dest.icon,
+                            size: 20,
+                            color: isPinned ? c.primary : c.textSecondary,
+                          ),
+                          const SizedBox(width: Space.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  dest.label,
+                                  style: T.bodyMedium.copyWith(
+                                    color: isPinned ? c.text : c.textSecondary,
+                                  ),
+                                ),
+                                Text(
+                                  dest.subtitle,
+                                  style: T.small.copyWith(
+                                    color: c.textTertiary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isPinned) ...[
+                            Pressable(
+                              semanticLabel: 'Mover para cima',
+                              onTap: pinIdx > 0
+                                  ? () {
+                                      set(() {
+                                        final item = pinned.removeAt(pinIdx);
+                                        pinned.insert(pinIdx - 1, item);
+                                      });
+                                      commit();
+                                    }
+                                  : null,
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Icon(
+                                  LucideIcons.chevronUp,
+                                  size: 18,
+                                  color: pinIdx > 0
+                                      ? c.textSecondary
+                                      : c.textTertiary,
+                                ),
+                              ),
+                            ),
+                            Pressable(
+                              semanticLabel: 'Mover para baixo',
+                              onTap: pinIdx < pinned.length - 1
+                                  ? () {
+                                      set(() {
+                                        final item = pinned.removeAt(pinIdx);
+                                        pinned.insert(pinIdx + 1, item);
+                                      });
+                                      commit();
+                                    }
+                                  : null,
+                              child: Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Icon(
+                                  LucideIcons.chevronDown,
+                                  size: 18,
+                                  color: pinIdx < pinned.length - 1
+                                      ? c.textSecondary
+                                      : c.textTertiary,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const SizedBox(width: Space.xs),
+                          if (dest.locked)
+                            Tag('Fixo', bg: c.cardAlt, fg: c.textSecondary)
+                          else
+                            SpringSwitch(
+                              value: isPinned,
+                              label: dest.label,
+                              onChanged: (on) {
+                                if (!canToggle) {
+                                  toast(
+                                    ctx,
+                                    on
+                                        ? 'Máximo de 5 abas na barra'
+                                        : 'Mantenha ao menos 2 abas fixadas',
+                                    icon: LucideIcons.info,
+                                  );
+                                  return;
+                                }
+                                set(() {
+                                  if (on) {
+                                    // Insere antes do Perfil se ele for o último
+                                    final perfilIdx = pinned.indexOf('perfil');
+                                    if (perfilIdx == pinned.length - 1 &&
+                                        perfilIdx > 0) {
+                                      pinned.insert(perfilIdx, dest.id);
+                                    } else {
+                                      pinned.add(dest.id);
+                                    }
+                                  } else {
+                                    pinned.remove(dest.id);
+                                  }
+                                });
+                                commit();
+                              },
+                            ),
+                        ],
+                      ),
+                    );
+                  }(),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -651,22 +892,29 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _resetAll(BuildContext context) async {
+  Future<void> _signOut(BuildContext context) async {
+    final sync = context.syncRead;
+    final String msg;
+    if (!sync.isConnected) {
+      msg =
+          'Seus dados não estão sincronizados com o Google Drive. Ao sair, tudo que está salvo neste aparelho será perdido.';
+    } else if (sync.hasUnsyncedChanges) {
+      msg =
+          'Há alterações ainda não sincronizadas com o Google Drive. Ao sair, esses dados locais serão perdidos e sua conta será desconectada deste aparelho.';
+    } else {
+      msg =
+          'Sua conta do Google será desconectada e os dados locais serão removidos deste aparelho. O que já foi sincronizado continua salvo no Google Drive.';
+    }
     final ok = await confirm(
       context,
-      title: 'Apagar tudo?',
-      message:
-          'Gastos, caixinhas, cartões e perfil serão apagados deste celular. Exporte um backup antes se quiser guardar.',
-      action: 'Apagar tudo',
+      title: 'Sair do maré?',
+      message: msg,
+      action: 'Sair',
     );
     if (!ok || !context.mounted) return;
-    final ok2 = await confirm(
-      context,
-      title: 'Tem certeza?',
-      message: 'Não dá para desfazer.',
-      action: 'Sim, apagar',
-    );
-    if (!ok2 || !context.mounted) return;
+    await sync.disconnect();
+    if (!context.mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
     context.storeRead.resetAll();
   }
 }
@@ -791,10 +1039,11 @@ Future<void> editSalary(BuildContext context) =>
 Future<void> editCycleDay(BuildContext context) =>
     editSalaryAndCycle(context, initialTab: 1);
 
-/// Sheet unificado de Salário + Virada do ciclo (agrupados no Perfil).
+/// Bottom sheet compacto e padronizado de Salário + Virada do ciclo.
 Future<void> editSalaryAndCycle(BuildContext context, {int initialTab = 0}) =>
-    showIosSheet<void>(
+    showSheet<void>(
       context,
+      edgeToEdge: true,
       builder: (_) => _SalaryCycleSheet(initialTab: initialTab),
     );
 
@@ -831,21 +1080,13 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
     final s = context.storeRead;
     final cy = Cycle.of(DateTime.now(), _day);
     final last = cy.end.subtract(const Duration(days: 1));
-    return SheetBody(
-      bottom: PillButton(
-        'Salvar',
-        onTap: () {
-          final err = s.setSalary(_ctl.value);
-          if (err != null) {
-            toast(context, err, icon: LucideIcons.triangleAlert);
-            return;
-          }
-          s.setCycleStartDay(_day);
-          Navigator.pop(context);
-          toast(context, 'Salário e ciclo atualizados');
-        },
-      ),
+    final wellBg = c.isDark ? c.bg : c.surfaceLow;
+    final keyBg = c.isDark ? c.cardAlt : c.surfaceLow;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -853,13 +1094,16 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
               Expanded(
                 child: Text(
                   'Salário e ciclo',
-                  style: T.title.copyWith(color: c.text),
+                  style: T.title.copyWith(
+                    color: c.text,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
               RoundIconButton(
                 LucideIcons.x,
                 size: 36,
-                bg: c.cardAlt,
+                bg: keyBg,
                 label: 'Fechar',
                 onTap: () => Navigator.pop(context),
               ),
@@ -868,32 +1112,113 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
           const SizedBox(height: Space.md),
           Segmented<int>(
             value: _tab,
+            trackColor: wellBg,
             options: const {0: 'Salário', 1: 'Virada do ciclo'},
             onChanged: (v) => setState(() => _tab = v),
           ),
           const SizedBox(height: Space.base),
           if (_tab == 0) ...[
             Text(
-              'Valor líquido que entra por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
-              style: T.small.copyWith(color: c.textSecondary),
+              'Valor líquido por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
+              style: T.small.copyWith(
+                color: c.textSecondary,
+                decoration: TextDecoration.none,
+              ),
             ),
-            const SizedBox(height: 20),
-            Center(child: AmountDisplay(cents: _ctl.value, size: 46)),
-            const SizedBox(height: 18),
-            Keypad(controller: _ctl),
+            const SizedBox(height: Space.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.base,
+                vertical: Space.base,
+              ),
+              decoration: ShapeDecoration(
+                color: wellBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: Column(
+                children: [
+                  AmountDisplay(cents: _ctl.value, size: 42),
+                  const SizedBox(height: Space.md),
+                  QuickAddChips(
+                    controller: _ctl,
+                    amounts: const [100, 250, 500, 1000],
+                    chipBg: keyBg,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Space.md),
+            Keypad(
+              controller: _ctl,
+              keyColor: keyBg,
+              keyHeight: 54,
+            ),
           ] else ...[
             Text(
               'Use o dia em que o salário cai. Em meses mais curtos, a virada acontece no último dia.',
-              style: T.small.copyWith(color: c.textSecondary),
+              style: T.small.copyWith(
+                color: c.textSecondary,
+                decoration: TextDecoration.none,
+              ),
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 200,
+            const SizedBox(height: Space.md),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.base,
+                vertical: Space.md,
+              ),
+              decoration: ShapeDecoration(
+                color: wellBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    LucideIcons.calendarSync,
+                    size: 18,
+                    color: c.primary,
+                  ),
+                  const SizedBox(width: Space.sm),
+                  Expanded(
+                    child: BlurSwitcher(
+                      child: Text(
+                        'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${last.day}/${last.month}',
+                        key: ValueKey(_day),
+                        style: T.bodyMedium.copyWith(
+                          color: c.text,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Tag(
+                    'Dia $_day',
+                    bg: keyBg,
+                    fg: c.primary,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: Space.md),
+            Container(
+              height: 196,
+              decoration: ShapeDecoration(
+                color: wellBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
               child: CupertinoPicker(
                 scrollController: FixedExtentScrollController(
                   initialItem: _day - 1,
                 ),
-                itemExtent: 46,
+                itemExtent: 44,
                 onSelectedItemChanged: (i) {
                   HapticFeedback.selectionClick();
                   setState(() => _day = i + 1);
@@ -913,18 +1238,21 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            Center(
-              child: BlurSwitcher(
-                alignment: Alignment.center,
-                child: Text(
-                  'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${last.day}/${last.month}',
-                  key: ValueKey(_day),
-                  style: T.label.copyWith(color: c.textSecondary),
-                ),
-              ),
-            ),
           ],
+          const SizedBox(height: Space.base),
+          PillButton(
+            'Salvar',
+            onTap: () {
+              final err = s.setSalary(_ctl.value);
+              if (err != null) {
+                toast(context, err, icon: LucideIcons.triangleAlert);
+                return;
+              }
+              s.setCycleStartDay(_day);
+              Navigator.pop(context);
+              toast(context, 'Salário e ciclo atualizados');
+            },
+          ),
         ],
       ),
     );
@@ -983,10 +1311,16 @@ Future<void> manageCards(BuildContext context) {
                     ListRow(
                       leading: CardChip(card: k, width: 72),
                       title: k.name,
-                      subtitle:
-                          k.last4.isNotEmpty ? 'Final ${k.last4}' : 'Conta',
+                      subtitle: k.isCard
+                          ? (k.last4.isNotEmpty
+                                ? 'Cartão •••${k.last4}'
+                                : 'Cartão')
+                          : 'Conta',
                       arrow: true,
-                      onTap: () => editCard(ctx, card: k),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        push(context, CardDetailScreen(cardId: k.id));
+                      },
                     ),
                 ],
               ),
@@ -1023,18 +1357,15 @@ class _ProfileFormState extends State<_ProfileForm> {
     try {
       final x = await ImagePicker().pickImage(
         source: src,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 82,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 90,
       );
-      if (x == null) return;
-      final dir = await getApplicationDocumentsDirectory();
-      final dest = File(
-        '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      await File(x.path).copy(dest.path);
+      if (x == null || !mounted) return;
+      final cropped = await cropAvatarPhoto(context, File(x.path));
+      if (cropped == null || !mounted) return;
       setState(() {
-        _avatar = dest.path;
+        _avatar = cropped;
         _removed = false;
       });
     } catch (_) {
@@ -1182,6 +1513,158 @@ class _ProfileFormState extends State<_ProfileForm> {
             onChanged: (_) => setState(() {}),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Tela "Sobre o maré" com informações do aplicativo, desenvolvedor e créditos.
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  static const _linkedinUrl = 'https://www.linkedin.com/in/tonyrodiv/';
+  static const _linksChannel = MethodChannel('com.mare.mare/links');
+
+  Future<void> _openLinkedIn(BuildContext context) async {
+    try {
+      final opened = await _linksChannel.invokeMethod<bool>(
+        'openUrl',
+        {'url': _linkedinUrl},
+      );
+      if (opened == true) return;
+    } catch (_) {}
+    await Clipboard.setData(const ClipboardData(text: _linkedinUrl));
+    if (context.mounted) {
+      toast(context, 'Link do LinkedIn copiado');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final pad = sidePadding(context, maxWidth: 640);
+
+    return SheetScaler(
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: Stack(
+          children: [
+            const GlowBackground(height: 440),
+            CollapsingTitleScope(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  PinnedCupertinoBar(
+                    height: 60,
+                    maxWidth: 640,
+                    builder: (ctx, progress) => Row(
+                      children: [
+                        const BackChevron(),
+                        Expanded(
+                          child: BarTitle('Sobre o maré', progress: progress),
+                        ),
+                        const SizedBox(width: 44),
+                      ],
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(pad, Space.base, pad, Space.xl),
+                    sliver: SliverList.list(
+                      children: [
+                        Center(
+                          child: Column(
+                            children: [
+                              const MareWordmark(size: 38),
+                              const SizedBox(height: Space.sm),
+                              Tag(
+                                'Versão 1.0.0',
+                                bg: c.card,
+                                fg: c.textSecondary,
+                              ),
+                              const SizedBox(height: Space.md),
+                              Text(
+                                'Suas finanças no ritmo do seu ciclo.',
+                                textAlign: TextAlign.center,
+                                style: T.body.copyWith(color: c.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: Space.lg),
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Sobre o aplicativo',
+                                style: T.bodyStrong.copyWith(color: c.text),
+                              ),
+                              const SizedBox(height: Space.sm),
+                              Text(
+                                'O maré foi pensado para organizar seus gastos a partir do dia em que o seu salário cai — acompanhando saldo livre, metas em caixinhas, assinaturas e contas de um jeito simples, rápido e privado.',
+                                style: T.label.copyWith(color: c.textSecondary),
+                              ),
+                              const SizedBox(height: Space.sm),
+                              Text(
+                                'Todos os seus dados ficam salvos no seu aparelho, com opção de sincronização privada na sua própria conta do Google Drive.',
+                                style: T.label.copyWith(color: c.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        ListGroup(
+                          title: 'Desenvolvimento',
+                          children: [
+                            ListRow(
+                              leading: IconBadge(
+                                LucideIcons.codeXml,
+                                c.primary,
+                                size: 40,
+                              ),
+                              title: 'Antony Rodrigues',
+                              subtitle: 'Desenvolvedor',
+                            ),
+                            ListRow(
+                              leading: IconBadge(
+                                LucideIcons.externalLink,
+                                const Color(0xFF0A66C2),
+                                size: 40,
+                              ),
+                              title: 'LinkedIn',
+                              subtitle: 'linkedin.com/in/tonyrodiv',
+                              arrow: true,
+                              onTap: () => _openLinkedIn(context),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: Space.lg),
+                        Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                LucideIcons.sparkles,
+                                size: 14,
+                                color: c.textTertiary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Criado com auxílio do Claude e Antigravity',
+                                style: T.small.copyWith(color: c.textTertiary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

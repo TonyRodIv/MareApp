@@ -24,8 +24,9 @@ void main() {
     }
     t = clamp(t, 0.0, 1.0);
 
-    // Curva quadrática forte e contínua a partir de 0px até u_max_radius.
-    float radius = u_max_radius * t * t;
+    // Curva suave (t^1.5): estende o blur mais para baixo com presença real,
+    // chegando a 0px exatos na borda interna sem corte brusco.
+    float radius = u_max_radius * pow(t, 1.5);
 
     vec2 sample_uv = uv;
     #ifdef IMPELLER_TARGET_OPENGLES
@@ -33,15 +34,19 @@ void main() {
     #endif
 
     vec4 sharp = texture(u_texture, sample_uv);
-    if (radius < 0.1) {
+    if (radius < 0.15) {
         frag_color = sharp;
         return;
     }
 
-    // Amostragem em disco de Vogel (24 amostras em espiral áurea):
-    // 1 única passagem na GPU, blur mais encorpado sem banding e 100% progressivo.
+    // Amostragem em disco de Vogel (32 amostras) com rotação por pixel via
+    // Interleaved Gradient Noise e peso gaussiano: blur cremoso e forte
+    // sem anéis/pontos fantasmas, mantendo 120fps fluidos ao rolar ou trocar abas.
     const float GOLDEN_ANGLE = 2.39996323;
-    const int SAMPLES = 24;
+    const int SAMPLES = 32;
+
+    float ign = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
+    float angle_offset = ign * 6.2831853;
 
     vec4 acc = sharp;
     float total_weight = 1.0;
@@ -49,15 +54,15 @@ void main() {
     for (int i = 1; i <= SAMPLES; i++) {
         float fi = float(i) / float(SAMPLES);
         float r = sqrt(fi) * radius;
-        float theta = float(i) * GOLDEN_ANGLE;
+        float theta = float(i) * GOLDEN_ANGLE + angle_offset;
         vec2 offset = vec2(cos(theta), sin(theta)) * r / u_size;
         vec2 p = clamp(sample_uv + offset, vec2(0.001), vec2(0.999));
-        float w = 1.0 - fi * 0.45;
+        float w = exp(-fi * 2.8);
         acc += texture(u_texture, p) * w;
         total_weight += w;
     }
 
     vec4 blurred = acc / total_weight;
-    float blend = smoothstep(0.0, 0.16, t);
+    float blend = smoothstep(0.0, 0.14, t);
     frag_color = mix(sharp, blurred, blend);
 }

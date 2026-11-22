@@ -302,7 +302,7 @@ class _BoxFormState extends State<BoxForm> {
               ),
               const Spacer(),
               if (_mode == PlanMode.fixed) ...[
-                AmountDisplay(cents: _fixed.value, size: 48, color: c.primary),
+                AmountDisplay(cents: _fixed.value, size: 56),
                 const SizedBox(height: Space.base),
                 QuickAddChips(controller: _fixed),
               ] else ...[
@@ -386,10 +386,6 @@ class _BoxFormState extends State<BoxForm> {
                 ),
                 decoration: BoxDecoration(
                   color: c.card,
-                  border: Border.all(
-                    color: _name.text.trim().isNotEmpty ? c.primary : c.border,
-                    width: 1.5,
-                  ),
                   borderRadius: BorderRadius.circular(Space.radiusField),
                 ),
               ),
@@ -554,7 +550,7 @@ class _BoxFormState extends State<BoxForm> {
                 style: T.label.copyWith(color: c.textSecondary),
               ),
               const Spacer(),
-              AmountDisplay(cents: _goal.value, size: 48, color: c.primary),
+              AmountDisplay(cents: _goal.value, size: 56),
               const SizedBox(height: Space.base),
               QuickAddChips(controller: _goal),
               const Spacer(),
@@ -563,5 +559,434 @@ class _BoxFormState extends State<BoxForm> {
           ),
         );
     }
+  }
+}
+
+/// Edição direta de uma caixinha num único bottom sheet (sem repetir o fluxo de 4 passos).
+Future<void> openEditBox(BuildContext context, Caixinha box) =>
+    showIosSheet<void>(context, builder: (_) => BoxEditSheet(box: box));
+
+class BoxEditSheet extends StatefulWidget {
+  final Caixinha box;
+  const BoxEditSheet({super.key, required this.box});
+
+  @override
+  State<BoxEditSheet> createState() => _BoxEditSheetState();
+}
+
+class _BoxEditSheetState extends State<BoxEditSheet> {
+  late final _name = TextEditingController(text: widget.box.name);
+  late PlanMode _mode = widget.box.currentPlan.mode;
+  late final _fixed = AmountController(
+    _mode == PlanMode.fixed ? widget.box.currentPlan.amount : 0,
+  );
+  late double _percent = widget.box.currentPlan.mode == PlanMode.percent
+      ? (widget.box.currentPlan.amount / 100).clamp(1.0, 100.0)
+      : 10.0;
+  late final _goal = AmountController(widget.box.goalCents ?? 0);
+  late String _icon = widget.box.icon;
+  late int _color = widget.box.color;
+  int _activeKeypad = 0; // 0 = fechado, 1 = aporte, 2 = meta
+
+  @override
+  void initState() {
+    super.initState();
+    for (final l in [_name, _fixed, _goal]) {
+      l.addListener(() => setState(() {}));
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _fixed.dispose();
+    _goal.dispose();
+    super.dispose();
+  }
+
+  int get _amount =>
+      _mode == PlanMode.fixed ? _fixed.value : (_percent * 100).round();
+
+  bool get _valid => _name.text.trim().isNotEmpty && _amount > 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final f = context.store.f;
+    final salary = f.salary;
+    final perCycle = _mode == PlanMode.fixed
+        ? _fixed.value
+        : (salary * _percent / 100).round();
+    final wellBg = c.isDark ? c.bg : c.surfaceLow;
+    final chipBg = c.isDark ? c.cardAlt : c.surfaceLow;
+    final color = Color(_color);
+    final light = c.softOn(color);
+
+    return SheetBody(
+      bottom: PillButton(
+        'Salvar alterações',
+        onTap: _valid ? _save : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Editar caixinha',
+                  style: T.title.copyWith(color: c.text),
+                ),
+              ),
+              RoundIconButton(
+                LucideIcons.x,
+                size: 36,
+                bg: chipBg,
+                label: 'Fechar',
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.base),
+
+          // Prévia compacta ao vivo
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(Space.md),
+            decoration: ShapeDecoration(
+              color: color,
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Palette.neutral0.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(boxIcons[_icon], color: light, size: 22),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _name.text.trim().isEmpty
+                            ? 'Nome da caixinha'
+                            : _name.text.trim(),
+                        style: T.bodyStrong.copyWith(color: Palette.neutral0),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        _goal.value > 0
+                            ? '+${fmtMoney(perCycle)}/ciclo · Meta ${fmtMoney(_goal.value)}'
+                            : '+${fmtMoney(perCycle)} por ciclo',
+                        style: T.small.copyWith(color: light),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.base),
+
+          const FieldLabel('Nome'),
+          AppField(
+            controller: _name,
+            placeholder: 'Viagem, reserva…',
+            bg: wellBg,
+            maxLength: 30,
+          ),
+          const SizedBox(height: Space.base),
+
+          const FieldLabel('Aporte por ciclo'),
+          Segmented<PlanMode>(
+            value: _mode,
+            trackColor: wellBg,
+            options: const {
+              PlanMode.fixed: 'Valor fixo',
+              PlanMode.percent: '% do salário',
+            },
+            onChanged: (m) => setState(() {
+              _mode = m;
+              if (m == PlanMode.percent && _activeKeypad == 1) {
+                _activeKeypad = 0;
+              }
+            }),
+          ),
+          const SizedBox(height: Space.sm),
+          if (_mode == PlanMode.fixed) ...[
+            Pressable(
+              onTap: () => setState(
+                () => _activeKeypad = _activeKeypad == 1 ? 0 : 1,
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(Space.md),
+                decoration: ShapeDecoration(
+                  color: wellBg,
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AmountDisplay(
+                            cents: _fixed.value,
+                            size: 32,
+                            center: false,
+                          ),
+                        ),
+                        Icon(
+                          _activeKeypad == 1
+                              ? LucideIcons.chevronUp
+                              : LucideIcons.pencil,
+                          size: 18,
+                          color: c.textSecondary,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: Space.sm),
+                    QuickAddChips(
+                      controller: _fixed,
+                      center: false,
+                      chipBg: chipBg,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 240),
+              curve: easeOutExpo,
+              child: _activeKeypad == 1
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: Space.sm),
+                      child: Keypad(
+                        controller: _fixed,
+                        keyColor: chipBg,
+                        keyHeight: 52,
+                      ),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(Space.md),
+              decoration: ShapeDecoration(
+                color: wellBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '${_percent.round()}%',
+                        style: T.title.copyWith(color: c.primary),
+                      ),
+                      const SizedBox(width: Space.sm),
+                      Expanded(
+                        child: Text(
+                          salary > 0
+                              ? '= ${fmtMoney(perCycle)} por ciclo'
+                              : 'Informe o salário para calcular',
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  CupertinoSlider(
+                    value: _percent,
+                    min: 1,
+                    max: 100,
+                    divisions: 99,
+                    activeColor: c.primary,
+                    thumbColor: c.isDark ? c.onPrimary : Palette.neutral0,
+                    onChanged: (v) {
+                      if (v.round() != _percent.round()) {
+                        HapticFeedback.selectionClick();
+                      }
+                      setState(() => _percent = v.roundToDouble());
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: Space.base),
+
+          Row(
+            children: [
+              const Expanded(child: FieldLabel('Meta (opcional)')),
+              if (_goal.value > 0)
+                CupertinoButton(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  minimumSize: Size.zero,
+                  onPressed: () {
+                    _goal.clear();
+                    setState(() {});
+                  },
+                  child: Text(
+                    'Remover meta',
+                    style: T.smallStrong.copyWith(color: c.primary),
+                  ),
+                ),
+            ],
+          ),
+          Pressable(
+            onTap: () => setState(
+              () => _activeKeypad = _activeKeypad == 2 ? 0 : 2,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(Space.md),
+              decoration: ShapeDecoration(
+                color: wellBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _goal.value > 0
+                        ? AmountDisplay(
+                            cents: _goal.value,
+                            size: 28,
+                            center: false,
+                          )
+                        : Text(
+                            'Sem meta definida',
+                            style: T.body.copyWith(color: c.textTertiary),
+                          ),
+                  ),
+                  Icon(
+                    _activeKeypad == 2
+                        ? LucideIcons.chevronUp
+                        : LucideIcons.pencil,
+                    size: 18,
+                    color: c.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: easeOutExpo,
+            child: _activeKeypad == 2
+                ? Padding(
+                    padding: const EdgeInsets.only(top: Space.sm),
+                    child: Keypad(
+                      controller: _goal,
+                      keyColor: chipBg,
+                      keyHeight: 52,
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+          const SizedBox(height: Space.base),
+
+          const FieldLabel('Ícone'),
+          Wrap(
+            spacing: Space.sm,
+            runSpacing: Space.sm,
+            children: [
+              for (final e in boxIcons.entries)
+                Pressable(
+                  semanticLabel: e.key,
+                  onTap: () => setState(() => _icon = e.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _icon == e.key ? color : wellBg,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      e.value,
+                      size: 20,
+                      color: _icon == e.key ? light : c.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: Space.base),
+
+          const FieldLabel('Cor'),
+          Wrap(
+            spacing: Space.md,
+            runSpacing: Space.md,
+            children: [
+              for (final col in boxColors)
+                Pressable(
+                  semanticLabel: 'Cor',
+                  onTap: () => setState(() => _color = col.toARGB32()),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: col,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _color == col.toARGB32()
+                            ? c.text
+                            : const Color(0x00000000),
+                        width: 2.5,
+                      ),
+                    ),
+                    child: _color == col.toARGB32()
+                        ? const Icon(
+                            LucideIcons.check,
+                            size: 16,
+                            color: Palette.neutral0,
+                          )
+                        : null,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _save() {
+    final err = context.storeRead.updateBox(
+      widget.box.id,
+      name: _name.text,
+      icon: _icon,
+      color: _color,
+      mode: _mode,
+      amount: _amount,
+      goal: _goal.value > 0 ? _goal.value : null,
+    );
+    if (err != null) {
+      toast(context, err, icon: LucideIcons.triangleAlert);
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    Navigator.pop(context);
+    toast(context, 'Caixinha atualizada');
   }
 }

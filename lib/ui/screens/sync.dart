@@ -308,22 +308,32 @@ class _DisconnectedCard extends StatelessWidget {
             style: T.small.copyWith(color: c.textSecondary),
           ),
           const SizedBox(height: Space.base),
-          PillButton(
-            sync.isSyncing ? 'Conectando…' : 'Conectar Google Drive',
-            icon: LucideIcons.cloudUpload,
-            onTap: sync.isSyncing
-                ? null
-                : () async {
-                    final res = await sync.connect();
-                    if (!context.mounted) return;
-                    toast(
-                      context,
-                      res.message,
-                      icon: res.ok
-                          ? LucideIcons.check
-                          : LucideIcons.triangleAlert,
-                    );
-                  },
+          Builder(
+            builder: (_) {
+              final (btnBg, btnFg) = softActionTone(
+                c.palette.primary[500],
+                isDark: c.isDark,
+              );
+              return PillButton(
+                sync.isSyncing ? 'Conectando…' : 'Conectar Google Drive',
+                icon: LucideIcons.cloudUpload,
+                background: btnBg,
+                foreground: btnFg,
+                onTap: sync.isSyncing
+                    ? null
+                    : () async {
+                        final res = await sync.connect();
+                        if (!context.mounted) return;
+                        toast(
+                          context,
+                          res.message,
+                          icon: res.ok
+                              ? LucideIcons.check
+                              : LucideIcons.triangleAlert,
+                        );
+                      },
+              );
+            },
           ),
         ],
       ),
@@ -403,22 +413,32 @@ class _ConnectedCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Space.base),
-          PillButton(
-            sync.isSyncing ? 'Sincronizando…' : 'Sincronizar agora',
-            icon: LucideIcons.refreshCw,
-            onTap: sync.isSyncing
-                ? null
-                : () async {
-                    final res = await sync.syncNow();
-                    if (!context.mounted) return;
-                    toast(
-                      context,
-                      res.message,
-                      icon: res.ok
-                          ? LucideIcons.check
-                          : LucideIcons.triangleAlert,
-                    );
-                  },
+          Builder(
+            builder: (_) {
+              final (btnBg, btnFg) = softActionTone(
+                c.palette.primary[500],
+                isDark: c.isDark,
+              );
+              return PillButton(
+                sync.isSyncing ? 'Sincronizando…' : 'Sincronizar agora',
+                icon: LucideIcons.refreshCw,
+                background: btnBg,
+                foreground: btnFg,
+                onTap: sync.isSyncing
+                    ? null
+                    : () async {
+                        final res = await sync.syncNow();
+                        if (!context.mounted) return;
+                        toast(
+                          context,
+                          res.message,
+                          icon: res.ok
+                              ? LucideIcons.check
+                              : LucideIcons.triangleAlert,
+                        );
+                      },
+              );
+            },
           ),
         ],
       ),

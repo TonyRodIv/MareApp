@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
-import '../../core/color_engine.dart';
 import '../../core/theme.dart';
 import '../../data/finance.dart';
 import '../../data/store.dart';
@@ -123,15 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               sliver: SliverList.list(
                 children: [
-                  // ── Ações rápidas (cada botão usa uma cor do tema: fundo escuro
-                  //    dessaturado + ícone/texto claros dessaturados)
+                  // ── Ações rápidas (cada botão usa uma cor do tema adaptada ao modo claro/escuro)
                   Builder(
                     builder: (_) {
-                      final (expBg, expFg) = _actionTone(
+                      final (expBg, expFg) = softActionTone(
                         c.palette.companion[500],
+                        isDark: c.isDark,
                       );
-                      final (boxBg, boxFg) = _actionTone(
+                      final (boxBg, boxFg) = softActionTone(
                         c.palette.primary[500],
+                        isDark: c.isDark,
                       );
                       return Row(
                         children: [
@@ -668,16 +668,6 @@ class _HomeScreenState extends State<HomeScreen> {
         },
       ),
     );
-  }
-
-  /// Gera par (fundo escuro suave sem força, texto/ícone claro dessaturado)
-  /// a partir de um matiz do tema em OKLCH.
-  (Color, Color) _actionTone(Color seed) {
-    final o = toOklch(seed);
-    final bg = fromOklch(0.32, (o.c * 0.48).clamp(0.038, 0.082), o.h);
-    final rawFg = fromOklch(0.93, (o.c * 0.16).clamp(0.012, 0.028), o.h);
-    final fg = ensureContrast(rawFg, [bg], 7.0);
-    return (bg, fg);
   }
 
   String _greeting() {

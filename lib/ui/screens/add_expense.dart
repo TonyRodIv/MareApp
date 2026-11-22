@@ -13,15 +13,30 @@ import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
 import 'shell.dart';
 
-Future<void> openAddExpense(BuildContext context) =>
-    pushFluid(context, const AddExpenseFlow());
+Future<void> openAddExpense(
+  BuildContext context, {
+  String? initialCategoryId,
+  String? initialCardId,
+}) => pushFluid(
+  context,
+  AddExpenseFlow(
+    initialCategoryId: initialCategoryId,
+    initialCardId: initialCardId,
+  ),
+);
 Future<void> openEditExpense(BuildContext context, Expense e) =>
-    push(context, ExpenseForm(expense: e));
+    showIosSheet<void>(context, builder: (_) => ExpenseForm(expense: e));
 
 /// Fluxo rápido em passos (Figma 414:2887 → 414:3248 → 431:2342):
 /// valor no teclado → nome com sugestões → categoria em carrossel → detalhes.
 class AddExpenseFlow extends StatefulWidget {
-  const AddExpenseFlow({super.key});
+  final String? initialCategoryId;
+  final String? initialCardId;
+  const AddExpenseFlow({
+    super.key,
+    this.initialCategoryId,
+    this.initialCardId,
+  });
   @override
   State<AddExpenseFlow> createState() => _AddExpenseFlowState();
 }
@@ -32,12 +47,12 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
   final _nameFocus = FocusNode();
   int _step = 0;
   bool _forward = true;
-  String _category = 'outros';
-  bool _categoryTouched = false;
+  late String _category = widget.initialCategoryId ?? 'outros';
+  late bool _categoryTouched = widget.initialCategoryId != null;
   Recurrence _rec = Recurrence.once;
   DateTime _date = DateTime.now();
   DateTime? _end;
-  String? _cardId;
+  late String? _cardId = widget.initialCardId;
   late final PageController _catPage = PageController(viewportFraction: 0.56);
 
   @override
@@ -136,13 +151,45 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final pad = sidePadding(context, maxWidth: 640);
+    final progress = (_step + 1) / 4;
     return CupertinoPageScaffold(
       backgroundColor: c.bg,
       child: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              padding: EdgeInsets.fromLTRB(pad, Space.base, pad, 0),
+              child: Container(
+                height: 4,
+                width: double.infinity,
+                decoration: ShapeDecoration(
+                  color: c.border,
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                alignment: Alignment.centerLeft,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(end: progress),
+                  duration: const Duration(milliseconds: 200),
+                  curve: easeOutExpo,
+                  builder: (_, v, _) => FractionallySizedBox(
+                    widthFactor: v,
+                    child: Container(
+                      decoration: ShapeDecoration(
+                        color: c.primary,
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad - Space.sm, Space.sm, pad, 0),
               child: Row(
                 children: [
                   BackChevron(onTap: () => _go(-1)),
@@ -153,59 +200,60 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                       child: Text(
                         fmtMoney(_amount.value),
                         key: ValueKey(_amount.value),
-                        style: T.bodyStrong.copyWith(color: c.textSecondary),
+                        style: T.label.copyWith(
+                          color: c.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  const SizedBox(width: 8),
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            BlurSwitcher(
-              alignment: Alignment.center,
-              child: Text(
-                _titles[_step],
-                key: ValueKey(_step),
-                style: T.headline.copyWith(
-                  color: c.textSecondary,
-                  fontWeight: FontWeight.w400,
+            const SizedBox(height: Space.sm),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: pad),
+              child: BlurSwitcher(
+                alignment: Alignment.center,
+                child: Text(
+                  _titles[_step],
+                  key: ValueKey(_step),
+                  textAlign: TextAlign.center,
+                  style: T.title.copyWith(color: c.text),
                 ),
               ),
             ),
             Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                switchInCurve: easeOutExpo,
-                switchOutCurve: Curves.easeOut,
-                transitionBuilder: (child, anim) {
-                  final incoming = child.key == ValueKey(_step);
-                  final dir = (_forward ? 1 : -1) * (incoming ? 1 : -1);
-                  return FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween(
-                        begin: Offset(0.08 * dir, 0),
-                        end: Offset.zero,
-                      ).animate(anim),
-                      child: child,
-                    ),
-                  );
-                },
-                child: KeyedSubtree(
-                  key: ValueKey(_step),
-                  child: _body(context),
+              child: ClipRect(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  switchInCurve: easeOutExpo,
+                  switchOutCurve: Curves.easeOut,
+                  transitionBuilder: (child, anim) {
+                    final incoming = child.key == ValueKey(_step);
+                    final dir = (_forward ? 1 : -1) * (incoming ? 1 : -1);
+                    return FadeTransition(
+                      opacity: anim,
+                      child: SlideTransition(
+                        position: Tween(
+                          begin: Offset(0.08 * dir, 0),
+                          end: Offset.zero,
+                        ).animate(anim),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(_step),
+                    child: _body(context, pad),
+                  ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.gutter,
-                8,
-                Space.gutter,
-                12,
-              ),
+              padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.base),
               child: PillButton(
                 _step == 3 ? 'Salvar gasto' : 'Continuar',
+                trailingIcon: _step == 3 ? null : LucideIcons.arrowRight,
                 onTap: _canContinue ? () => _go(1) : null,
               ),
             ),
@@ -215,17 +263,17 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
     );
   }
 
-  Widget _body(BuildContext context) {
+  Widget _body(BuildContext context, double pad) {
     final c = context.c;
     switch (_step) {
       case 0:
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+          padding: EdgeInsets.symmetric(horizontal: pad),
           child: Column(
             children: [
               const Spacer(),
-              AmountDisplay(cents: _amount.value, size: 64),
-              const SizedBox(height: 16),
+              AmountDisplay(cents: _amount.value, size: 56),
+              const SizedBox(height: Space.base),
               QuickAddChips(controller: _amount),
               const Spacer(),
               Keypad(controller: _amount),
@@ -238,7 +286,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
             ? recents.map((e) => e.key).take(6).toList()
             : const ['Mercado', 'Uber', 'iFood', 'Farmácia', 'Lazer'];
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.gutter),
+          padding: EdgeInsets.symmetric(horizontal: pad),
           child: Column(
             children: [
               const Spacer(),
@@ -252,16 +300,21 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 maxLength: 40,
                 placeholder: 'Mercado, uber…',
                 keyboardAppearance: c.brightness,
-                cursorColor: c.accent,
+                cursorColor: c.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.base,
+                  vertical: Space.base,
+                ),
                 style: T.pageTitle.copyWith(color: c.text),
                 placeholderStyle: T.pageTitle.copyWith(
                   color: c.textTertiary,
                 ),
                 decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: c.border)),
+                  color: c.card,
+                  borderRadius: BorderRadius.circular(Space.radiusField),
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: Space.base),
               Wrap(
                 alignment: WrapAlignment.center,
                 spacing: 8,
@@ -395,50 +448,130 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           ],
         );
       default:
-        return _details(context);
+        return _details(context, pad);
     }
   }
 
-  Widget _details(BuildContext context) {
+  Widget _details(BuildContext context, double pad) {
     final c = context.c;
-    final cards = context.storeRead.data.cards;
+    final s = context.storeRead;
+    final cards = s.data.cards;
+    final selectedCard = s.card(_cardId);
+    final cat = categoryById(_category);
     final df = DateFormat("d 'de' MMMM", 'pt_BR');
+    final dfFull = DateFormat('dd/MM/yyyy', 'pt_BR');
+    final cycleLabel = s.f.cycleOf(_date).label();
+    final dateText = sameDay(_date, DateTime.now())
+        ? 'Hoje · ${dfFull.format(_date)}'
+        : dfFull.format(_date);
+    final freqText = _rec == Recurrence.once
+        ? 'Único'
+        : (_end == null
+              ? 'Todo ciclo'
+              : 'Até ${DateFormat('MM/yy').format(_end!)}');
+
+    Widget receiptRow(String label, String value) => Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Text(label, style: T.small.copyWith(color: c.textSecondary)),
+          const SizedBox(width: Space.md),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: T.labelStrong.copyWith(color: c.text),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 24, Space.gutter, 12),
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(pad, Space.base, pad, Space.base),
       children: [
+        // Cartão de prévia do gasto (mini visualização estilo recibo/detalhe)
         Reveal(
           index: 0,
-          child: Row(
-            children: [
-              BrandLogo(
-                name: _name.text.trim(),
-                icon: categoryById(_category).icon,
-                color: categoryById(_category).color,
-                size: 52,
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: AppCard(
+            padding: const EdgeInsets.all(Space.gutter),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text(
-                      _name.text.trim(),
-                      style: T.headline.copyWith(color: c.text),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    BrandLogo(
+                      name: _name.text.trim(),
+                      icon: cat.icon,
+                      color: cat.color,
+                      size: 46,
                     ),
-                    Text(
-                      categoryById(_category).label,
-                      style: T.label.copyWith(color: c.textSecondary),
+                    const SizedBox(width: Space.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _name.text.trim(),
+                            style: T.bodyStrong.copyWith(color: c.text),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            cat.label,
+                            style: T.small.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              MoneyText(_amount.value, style: T.headline),
-            ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.md),
+                  child: Container(
+                    height: 1,
+                    color: c.border.withValues(alpha: 0.35),
+                  ),
+                ),
+                receiptRow('Data', dateText),
+                receiptRow('Frequência', freqText),
+                receiptRow('Ciclo', cycleLabel),
+                receiptRow(
+                  selectedCard?.isCard == true ? 'Cartão' : 'Conta',
+                  selectedCard == null
+                      ? 'Sem conta'
+                      : (selectedCard.last4.isNotEmpty
+                            ? '${selectedCard.name} ••${selectedCard.last4}'
+                            : selectedCard.name),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Space.md),
+                  child: Container(
+                    height: 1,
+                    color: c.border.withValues(alpha: 0.35),
+                  ),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      'Total',
+                      style: T.bodyStrong.copyWith(color: c.text),
+                    ),
+                    const Spacer(),
+                    MoneyText(_amount.value, style: T.title),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: Space.lg),
         Reveal(index: 1, child: const FieldLabel('Frequência do gasto')),
         Reveal(
           index: 1,
@@ -461,7 +594,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
             style: T.small.copyWith(color: c.textSecondary),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: Space.base),
         Reveal(
           index: 2,
           child: FieldLabel(_rec == Recurrence.once ? 'Quando' : 'Começa em'),
@@ -625,188 +758,195 @@ class _ExpenseFormState extends State<ExpenseForm> {
     final s = context.store;
     final df = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
     final cat = categoryById(_e.categoryId);
-    final pad = sidePadding(context);
-    return CupertinoPageScaffold(
-      backgroundColor: c.bg,
+    final wellBg = c.isDark ? c.bg : c.surfaceLow;
+    final chipBg = c.isDark ? c.cardAlt : c.surfaceLow;
+
+    return SheetBody(
+      bottom: PillButton(
+        'Salvar alterações',
+        onTap: _amount.value > 0 && _name.text.trim().isNotEmpty ? _save : null,
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: CollapsingTitleScope(
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  PinnedCupertinoBar(
-                    height: 60,
-                    builder: (ctx, progress) => Row(
-                      children: [
-                        const BackChevron(),
-                        Expanded(
-                          child: BarTitle('Editar gasto', progress: progress),
-                        ),
-                        const SizedBox(width: 44),
-                      ],
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.lg),
-                    sliver: SliverList.list(
-                      children: [
-                        LargeTitle('Editar gasto', style: T.display),
-                      const SizedBox(height: 20),
-                      Pressable(
-                        onTap: () => setState(() => _typing = !_typing),
-                        child: Container(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            border: Border(bottom: BorderSide(color: c.border)),
-                          ),
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: AmountDisplay(
-                              cents: _amount.value,
-                              size: 40,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      QuickAddChips(controller: _amount, center: false),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 320),
-                        curve: easeOutExpo,
-                        child: _typing
-                            ? Padding(
-                                padding: const EdgeInsets.only(top: 12),
-                                child: Keypad(controller: _amount),
-                              )
-                            : const SizedBox(width: double.infinity),
-                      ),
-                      const SizedBox(height: 18),
-                      const FieldLabel('Nome'),
-                      AppField(
-                        controller: _name,
-                        placeholder: 'Em que você gastou?',
-                        maxLength: 40,
-                      ),
-                      const SizedBox(height: 18),
-                      const FieldLabel('Categoria'),
-                      SelectField(
-                        leading: Icon(
-                          cat.icon,
-                          color: c.tone(cat.color),
-                          size: 20,
-                        ),
-                        value: cat.label,
-                        placeholder: 'não sei ainda',
-                        onTap: () async {
-                          final id = await pickCategory(context, _e.categoryId);
-                          if (id != null) setState(() => _e.categoryId = id);
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      const FieldLabel('Frequência do gasto'),
-                      Segmented<Recurrence>(
-                        value: _e.recurrence,
-                        options: const {
-                          Recurrence.once: 'Único',
-                          Recurrence.monthly: 'Recorrente',
-                        },
-                        onChanged: (r) => setState(() => _e.recurrence = r),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _e.isRecurring
-                            ? 'Repete todo ciclo. Se mudar o valor, os meses anteriores continuam com o valor antigo.'
-                            : 'Conta só no ciclo da data do gasto.',
-                        style: T.small.copyWith(color: c.textSecondary),
-                      ),
-                      const SizedBox(height: 18),
-                      FieldLabel(_e.isRecurring ? 'Começa em' : 'Data'),
-                      SelectField(
-                        leading: Icon(
-                          LucideIcons.calendar,
-                          size: 18,
-                          color: c.textSecondary,
-                        ),
-                        value: df.format(_e.date),
-                        placeholder: '',
-                        onTap: () => pickDate(
-                          context,
-                          _e.date,
-                          (d) => setState(() {
-                            _e.date = d;
-                            if (_e.endDate != null &&
-                                dateOnly(_e.endDate!).isBefore(dateOnly(d))) {
-                              _e.endDate = d;
-                            }
-                          }),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Editar gasto',
+                  style: T.title.copyWith(color: c.text),
+                ),
+              ),
+              RoundIconButton(
+                LucideIcons.x,
+                size: 36,
+                bg: chipBg,
+                label: 'Fechar',
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.base),
+          Pressable(
+            onTap: () => setState(() => _typing = !_typing),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(Space.base),
+              decoration: ShapeDecoration(
+                color: wellBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AmountDisplay(
+                          cents: _amount.value,
+                          size: 38,
+                          center: false,
                         ),
                       ),
-                      if (_e.isRecurring) ...[
-                        const SizedBox(height: 14),
-                        const FieldLabel('Termina em (opcional)'),
-                        SelectField(
-                          leading: Icon(
-                            LucideIcons.calendarX,
-                            size: 18,
-                            color: c.textSecondary,
-                          ),
-                          value: _e.endDate == null
-                              ? null
-                              : df.format(_e.endDate!),
-                          placeholder: 'Sem data final',
-                          onTap: () => pickDate(
-                            context,
-                            _e.endDate ?? _e.date,
-                            (d) => setState(() => _e.endDate = d),
-                            onClear: () => setState(() => _e.endDate = null),
-                            min: _e.date,
-                          ),
-                        ),
-                      ],
-                      if (s.data.cards.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        const FieldLabel('Cartão'),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ChipButton(
-                              'Nenhum',
-                              selected: _e.cardId == null,
-                              onTap: () => setState(() => _e.cardId = null),
-                            ),
-                            for (final k in s.data.cards)
-                              ChipButton(
-                                k.last4.isNotEmpty
-                                    ? '${k.name} •${k.last4}'
-                                    : k.name,
-                                dot: Color(k.color),
-                                selected: _e.cardId == k.id,
-                                onTap: () => setState(() => _e.cardId = k.id),
-                              ),
-                          ],
-                        ),
-                      ],
+                      Icon(
+                        _typing ? LucideIcons.chevronUp : LucideIcons.pencil,
+                        size: 18,
+                        color: c.textSecondary,
+                      ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(pad, 8, pad, 12),
-              child: PillButton(
-                'Salvar alterações',
-                onTap: _amount.value > 0 && _name.text.trim().isNotEmpty
-                    ? _save
-                    : null,
+                  const SizedBox(height: Space.md),
+                  QuickAddChips(
+                    controller: _amount,
+                    center: false,
+                    chipBg: chipBg,
+                  ),
+                ],
               ),
             ),
           ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: easeOutExpo,
+            child: _typing
+                ? Padding(
+                    padding: const EdgeInsets.only(top: Space.md),
+                    child: Keypad(
+                      controller: _amount,
+                      keyColor: chipBg,
+                      keyHeight: 54,
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+          const SizedBox(height: Space.base),
+          const FieldLabel('Nome'),
+          AppField(
+            controller: _name,
+            placeholder: 'Em que você gastou?',
+            bg: wellBg,
+            maxLength: 40,
+          ),
+          const SizedBox(height: Space.base),
+          const FieldLabel('Categoria'),
+          SelectField(
+            bg: wellBg,
+            leading: IconBadge(cat.icon, cat.color, size: 32),
+            value: cat.label,
+            placeholder: 'Escolher categoria',
+            onTap: () async {
+              final id = await pickCategory(context, _e.categoryId);
+              if (id != null) setState(() => _e.categoryId = id);
+            },
+          ),
+          const SizedBox(height: Space.base),
+          const FieldLabel('Frequência do gasto'),
+          Segmented<Recurrence>(
+            value: _e.recurrence,
+            trackColor: wellBg,
+            options: const {
+              Recurrence.once: 'Único',
+              Recurrence.monthly: 'Recorrente',
+            },
+            onChanged: (r) => setState(() => _e.recurrence = r),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _e.isRecurring
+                ? 'Repete todo ciclo. Se mudar o valor, os meses anteriores continuam com o valor antigo.'
+                : 'Conta só no ciclo da data do gasto.',
+            style: T.small.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: Space.base),
+          FieldLabel(_e.isRecurring ? 'Começa em' : 'Data'),
+          SelectField(
+            bg: wellBg,
+            leading: Icon(
+              LucideIcons.calendar,
+              size: 18,
+              color: c.textSecondary,
+            ),
+            value: df.format(_e.date),
+            placeholder: '',
+            onTap: () => pickDate(
+              context,
+              _e.date,
+              (d) => setState(() {
+                _e.date = d;
+                if (_e.endDate != null &&
+                    dateOnly(_e.endDate!).isBefore(dateOnly(d))) {
+                  _e.endDate = d;
+                }
+              }),
+            ),
+          ),
+          if (_e.isRecurring) ...[
+            const SizedBox(height: 14),
+            const FieldLabel('Termina em (opcional)'),
+            SelectField(
+              bg: wellBg,
+              leading: Icon(
+                LucideIcons.calendarX,
+                size: 18,
+                color: c.textSecondary,
+              ),
+              value: _e.endDate == null ? null : df.format(_e.endDate!),
+              placeholder: 'Sem data final',
+              onTap: () => pickDate(
+                context,
+                _e.endDate ?? _e.date,
+                (d) => setState(() => _e.endDate = d),
+                onClear: () => setState(() => _e.endDate = null),
+                min: _e.date,
+              ),
+            ),
+          ],
+          if (s.data.cards.isNotEmpty) ...[
+            const SizedBox(height: Space.base),
+            const FieldLabel('Conta ou cartão'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ChipButton(
+                  'Nenhum',
+                  bg: chipBg,
+                  selected: _e.cardId == null,
+                  onTap: () => setState(() => _e.cardId = null),
+                ),
+                for (final k in s.data.cards)
+                  ChipButton(
+                    k.last4.isNotEmpty ? '${k.name} •${k.last4}' : k.name,
+                    dot: Color(k.color),
+                    bg: chipBg,
+                    selected: _e.cardId == k.id,
+                    onTap: () => setState(() => _e.cardId = k.id),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -827,62 +967,106 @@ class _ExpenseFormState extends State<ExpenseForm> {
   }
 }
 
-/// Grade de categorias num sheet.
+/// Seletor moderno de categoria em grade compacta de 2 colunas (sem bordas,
+/// cabeçalho padronizado e destaque suave na categoria selecionada).
 Future<String?> pickCategory(BuildContext context, String current) {
   return showSheet<String>(
     context,
     edgeToEdge: true,
     builder: (ctx) {
       final c = ctx.c;
-      return GridView.count(
-        shrinkWrap: true,
-        crossAxisCount: 3,
-        padding: const EdgeInsets.fromLTRB(Space.gutter, 16, Space.gutter, 16),
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 1.05,
-        children: [
-          for (var i = 0; i < categories.length; i++)
-            Reveal(
-              index: i,
-              baseDelay: Duration.zero,
-              child: Pressable(
-                onTap: () => Navigator.pop(ctx, categories[i].id),
-                child: Container(
-                  padding: const EdgeInsets.all(Space.sm),
-                  decoration: ShapeDecoration(
-                    color: categories[i].id == current
-                        ? categories[i].color.withValues(alpha: 0.16)
-                        : c.cardAlt,
-                    shape: RoundedSuperellipseBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: categories[i].id == current
-                          ? BorderSide(color: categories[i].color, width: 1.5)
-                          : BorderSide.none,
+      final itemBg = c.isDark ? c.bg : c.surfaceLow;
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Categoria',
+                    style: T.title.copyWith(
+                      color: c.text,
+                      decoration: TextDecoration.none,
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconBadge(
-                        categories[i].icon,
-                        categories[i].color,
-                        size: 40,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        categories[i].label,
-                        textAlign: TextAlign.center,
-                        style: T.small.copyWith(color: c.text),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
                 ),
-              ),
+                RoundIconButton(
+                  LucideIcons.x,
+                  size: 36,
+                  bg: c.cardAlt,
+                  label: 'Fechar',
+                  onTap: () => Navigator.pop(ctx),
+                ),
+              ],
             ),
-        ],
+            const SizedBox(height: Space.base),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: categories.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                mainAxisExtent: 52,
+              ),
+              itemBuilder: (_, i) {
+                final cat = categories[i];
+                final selected = cat.id == current;
+                final tone = c.tone(cat.color);
+                return Pressable(
+                  scale: 0.97,
+                  onTap: () => Navigator.pop(ctx, cat.id),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: ShapeDecoration(
+                      color: selected
+                          ? cat.color.withValues(alpha: c.isDark ? 0.22 : 0.14)
+                          : itemBg,
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: cat.color.withValues(
+                              alpha: c.isDark ? 0.24 : 0.16,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(cat.icon, size: 16, color: tone),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            cat.label,
+                            style: (selected ? T.labelStrong : T.label)
+                                .copyWith(
+                                  color: selected ? tone : c.text,
+                                  decoration: TextDecoration.none,
+                                ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (selected)
+                          Icon(LucideIcons.check, size: 16, color: tone),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       );
     },
   );

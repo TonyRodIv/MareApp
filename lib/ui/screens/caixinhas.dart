@@ -22,7 +22,8 @@ import 'shell.dart';
 /// Hero centralizado com emblema e total acumulado, filtro Ativas/Encerradas
 /// e cards modernos com anel circular de progresso ao redor do ícone.
 class CaixinhasScreen extends StatefulWidget {
-  const CaixinhasScreen({super.key});
+  final bool standalone;
+  const CaixinhasScreen({super.key, this.standalone = false});
   @override
   State<CaixinhasScreen> createState() => _CaixinhasScreenState();
 }
@@ -47,7 +48,7 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
     );
     final pad = sidePadding(context, maxWidth: 720);
 
-    return Stack(
+    final body = Stack(
       children: [
         const GlowBackground(height: 460),
         CustomScrollView(
@@ -60,6 +61,10 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
               maxWidth: 720,
               builder: (ctx, _) => Row(
                 children: [
+                  if (widget.standalone) ...[
+                    const BackChevron(),
+                    const SizedBox(width: Space.xs),
+                  ],
                   Expanded(
                     child: Text(
                       'Caixinhas',
@@ -82,7 +87,7 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                 pad,
                 Space.lg,
                 pad,
-                navClearance(context),
+                widget.standalone ? Space.xl : navClearance(context),
               ),
               sliver: SliverList.list(
                 children: [
@@ -171,6 +176,10 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
         ),
       ],
     );
+    if (!widget.standalone) return body;
+    return SheetScaler(
+      child: CupertinoPageScaffold(backgroundColor: c.bg, child: body),
+    );
   }
 }
 
@@ -192,7 +201,7 @@ class _BoxRow extends StatelessWidget {
     final accent = c.tone(box.colorValue);
 
     return ListRow(
-      leading: _ProgressRing(
+      leading: ProgressRing(
         size: 40,
         stroke: 3,
         fraction: pct,
@@ -303,7 +312,7 @@ class BoxDetail extends StatelessWidget {
                           value: hasGoal ? fraction : 0.72,
                           from: 0,
                           spring: Springs.settle,
-                          builder: (_, v, _) => _ProgressRing(
+                          builder: (_, v, _) => ProgressRing(
                             size: 136,
                             stroke: 8,
                             fraction: v,
@@ -489,7 +498,7 @@ class BoxDetail extends StatelessWidget {
     if (!context.mounted) return;
     switch (a) {
       case 'edit':
-        pushFluid(context, BoxForm(box: box));
+        openEditBox(context, box);
       case 'close':
         final ok = await confirm(
           context,
@@ -519,84 +528,6 @@ class BoxDetail extends StatelessWidget {
         }
     }
   }
-}
-
-/// Anel circular de progresso reutilizado nos cards e no detalhe da caixinha.
-class _ProgressRing extends StatelessWidget {
-  final double size;
-  final double stroke;
-  final double fraction;
-  final Color color;
-  final Color track;
-  final Widget child;
-  const _ProgressRing({
-    required this.size,
-    required this.stroke,
-    required this.fraction,
-    required this.color,
-    required this.track,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: _RingPainter(
-          fraction: fraction.clamp(0.0, 1.0),
-          color: color,
-          track: track,
-          stroke: stroke,
-        ),
-        child: Center(child: child),
-      ),
-    );
-  }
-}
-
-class _RingPainter extends CustomPainter {
-  final double fraction;
-  final Color color;
-  final Color track;
-  final double stroke;
-  _RingPainter({
-    required this.fraction,
-    required this.color,
-    required this.track,
-    required this.stroke,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - stroke) / 2;
-    final trackPaint = Paint()
-      ..color = track
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke;
-    canvas.drawCircle(center, radius, trackPaint);
-
-    if (fraction > 0) {
-      final progPaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = stroke
-        ..strokeCap = StrokeCap.round;
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        -math.pi / 2,
-        2 * math.pi * fraction,
-        false,
-        progPaint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter old) =>
-      old.fraction != fraction || old.color != color || old.track != track;
 }
 
 class _MoveRow extends StatelessWidget {

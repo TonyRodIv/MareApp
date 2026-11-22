@@ -11,6 +11,7 @@ import 'data/store.dart';
 import 'ui/screens/onboarding.dart';
 import 'ui/screens/shell.dart';
 import 'ui/widgets/kit.dart';
+import 'ui/widgets/motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,13 +21,19 @@ Future<void> main() async {
   await ProgressiveBlur.preload();
   final store = await Store.load();
   final sync = SyncService.attach(store);
-  runApp(MareApp(store: store, sync: sync));
+  runApp(MareApp(store: store, sync: sync, showLaunchAnimation: true));
 }
 
 class MareApp extends StatefulWidget {
   final Store store;
   final SyncService? sync;
-  const MareApp({super.key, required this.store, this.sync});
+  final bool showLaunchAnimation;
+  const MareApp({
+    super.key,
+    required this.store,
+    this.sync,
+    this.showLaunchAnimation = false,
+  });
 
   @override
   State<MareApp> createState() => _MareAppState();
@@ -109,13 +116,116 @@ class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
                     GlobalWidgetsLocalizations.delegate,
                     GlobalMaterialLocalizations.delegate,
                   ],
-                  home: const _Root(),
+                  home: _LaunchReveal(
+                    enabled: widget.showLaunchAnimation,
+                    child: const _Root(),
+                  ),
                 ),
               ),
             );
           },
         ),
       ),
+    );
+  }
+}
+
+/// Transição de abertura estilo apps do Google: inicia exibindo o título
+/// "maré." centralizado sobre o fundo do tema e anima suavemente a entrada
+/// do aplicativo por baixo antes de sair da árvore.
+class _LaunchReveal extends StatefulWidget {
+  final bool enabled;
+  final Widget child;
+  const _LaunchReveal({required this.enabled, required this.child});
+
+  @override
+  State<_LaunchReveal> createState() => _LaunchRevealState();
+}
+
+class _LaunchRevealState extends State<_LaunchReveal>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _done = !widget.enabled;
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    if (widget.enabled) {
+      _ctrl.addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() => _done = true);
+        }
+      });
+      _ctrl.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done) return widget.child;
+    final c = context.c;
+    final wordIn = CurvedAnimation(
+      parent: _ctrl,
+      curve: const Interval(0.0, 0.34, curve: easeOutExpo),
+    );
+    final reveal = CurvedAnimation(
+      parent: _ctrl,
+      curve: const Interval(0.42, 1.0, curve: easeOutExpo),
+    );
+
+    return AnimatedBuilder(
+      animation: _ctrl,
+      child: widget.child,
+      builder: (_, appChild) {
+        final r = reveal.value;
+        final w = wordIn.value;
+        final splashOpacity = (1.0 - r).clamp(0.0, 1.0);
+        final appScale = 0.965 + 0.035 * r;
+        final splashScale = (0.94 + 0.06 * w) + 0.08 * r;
+
+        return Stack(
+          children: [
+            Transform.scale(
+              scale: appScale,
+              child: Opacity(opacity: r.clamp(0.0, 1.0), child: appChild),
+            ),
+            if (splashOpacity > 0.001)
+              Positioned.fill(
+                child: IgnorePointer(
+                  ignoring: r > 0.25,
+                  child: Opacity(
+                    opacity: splashOpacity,
+                    child: ColoredBox(
+                      color: c.bg,
+                      child: Stack(
+                        children: [
+                          const GlowBackground(height: 520),
+                          Center(
+                            child: Transform.scale(
+                              scale: splashScale,
+                              child: const MareWordmark(size: 46),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/cycle.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/charts.dart';
 import '../widgets/kit.dart';
@@ -14,65 +15,75 @@ import 'extrato.dart';
 import 'shell.dart';
 
 /// Esqueleto comum das telas de detalhe com top bar fixa + progressive blur.
+/// Quando [embedded] é verdadeiro, renderiza como aba fixa dentro do `Shell`
+/// (sem botão voltar e com respiro inferior para a navbar flutuante).
 class _DetailPage extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? trailing;
   final List<Widget> children;
+  final bool embedded;
   const _DetailPage({
     required this.title,
     this.subtitle,
     this.trailing,
     required this.children,
+    this.embedded = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     final pad = sidePadding(context);
-    return SheetScaler(
-      child: CupertinoPageScaffold(
-        backgroundColor: c.bg,
-        child: Stack(
-          children: [
-            const GlowBackground(height: 460),
-            CollapsingTitleScope(
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(),
-                slivers: [
-                  PinnedCupertinoBar(
-                    height: 60,
-                    builder: (ctx, progress) => Row(
-                      children: [
-                        const BackChevron(),
-                        Expanded(child: BarTitle(title, progress: progress)),
-                        trailing ?? const SizedBox(width: 44),
-                      ],
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
-                    sliver: SliverList.list(
-                      children: [
-                        LargeTitle(title, style: T.pageTitle),
-                        if (subtitle != null) ...[
-                          const SizedBox(height: Space.xs),
-                          Text(
-                            subtitle!,
-                            style: T.label.copyWith(color: c.textSecondary),
-                          ),
-                        ],
-                        const SizedBox(height: Space.lg),
-                        ...children,
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+    final content = Stack(
+      children: [
+        const GlowBackground(height: 460),
+        CollapsingTitleScope(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
-          ],
+            slivers: [
+              PinnedCupertinoBar(
+                height: 60,
+                builder: (ctx, progress) => Row(
+                  children: [
+                    if (!embedded) const BackChevron() else const SizedBox(width: 44),
+                    Expanded(child: BarTitle(title, progress: progress)),
+                    trailing ?? const SizedBox(width: 44),
+                  ],
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.sm,
+                  pad,
+                  embedded ? navClearance(context) : Space.xl,
+                ),
+                sliver: SliverList.list(
+                  children: [
+                    LargeTitle(title, style: T.pageTitle),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: Space.xs),
+                      Text(
+                        subtitle!,
+                        style: T.label.copyWith(color: c.textSecondary),
+                      ),
+                    ],
+                    const SizedBox(height: Space.lg),
+                    ...children,
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
+    );
+    if (embedded) return content;
+    return SheetScaler(
+      child: CupertinoPageScaffold(backgroundColor: c.bg, child: content),
     );
   }
 }
@@ -80,7 +91,8 @@ class _DetailPage extends StatelessWidget {
 // ── Categorias ──────────────────────────────────────────────
 
 class CategoriesScreen extends StatelessWidget {
-  const CategoriesScreen({super.key});
+  final bool embedded;
+  const CategoriesScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +108,7 @@ class CategoriesScreen extends StatelessWidget {
     return _DetailPage(
       title: 'Por categoria',
       subtitle: '${f.current.label()} · ${fmtMoney(total, hidden: hidden)}',
+      embedded: embedded,
       children: [
         if (data.isEmpty)
           EmptyState(
@@ -143,10 +156,10 @@ class CategoriesScreen extends StatelessWidget {
                         ],
                       ),
                       arrow: true,
-                      onTap: () {
-                        Navigator.of(context).popUntil((r) => r.isFirst);
-                        _openExtratoFiltered(context, data[i].key.id);
-                      },
+                      onTap: () => push(
+                        context,
+                        CategoryDetailScreen(categoryId: data[i].key.id),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     SpringBar(
@@ -170,15 +183,225 @@ class CategoriesScreen extends StatelessWidget {
     if (d == 0) return 'Igual ao ciclo anterior';
     return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. ciclo anterior';
   }
+}
 
-  void _openExtratoFiltered(BuildContext context, String id) =>
-      shellNav.goTo(1, filter: ExtratoFilter(categoryId: id));
+/// Detalhe de categoria no mesmo padrão visual de `BoxDetail` (Caixinhas):
+/// anel circular centralizado com participação no ciclo, ações rápidas em
+/// botões circulares e lista dos lançamentos da categoria.
+class CategoryDetailScreen extends StatelessWidget {
+  final String categoryId;
+  const CategoryDetailScreen({super.key, required this.categoryId});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final s = context.store;
+    final f = s.f;
+    final hidden = s.data.hideValues;
+    final cat = categoryById(categoryId);
+    final cy = f.current;
+    final prevCy = cy.prev(s.data.cycleStartDay);
+
+    final items = f
+        .expensesIn(cy)
+        .where((e) => e.categoryId == cat.id)
+        .toList()
+      ..sort((a, b) {
+        final d = b.date.compareTo(a.date);
+        return d != 0 ? d : b.cents.compareTo(a.cents);
+      });
+    final total = items.fold<int>(0, (t, e) => t + e.cents);
+    final cycleTotal = f.expensesTotal(cy);
+    final share = cycleTotal > 0 ? (total / cycleTotal).clamp(0.0, 1.0) : 0.0;
+
+    final prevTotal = f
+        .expensesIn(prevCy)
+        .where((e) => e.categoryId == cat.id)
+        .fold<int>(0, (t, e) => t + e.cents);
+    final delta = _deltaText(total, prevTotal, hidden);
+    final accent = c.tone(cat.color);
+    final pad = sidePadding(context, maxWidth: 680);
+    final avg = items.isEmpty ? 0 : (total / items.length).round();
+
+    return SheetScaler(
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: Stack(
+          children: [
+            GlowBackground(
+              tint: c.tone(cat.color, min: 2.5),
+              height: 460,
+            ),
+            CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                PinnedCupertinoBar(
+                  height: 60,
+                  maxWidth: 680,
+                  builder: (ctx, _) => Row(
+                    children: [
+                      const BackChevron(),
+                      Expanded(
+                        child: Text(
+                          cat.label,
+                          style: T.bodyStrong.copyWith(color: c.text),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      RoundIconButton(
+                        LucideIcons.plus,
+                        size: 44,
+                        label: 'Novo gasto em ${cat.label}',
+                        glass: true,
+                        onTap: () => openAddExpense(
+                          context,
+                          initialCategoryId: cat.id,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(pad, Space.lg, pad, Space.xl),
+                  sliver: SliverList.list(
+                    children: [
+                      // ── Hero circular centralizado (reutilizando padrão de Caixinhas)
+                      Column(
+                        children: [
+                          SpringBuilder(
+                            value: share,
+                            from: 0,
+                            spring: Springs.settle,
+                            builder: (_, v, _) => ProgressRing(
+                              size: 136,
+                              stroke: 8,
+                              fraction: v,
+                              color: accent,
+                              track: c.cardAlt,
+                              child: Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  color: cat.color.withValues(
+                                    alpha: c.isDark ? 0.18 : 0.12,
+                                  ),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  cat.icon,
+                                  size: 42,
+                                  color: accent,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: Space.lg),
+                          CountingMoney(
+                            cents: total,
+                            builder: (v) => MoneyText(
+                              v,
+                              hidden: hidden,
+                              style: T.displayLg,
+                            ),
+                          ),
+                          const SizedBox(height: Space.xs),
+                          Text(
+                            cycleTotal > 0
+                                ? '${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
+                                : 'Sem gastos em ${cy.label()}',
+                            textAlign: TextAlign.center,
+                            style: T.label.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: Space.lg),
+
+                      // ── Ações rápidas em botões circulares neutros
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          CircleAction(
+                            icon: LucideIcons.plus,
+                            label: 'Novo gasto',
+                            onTap: () => openAddExpense(
+                              context,
+                              initialCategoryId: cat.id,
+                            ),
+                          ),
+                          CircleAction(
+                            icon: LucideIcons.receiptText,
+                            label: 'No Extrato',
+                            onTap: () {
+                              Navigator.of(context).popUntil((r) => r.isFirst);
+                              shellNav.goTo(
+                                1,
+                                filter: ExtratoFilter(categoryId: cat.id),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+
+                      if (items.isEmpty) ...[
+                        SectionHeader('Gastos em ${cy.label()}'),
+                        EmptyState(
+                          icon: cat.icon,
+                          title: 'Sem gastos nesta categoria',
+                          message:
+                              'Os lançamentos em ${cat.label} neste ciclo aparecem aqui.',
+                          action: 'Adicionar gasto',
+                          onAction: () => openAddExpense(
+                            context,
+                            initialCategoryId: cat.id,
+                          ),
+                        ),
+                      ] else ...[
+                        ListGroup(
+                          title: 'Gastos em ${cy.label()}',
+                          trailing: Text(
+                            '${items.length} ${items.length == 1 ? 'item' : 'itens'}',
+                            style: T.smallStrong.copyWith(
+                              color: c.textSecondary,
+                            ),
+                          ),
+                          children: [
+                            for (final e in items)
+                              ExpenseRow(e: e, f: f, hidden: hidden),
+                          ],
+                        ),
+                        const SizedBox(height: Space.base),
+                        Text(
+                          'Média de ${fmtMoney(avg, hidden: hidden)} por lançamento neste ciclo.',
+                          textAlign: TextAlign.center,
+                          style: T.small.copyWith(color: c.textTertiary),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _deltaText(int cur, int prev, bool hidden) {
+    if (prev <= 0) return cur > 0 ? 'novo neste ciclo' : null;
+    final d = cur - prev;
+    if (d == 0) return 'igual ao anterior';
+    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. anterior';
+  }
 }
 
 // ── Ritmo do ciclo (Para hoje / Fim de semana / Sequência) ──
 
 class RhythmScreen extends StatelessWidget {
-  const RhythmScreen({super.key});
+  final bool embedded;
+  const RhythmScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +415,7 @@ class RhythmScreen extends StatelessWidget {
       title: 'Ritmo do ciclo',
       subtitle:
           '${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'} em ${cy.label()}',
+      embedded: embedded,
       children: [
         AppCard(
           child: Column(
@@ -344,7 +568,8 @@ class RhythmScreen extends StatelessWidget {
 // ── Assinaturas ─────────────────────────────────────────────
 
 class SubscriptionsScreen extends StatelessWidget {
-  const SubscriptionsScreen({super.key});
+  final bool embedded;
+  const SubscriptionsScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -363,6 +588,7 @@ class SubscriptionsScreen extends StatelessWidget {
 
     return _DetailPage(
       title: 'Assinaturas',
+      embedded: embedded,
       trailing: RoundIconButton(
         LucideIcons.plus,
         size: 40,
@@ -521,7 +747,8 @@ class SubscriptionsScreen extends StatelessWidget {
 // ── Histórico ───────────────────────────────────────────────
 
 class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key});
+  final bool embedded;
+  const HistoryScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -539,6 +766,7 @@ class HistoryScreen extends StatelessWidget {
     return _DetailPage(
       title: 'Histórico',
       subtitle: 'Calculado a partir dos seus lançamentos',
+      embedded: embedded,
       children: [
         AppCard(
           child: Column(

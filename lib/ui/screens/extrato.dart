@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/cupertino.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -25,7 +27,12 @@ class ExtratoFilter {
 /// separam conforme a aba superior. Tocar na busca abre página dedicada.
 class ExtratoScreen extends StatefulWidget {
   final ValueNotifier<ExtratoFilter?> filter;
-  const ExtratoScreen({super.key, required this.filter});
+  final bool standalone;
+  const ExtratoScreen({
+    super.key,
+    required this.filter,
+    this.standalone = false,
+  });
   @override
   State<ExtratoScreen> createState() => _ExtratoScreenState();
 }
@@ -93,8 +100,15 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final salary = f.salaryFor(cy);
     final pad = sidePadding(context);
     final usedCats = allInCycle.map((e) => e.categoryId).toSet();
+    final activeFilterCount = (_cat != null ? 1 : 0) + (_card != null ? 1 : 0);
+    final activeCard = _card == null ? null : s.card(_card);
+    final activeCat = _cat == null ? null : categoryById(_cat!);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final fabBottom = widget.standalone
+        ? (bottomInset > 0 ? bottomInset : Space.base) + Space.sm
+        : 66 + (bottomInset > 0 ? bottomInset : Space.base) + Space.md;
 
-    return Stack(
+    final body = Stack(
       children: [
         const GlowBackground(height: 440),
         // Véu suave na cor do fundo (escuro no dark, claro no light)
@@ -127,19 +141,25 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
               height: 60,
               builder: (ctx, _) => Row(
                 children: [
+                  if (widget.standalone) ...[
+                    const BackChevron(),
+                    const SizedBox(width: Space.xs),
+                  ],
                   Expanded(
                     child: Text(
                       'Extrato',
                       style: T.pageTitle.copyWith(color: c.text),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  RoundIconButton(
-                    LucideIcons.plus,
-                    size: 44,
-                    label: 'Adicionar gasto',
-                    bg: c.primary,
-                    fg: c.onPrimary,
-                    onTap: () => openAddExpense(context),
+                  const SizedBox(width: Space.sm),
+                  _CycleBarPill(
+                    label: cy.label(),
+                    canNext: _offset < 12,
+                    onPrev: () => setState(() => _offset--),
+                    onNext: () => setState(() => _offset++),
+                    onPick: () => _openCyclePicker(context, f),
                   ),
                 ],
               ),
@@ -153,53 +173,12 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                     options: const {0: 'Todos', 1: 'Recorrentes', 2: 'Únicos'},
                     onChanged: (v) => setState(() => _kind = v),
                   ),
-                  const SizedBox(height: Space.base),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      RoundIconButton(
-                        LucideIcons.chevronLeft,
-                        size: 36,
-                        bg: c.cardAlt,
-                        label: 'Ciclo anterior',
-                        onTap: () => setState(() => _offset--),
-                      ),
-                      const SizedBox(width: Space.md),
-                      BlurSwitcher(
-                        alignment: Alignment.center,
-                        child: Column(
-                          key: ValueKey(cy.key),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              cy.label(),
-                              style: T.bodyStrong.copyWith(color: c.text),
-                            ),
-                            Text(
-                              _range(cy),
-                              style: T.small.copyWith(color: c.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      RoundIconButton(
-                        LucideIcons.chevronRight,
-                        size: 36,
-                        bg: c.cardAlt,
-                        label: 'Próximo ciclo',
-                        onTap: _offset >= 12
-                            ? null
-                            : () => setState(() => _offset++),
-                      ),
-                    ],
-                  ),
                   const SizedBox(height: Space.lg),
                   Center(
                     child: Column(
                       children: [
                         Text(
-                          'Total do ciclo',
+                          'Total do ciclo · ${_range(cy)}',
                           style: T.label.copyWith(color: c.textSecondary),
                         ),
                         const SizedBox(height: Space.xs),
@@ -220,88 +199,90 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                     ),
                   ),
                   const SizedBox(height: Space.lg),
-                  // Gatilho de busca em pílula: abre página dedicada de busca
-                  Pressable(
-                    semanticLabel: 'Buscar gasto ou categoria',
-                    scale: 0.985,
-                    onTap: () => push(
-                      context,
-                      ExtratoSearchScreen(cycle: cy),
-                    ),
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Space.base,
-                      ),
-                      decoration: ShapeDecoration(
-                        color: c.card,
-                        shape: const StadiumBorder(),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            LucideIcons.search,
-                            size: 18,
-                            color: c.textSecondary,
+                  // Barra de busca em pílula (com transição Hero) + botão de filtros ao lado
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Pressable(
+                          semanticLabel: 'Buscar gasto ou categoria',
+                          scale: 0.985,
+                          onTap: () => _openSearch(context, cy),
+                          child: Hero(
+                            tag: _searchHeroTag,
+                            flightShuttleBuilder: _searchShuttle,
+                            child: Container(
+                              height: 48,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Space.base,
+                              ),
+                              decoration: ShapeDecoration(
+                                color: c.card,
+                                shape: const StadiumBorder(),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    LucideIcons.search,
+                                    size: 18,
+                                    color: c.textSecondary,
+                                  ),
+                                  const SizedBox(width: Space.sm),
+                                  Expanded(
+                                    child: Text(
+                                      'Buscar gasto ou categoria',
+                                      style: T.body.copyWith(
+                                        color: c.textTertiary,
+                                        decoration: TextDecoration.none,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: Space.sm),
-                          Text(
-                            'Buscar gasto ou categoria',
-                            style: T.body.copyWith(color: c.textTertiary),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: Space.sm),
+                      _FilterButton(
+                        activeCount: activeFilterCount,
+                        onTap: () => _showExtratoFilterSheet(
+                          context,
+                          usedCats: usedCats,
+                          selectedCard: _card,
+                          selectedCat: _cat,
+                          onApply: (card, cat) => setState(() {
+                            _card = card;
+                            _cat = cat;
+                          }),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-            // Filtros horizontais
-            SliverToBoxAdapter(
-              child: SizedBox(
-                height: 56,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(pad, Space.md, pad, Space.xs),
-                  children: [
-                    ChipButton(
-                      'Todos',
-                      selected: _cat == null && _card == null,
-                      onTap: () => setState(() => _cat = _card = null),
+                  if (activeCard != null || activeCat != null) ...[
+                    const SizedBox(height: Space.md),
+                    _ActiveFiltersRow(
+                      card: activeCard,
+                      category: activeCat,
+                      onClearCard: () => setState(() => _card = null),
+                      onClearCategory: () => setState(() => _cat = null),
+                      onClearAll: () => setState(() {
+                        _cat = null;
+                        _card = null;
+                      }),
                     ),
-                    for (final k in s.data.cards) ...[
-                      const SizedBox(width: Space.sm),
-                      ChipButton(
-                        k.last4.isNotEmpty ? '${k.name} •${k.last4}' : k.name,
-                        dot: Color(k.color),
-                        selected: _card == k.id,
-                        onTap: () =>
-                            setState(() => _card = _card == k.id ? null : k.id),
-                      ),
-                    ],
-                    for (final cat in categories.where(
-                      (x) => usedCats.contains(x.id) || x.id == _cat,
-                    )) ...[
-                      const SizedBox(width: Space.sm),
-                      ChipButton(
-                        cat.label,
-                        icon: cat.icon,
-                        selected: _cat == cat.id,
-                        onTap: () =>
-                            setState(() => _cat = _cat == cat.id ? null : cat.id),
-                      ),
-                    ],
                   ],
-                ),
+                ],
               ),
             ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 pad,
-                Space.sm,
+                Space.base,
                 pad,
-                navClearance(context),
+                (widget.standalone ? Space.xl + bottomInset : navClearance(context)) +
+                    68,
               ),
               sliver: SliverList.list(
                 children: [
@@ -326,13 +307,8 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                           : () => openAddExpense(context),
                     ),
                   ] else if (_kind == 0) ...[
-                    // Aba "Todos": recorrentes e únicos juntos numa só lista
+                    // Aba "Todos": recorrentes e únicos juntos numa só lista, sem título redundante
                     ListGroup(
-                      title: 'Gastos',
-                      trailing: Text(
-                        fmtMoney(total, hidden: hidden),
-                        style: T.smallStrong.copyWith(color: c.textSecondary),
-                      ),
                       children: [
                         for (final e in unified)
                           ExpenseRow(e: e, f: f, hidden: hidden),
@@ -377,7 +353,201 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
             ),
           ],
         ),
+        // Botão flutuante de adicionar gasto no canto inferior direito
+        Positioned(
+          right: pad,
+          bottom: fabBottom,
+          child: Pressable(
+            semanticLabel: 'Adicionar gasto',
+            scale: 0.92,
+            onTap: () => openAddExpense(context),
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: c.primary,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Palette.neutral950.withValues(
+                      alpha: c.isDark ? 0.48 : 0.18,
+                    ),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Icon(LucideIcons.plus, size: 24, color: c.onPrimary),
+            ),
+          ),
+        ),
       ],
+    );
+
+    if (!widget.standalone) return body;
+    return SheetScaler(
+      child: CupertinoPageScaffold(backgroundColor: c.bg, child: body),
+    );
+  }
+
+  void _openSearch(BuildContext context, Cycle cy) {
+    Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (_, _, _) => ExtratoSearchScreen(
+          cycle: cy,
+          initialCard: _card,
+          initialCat: _cat,
+        ),
+        transitionsBuilder: (_, anim, _, child) {
+          final curve = CurvedAnimation(
+            parent: anim,
+            curve: easeOutExpo,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(opacity: curve, child: child);
+        },
+      ),
+    );
+  }
+
+  Future<void> _openCyclePicker(BuildContext context, Finance f) {
+    final offsets = [for (var i = 3; i >= -11; i--) i];
+    return showSheet<void>(
+      context,
+      edgeToEdge: true,
+      builder: (ctx) {
+        final c = ctx.c;
+        final wellBg = c.isDark ? c.bg : c.surfaceLow;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Escolher ciclo',
+                      style: T.title.copyWith(
+                        color: c.text,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  if (_offset != 0)
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+                      onPressed: () {
+                        setState(() => _offset = 0);
+                        Navigator.pop(ctx);
+                      },
+                      child: Text(
+                        'Ciclo atual',
+                        style: T.labelStrong.copyWith(color: c.primary),
+                      ),
+                    ),
+                  RoundIconButton(
+                    LucideIcons.x,
+                    size: 36,
+                    bg: c.cardAlt,
+                    label: 'Fechar',
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.md),
+              Container(
+                padding: const EdgeInsets.all(Space.sm),
+                decoration: ShapeDecoration(
+                  color: wellBg,
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    for (final off in offsets)
+                      () {
+                        final itemCy = f.fromKey(f.current.key + off);
+                        final selected = off == _offset;
+                        final isCurrent = off == 0;
+                        return Pressable(
+                          scale: 0.985,
+                          onTap: () {
+                            setState(() => _offset = off);
+                            Navigator.pop(ctx);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Space.md,
+                              vertical: 12,
+                            ),
+                            decoration: ShapeDecoration(
+                              color: selected ? c.cardAlt : null,
+                              shape: RoundedSuperellipseBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        itemCy.label(),
+                                        style:
+                                            (selected
+                                                    ? T.bodyStrong
+                                                    : T.bodyMedium)
+                                                .copyWith(
+                                                  color: selected
+                                                      ? c.primary
+                                                      : c.text,
+                                                  decoration:
+                                                      TextDecoration.none,
+                                                ),
+                                      ),
+                                      Text(
+                                        _range(itemCy),
+                                        style: T.small.copyWith(
+                                          color: c.textSecondary,
+                                          decoration: TextDecoration.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isCurrent)
+                                  Tag(
+                                    'Atual',
+                                    bg: c.primarySoft,
+                                    fg: c.primary,
+                                  ),
+                                if (selected) ...[
+                                  const SizedBox(width: Space.sm),
+                                  Icon(
+                                    LucideIcons.check,
+                                    size: 18,
+                                    color: c.primary,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }(),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -395,10 +565,423 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
   }
 }
 
-/// Página dedicada de busca dentro do Extrato (sem competir com a navbar flutuante).
+const _searchHeroTag = 'extrato-search-bar';
+
+Widget _searchShuttle(
+  BuildContext flightContext,
+  Animation<double> animation,
+  HeroFlightDirection flightDirection,
+  BuildContext fromHeroContext,
+  BuildContext toHeroContext,
+) {
+  final c = flightContext.c;
+  return Container(
+    height: 48,
+    padding: const EdgeInsets.symmetric(horizontal: Space.base),
+    decoration: ShapeDecoration(color: c.card, shape: const StadiumBorder()),
+    child: Row(
+      children: [
+        Icon(LucideIcons.search, size: 18, color: c.textSecondary),
+        const SizedBox(width: Space.sm),
+        Expanded(
+          child: Text(
+            'Buscar gasto ou categoria',
+            style: T.body.copyWith(
+              color: c.textTertiary,
+              decoration: TextDecoration.none,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Seletor compacto de ciclo na top bar do Extrato: vidro fosco com ‹ mês ›
+/// e toque no nome do mês para abrir o seletor de ciclos.
+class _CycleBarPill extends StatelessWidget {
+  final String label;
+  final bool canNext;
+  final VoidCallback onPrev;
+  final VoidCallback onNext;
+  final VoidCallback onPick;
+  const _CycleBarPill({
+    required this.label,
+    required this.canNext,
+    required this.onPrev,
+    required this.onNext,
+    required this.onPick,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final glassBg = c.isDark
+        ? const Color(0xFF16161A).withValues(alpha: 0.56)
+        : const Color(0xFFFFFFFF).withValues(alpha: 0.62);
+    return ClipRSuperellipse(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          height: 38,
+          decoration: ShapeDecoration(
+            color: glassBg,
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: BorderSide(
+                color: c.isDark
+                    ? Palette.neutral0.withValues(alpha: 0.12)
+                    : Palette.neutral950.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Pressable(
+                semanticLabel: 'Ciclo anterior',
+                scale: 0.88,
+                onTap: onPrev,
+                child: SizedBox(
+                  width: 34,
+                  height: 38,
+                  child: Icon(
+                    LucideIcons.chevronLeft,
+                    size: 16,
+                    color: c.textSecondary,
+                  ),
+                ),
+              ),
+              Pressable(
+                semanticLabel: 'Escolher ciclo',
+                scale: 0.95,
+                onTap: onPick,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BlurSwitcher(
+                        alignment: Alignment.center,
+                        child: Text(
+                          label,
+                          key: ValueKey(label),
+                          style: T.labelStrong.copyWith(color: c.text),
+                          maxLines: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      Icon(
+                        LucideIcons.chevronDown,
+                        size: 13,
+                        color: c.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Pressable(
+                semanticLabel: 'Próximo ciclo',
+                scale: 0.88,
+                onTap: canNext ? onNext : null,
+                child: SizedBox(
+                  width: 34,
+                  height: 38,
+                  child: Icon(
+                    LucideIcons.chevronRight,
+                    size: 16,
+                    color: canNext ? c.textSecondary : c.textTertiary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Botão circular de filtros (compartilhado entre Extrato e Busca).
+class _FilterButton extends StatelessWidget {
+  final int activeCount;
+  final VoidCallback onTap;
+  const _FilterButton({required this.activeCount, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Pressable(
+      semanticLabel: 'Filtrar gastos',
+      scale: 0.94,
+      onTap: onTap,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: activeCount > 0 ? c.primary : c.card,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              LucideIcons.slidersHorizontal,
+              size: 20,
+              color: activeCount > 0 ? c.onPrimary : c.textSecondary,
+            ),
+          ),
+          if (activeCount > 0)
+            Positioned(
+              right: -2,
+              top: -2,
+              child: Container(
+                width: 20,
+                height: 20,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: c.text,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: c.bg, width: 2),
+                ),
+                child: Text(
+                  '$activeCount',
+                  style: T.micro.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: c.bg,
+                    height: 1.0,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Chips dos filtros ativos (exibidos apenas quando há filtro aplicado).
+class _ActiveFiltersRow extends StatelessWidget {
+  final PayCard? card;
+  final Category? category;
+  final VoidCallback onClearCard;
+  final VoidCallback onClearCategory;
+  final VoidCallback onClearAll;
+  const _ActiveFiltersRow({
+    required this.card,
+    required this.category,
+    required this.onClearCard,
+    required this.onClearCategory,
+    required this.onClearAll,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: Space.sm,
+      runSpacing: Space.sm,
+      children: [
+        if (card != null)
+          ChipButton(
+            card!.last4.isNotEmpty ? '${card!.name} •${card!.last4}' : card!.name,
+            dot: Color(card!.color),
+            selected: true,
+            onTap: onClearCard,
+          ),
+        if (category != null)
+          ChipButton(
+            category!.label,
+            icon: category!.icon,
+            selected: true,
+            onTap: onClearCategory,
+          ),
+        ChipButton(
+          'Limpar',
+          icon: LucideIcons.x,
+          onTap: onClearAll,
+        ),
+      ],
+    );
+  }
+}
+
+/// Bottom sheet de filtros compartilhado entre Extrato e Busca.
+Future<void> _showExtratoFilterSheet(
+  BuildContext context, {
+  required Set<String> usedCats,
+  required String? selectedCard,
+  required String? selectedCat,
+  required void Function(String? card, String? cat) onApply,
+}) {
+  final s = context.storeRead;
+  var tmpCard = selectedCard;
+  var tmpCat = selectedCat;
+  final availableCats = categories
+      .where((x) => usedCats.contains(x.id) || x.id == selectedCat)
+      .toList();
+
+  return showSheet<void>(
+    context,
+    edgeToEdge: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) {
+        final c = ctx.c;
+        final chipBg = c.isDark ? c.cardAlt : c.surfaceLow;
+        final hasAny = tmpCard != null || tmpCat != null;
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(
+            Space.gutter,
+            4,
+            Space.gutter,
+            20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Filtros',
+                      style: T.title.copyWith(
+                        color: c.text,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  if (hasAny)
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Space.sm,
+                      ),
+                      onPressed: () => set(() {
+                        tmpCard = null;
+                        tmpCat = null;
+                      }),
+                      child: Text(
+                        'Limpar',
+                        style: T.labelStrong.copyWith(color: c.primary),
+                      ),
+                    ),
+                  RoundIconButton(
+                    LucideIcons.x,
+                    size: 36,
+                    bg: chipBg,
+                    label: 'Fechar',
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              if (s.data.cards.isNotEmpty) ...[
+                const SizedBox(height: Space.base),
+                Text(
+                  'Contas e cartões',
+                  style: T.label.copyWith(
+                    color: c.textSecondary,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: Space.sm),
+                Wrap(
+                  spacing: Space.sm,
+                  runSpacing: Space.sm,
+                  children: [
+                    ChipButton(
+                      'Todas',
+                      bg: chipBg,
+                      selected: tmpCard == null,
+                      onTap: () => set(() => tmpCard = null),
+                    ),
+                    for (final k in s.data.cards)
+                      ChipButton(
+                        k.last4.isNotEmpty ? '${k.name} •${k.last4}' : k.name,
+                        dot: Color(k.color),
+                        bg: chipBg,
+                        selected: tmpCard == k.id,
+                        onTap: () => set(
+                          () => tmpCard = tmpCard == k.id ? null : k.id,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+              if (availableCats.isNotEmpty) ...[
+                const SizedBox(height: Space.base),
+                Text(
+                  'Categorias',
+                  style: T.label.copyWith(
+                    color: c.textSecondary,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: Space.sm),
+                Wrap(
+                  spacing: Space.sm,
+                  runSpacing: Space.sm,
+                  children: [
+                    ChipButton(
+                      'Todas',
+                      bg: chipBg,
+                      selected: tmpCat == null,
+                      onTap: () => set(() => tmpCat = null),
+                    ),
+                    for (final cat in availableCats)
+                      ChipButton(
+                        cat.label,
+                        icon: cat.icon,
+                        bg: chipBg,
+                        selected: tmpCat == cat.id,
+                        onTap: () => set(
+                          () => tmpCat = tmpCat == cat.id ? null : cat.id,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+              if (s.data.cards.isEmpty && availableCats.isEmpty) ...[
+                const SizedBox(height: Space.base),
+                Text(
+                  'Nenhum filtro disponível para este ciclo.',
+                  style: T.label.copyWith(
+                    color: c.textSecondary,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+              const SizedBox(height: Space.lg),
+              PillButton(
+                'Aplicar',
+                onTap: () {
+                  onApply(tmpCard, tmpCat);
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// Página dedicada de busca dentro do Extrato (com transição Hero da barra de
+/// busca e o mesmo modelo de filtros em botão + sheet).
 class ExtratoSearchScreen extends StatefulWidget {
   final Cycle cycle;
-  const ExtratoSearchScreen({super.key, required this.cycle});
+  final String? initialCard;
+  final String? initialCat;
+  const ExtratoSearchScreen({
+    super.key,
+    required this.cycle,
+    this.initialCard,
+    this.initialCat,
+  });
 
   @override
   State<ExtratoSearchScreen> createState() => _ExtratoSearchScreenState();
@@ -409,12 +992,13 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
   final _focus = FocusNode();
   String _q = '';
   bool _allCycles = false;
-  String? _cat;
+  late String? _cat = widget.initialCat;
+  late String? _card = widget.initialCard;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.delayed(const Duration(milliseconds: 180), () {
       if (mounted) _focus.requestFocus();
     });
   }
@@ -442,6 +1026,9 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
     if (_cat != null) {
       results = results.where((e) => e.categoryId == _cat).toList();
     }
+    if (_card != null) {
+      results = results.where((e) => e.cardId == _card).toList();
+    }
     if (qFold.isNotEmpty) {
       results = results.where((e) {
         final cardName = s.card(e.cardId)?.name ?? '';
@@ -453,6 +1040,9 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
     results.sort((a, b) => b.date.compareTo(a.date));
     final total = results.fold<int>(0, (t, e) => t + e.cents);
     final usedCats = base.map((e) => e.categoryId).toSet();
+    final activeFilterCount = (_cat != null ? 1 : 0) + (_card != null ? 1 : 0);
+    final activeCard = _card == null ? null : s.card(_card);
+    final activeCat = _cat == null ? null : categoryById(_cat!);
 
     return SheetScaler(
       child: CupertinoPageScaffold(
@@ -470,31 +1060,49 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
                   const BackChevron(),
                   const SizedBox(width: Space.xs),
                   Expanded(
-                    child: AppField(
-                      controller: _ctrl,
-                      focusNode: _focus,
-                      placeholder: 'Buscar gasto, categoria ou cartão',
-                      pill: true,
-                      prefix: Icon(
-                        LucideIcons.search,
-                        size: 18,
-                        color: c.textSecondary,
-                      ),
-                      suffix: _q.isEmpty
-                          ? null
-                          : Pressable(
-                              onTap: () {
-                                _ctrl.clear();
-                                setState(() => _q = '');
-                              },
-                              child: Icon(
-                                LucideIcons.x,
-                                size: 18,
-                                color: c.textSecondary,
+                    child: Hero(
+                      tag: _searchHeroTag,
+                      flightShuttleBuilder: _searchShuttle,
+                      child: AppField(
+                        controller: _ctrl,
+                        focusNode: _focus,
+                        placeholder: 'Buscar gasto ou categoria',
+                        pill: true,
+                        prefix: Icon(
+                          LucideIcons.search,
+                          size: 18,
+                          color: c.textSecondary,
+                        ),
+                        suffix: _q.isEmpty
+                            ? null
+                            : Pressable(
+                                onTap: () {
+                                  _ctrl.clear();
+                                  setState(() => _q = '');
+                                },
+                                child: Icon(
+                                  LucideIcons.x,
+                                  size: 18,
+                                  color: c.textSecondary,
+                                ),
                               ),
-                            ),
-                      onChanged: (v) => setState(() => _q = v.trim()),
-                      action: TextInputAction.search,
+                        onChanged: (v) => setState(() => _q = v.trim()),
+                        action: TextInputAction.search,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Space.sm),
+                  _FilterButton(
+                    activeCount: activeFilterCount,
+                    onTap: () => _showExtratoFilterSheet(
+                      context,
+                      usedCats: usedCats,
+                      selectedCard: _card,
+                      selectedCat: _cat,
+                      onApply: (card, cat) => setState(() {
+                        _card = card;
+                        _cat = cat;
+                      }),
                     ),
                   ),
                 ],
@@ -512,42 +1120,24 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
                     },
                     onChanged: (v) => setState(() => _allCycles = v),
                   ),
+                  if (activeCard != null || activeCat != null) ...[
+                    const SizedBox(height: Space.md),
+                    _ActiveFiltersRow(
+                      card: activeCard,
+                      category: activeCat,
+                      onClearCard: () => setState(() => _card = null),
+                      onClearCategory: () => setState(() => _cat = null),
+                      onClearAll: () => setState(() {
+                        _cat = null;
+                        _card = null;
+                      }),
+                    ),
+                  ],
                 ],
               ),
             ),
-            if (usedCats.isNotEmpty)
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 54,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(pad, Space.md, pad, Space.xs),
-                    children: [
-                      ChipButton(
-                        'Todas',
-                        selected: _cat == null,
-                        onTap: () => setState(() => _cat = null),
-                      ),
-                      for (final cat in categories.where(
-                        (x) => usedCats.contains(x.id) || x.id == _cat,
-                      )) ...[
-                        const SizedBox(width: Space.sm),
-                        ChipButton(
-                          cat.label,
-                          icon: cat.icon,
-                          selected: _cat == cat.id,
-                          onTap: () => setState(
-                            () => _cat = _cat == cat.id ? null : cat.id,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
+              padding: EdgeInsets.fromLTRB(pad, Space.base, pad, Space.xl),
               sliver: SliverList.list(
                 children: [
                   if (results.isEmpty)
@@ -559,10 +1149,15 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
                           : 'Nenhum lançamento encontrado com esse filtro.',
                       action: !_allCycles && _q.isNotEmpty
                           ? 'Buscar em todos os ciclos'
-                          : null,
+                          : (activeFilterCount > 0 ? 'Limpar filtros' : null),
                       onAction: !_allCycles && _q.isNotEmpty
                           ? () => setState(() => _allCycles = true)
-                          : null,
+                          : (activeFilterCount > 0
+                                ? () => setState(() {
+                                    _cat = null;
+                                    _card = null;
+                                  })
+                                : null),
                     )
                   else
                     ListGroup(

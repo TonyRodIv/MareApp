@@ -115,6 +115,16 @@ class Store extends ChangeNotifier {
     _commit();
   }
 
+  void setNavTabs(List<String> tabs) {
+    data.navTabs = List<String>.from(tabs);
+    _commit();
+  }
+
+  void resetNavTabs() {
+    data.navTabs = [];
+    _commit();
+  }
+
   void setCycleStartDay(int day) {
     data.cycleStartDay = day.clamp(1, 31);
     _commit();

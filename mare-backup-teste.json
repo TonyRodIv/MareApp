@@ -1,0 +1,520 @@
+{
+  "mareVersion": 1,
+  "updatedAt": "2026-11-22T22:00:00.000Z",
+  "userName": "Antony Rodrigues",
+  "avatarPath": null,
+  "userSince": 2026,
+  "cycleStartDay": 5,
+  "theme": "dark",
+  "accentColor": 4289679838,
+  "hideValues": false,
+  "onboardingDone": true,
+  "salaries": [
+    { "fromKey": 24319, "cents": 420000 },
+    { "fromKey": 24322, "cents": 480000 }
+  ],
+  "cards": [
+    {
+      "id": "card_nubank",
+      "name": "Nubank",
+      "last4": "4821",
+      "color": 4286712529,
+      "brand": "mastercard",
+      "isCard": true
+    },
+    {
+      "id": "card_itau",
+      "name": "Itaú",
+      "last4": "9314",
+      "color": 4293685248,
+      "brand": "visa",
+      "isCard": true
+    },
+    {
+      "id": "card_bradesco",
+      "name": "Bradesco",
+      "last4": "",
+      "color": 4291561775,
+      "brand": "other",
+      "isCard": false
+    },
+    {
+      "id": "card_inter",
+      "name": "Inter",
+      "last4": "",
+      "color": 4294932992,
+      "brand": "other",
+      "isCard": false
+    }
+  ],
+  "boxes": [
+    {
+      "id": "box_reserva",
+      "name": "Reserva de emergência",
+      "icon": "shield",
+      "color": 4281381063,
+      "goalCents": 1000000,
+      "createdKey": 24319,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24319, "mode": "fixed", "amount": 40000 }
+      ],
+      "movements": [
+        {
+          "id": "mv_res_1",
+          "name": "Bônus do projeto",
+          "cents": 150000,
+          "type": "deposit",
+          "date": "2026-08-18T12:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        },
+        {
+          "id": "mv_res_2",
+          "name": "Freelance",
+          "cents": 85000,
+          "type": "deposit",
+          "date": "2026-10-12T15:30:00.000",
+          "recurrence": "once",
+          "endDate": null
+        },
+        {
+          "id": "mv_res_3",
+          "name": "Revisão imprevista",
+          "cents": 32000,
+          "type": "redeem",
+          "date": "2026-11-09T10:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        }
+      ]
+    },
+    {
+      "id": "box_viagem",
+      "name": "Viagem pro Japão",
+      "icon": "plane",
+      "color": 4281908728,
+      "goalCents": 1200000,
+      "createdKey": 24319,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24319, "mode": "percent", "amount": 1000 }
+      ],
+      "movements": [
+        {
+          "id": "mv_via_1",
+          "name": "Venda de console antigo",
+          "cents": 140000,
+          "type": "deposit",
+          "date": "2026-09-20T18:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        }
+      ]
+    },
+    {
+      "id": "box_setup",
+      "name": "Setup & Games",
+      "icon": "laptop",
+      "color": 4289679838,
+      "goalCents": 450000,
+      "createdKey": 24320,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24320, "mode": "fixed", "amount": 25000 }
+      ],
+      "movements": [
+        {
+          "id": "mv_set_1",
+          "name": "Suporte articulado monitor",
+          "cents": 18990,
+          "type": "spend",
+          "date": "2026-11-11T14:20:00.000",
+          "recurrence": "once",
+          "endDate": null
+        }
+      ]
+    },
+    {
+      "id": "box_celular",
+      "name": "Celular novo",
+      "icon": "gift",
+      "color": 4294945331,
+      "goalCents": 350000,
+      "createdKey": 24318,
+      "closedKey": 24321,
+      "plans": [
+        { "fromKey": 24318, "mode": "fixed", "amount": 50000 }
+      ],
+      "movements": [
+        {
+          "id": "mv_cel_1",
+          "name": "Compra do S24+",
+          "cents": 150000,
+          "type": "spend",
+          "date": "2026-10-02T16:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        }
+      ]
+    }
+  ],
+  "expenses": [
+    {
+      "id": "exp_aluguel",
+      "name": "Aluguel",
+      "cents": 115000,
+      "categoryId": "moradia",
+      "cardId": "card_bradesco",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_internet",
+      "name": "Vivo Fibra",
+      "cents": 11990,
+      "categoryId": "contas",
+      "cardId": "card_bradesco",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_energia",
+      "name": "Energia Enel",
+      "cents": 16450,
+      "categoryId": "contas",
+      "cardId": "card_inter",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_academia",
+      "name": "Smart Fit",
+      "cents": 12990,
+      "categoryId": "saude",
+      "cardId": "card_nubank",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_spotify",
+      "name": "Spotify",
+      "cents": 2190,
+      "categoryId": "assinaturas",
+      "cardId": "card_nubank",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_netflix",
+      "name": "Netflix",
+      "cents": 4490,
+      "categoryId": "assinaturas",
+      "cardId": "card_nubank",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_youtube",
+      "name": "YouTube Premium",
+      "cents": 2490,
+      "categoryId": "assinaturas",
+      "cardId": "card_itau",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_prime",
+      "name": "Amazon Prime",
+      "cents": 1990,
+      "categoryId": "assinaturas",
+      "cardId": "card_nubank",
+      "date": "2026-08-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-08-05T09:00:00.000"
+    },
+    {
+      "id": "exp_chatgpt",
+      "name": "ChatGPT Plus",
+      "cents": 10990,
+      "categoryId": "assinaturas",
+      "cardId": "card_itau",
+      "date": "2026-09-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2026-09-05T09:00:00.000"
+    },
+    {
+      "id": "exp_macbook",
+      "name": "MacBook Air (10x)",
+      "cents": 49990,
+      "categoryId": "tecnologia",
+      "cardId": "card_itau",
+      "date": "2026-07-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": "2027-04-30T23:59:59.000",
+      "createdAt": "2026-07-05T09:00:00.000"
+    },
+    {
+      "id": "exp_switch2",
+      "name": "Nintendo Switch 2 (6x)",
+      "cents": 32990,
+      "categoryId": "jogos",
+      "cardId": "card_nubank",
+      "date": "2026-09-05T09:00:00.000",
+      "recurrence": "monthly",
+      "endDate": "2027-02-28T23:59:59.000",
+      "createdAt": "2026-09-05T09:00:00.000"
+    },
+    {
+      "id": "exp_nov_1",
+      "name": "Pokémon Ventos",
+      "cents": 34990,
+      "categoryId": "jogos",
+      "cardId": "card_itau",
+      "date": "2026-11-22T14:20:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-22T14:20:00.000"
+    },
+    {
+      "id": "exp_nov_2",
+      "name": "The Last of Us",
+      "cents": 19950,
+      "categoryId": "jogos",
+      "cardId": "card_nubank",
+      "date": "2026-11-20T19:15:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-20T19:15:00.000"
+    },
+    {
+      "id": "exp_nov_3",
+      "name": "Supermercado Carrefour",
+      "cents": 28640,
+      "categoryId": "alimentacao",
+      "cardId": "card_inter",
+      "date": "2026-11-19T17:45:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-19T17:45:00.000"
+    },
+    {
+      "id": "exp_nov_4",
+      "name": "iFood",
+      "cents": 5890,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-11-21T20:30:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-21T20:30:00.000"
+    },
+    {
+      "id": "exp_nov_5",
+      "name": "Uber",
+      "cents": 2940,
+      "categoryId": "transporte",
+      "cardId": "card_nubank",
+      "date": "2026-11-21T23:10:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-21T23:10:00.000"
+    },
+    {
+      "id": "exp_nov_6",
+      "name": "Drogasil Farmácia",
+      "cents": 7420,
+      "categoryId": "saude",
+      "cardId": "card_bradesco",
+      "date": "2026-11-17T11:30:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-17T11:30:00.000"
+    },
+    {
+      "id": "exp_nov_7",
+      "name": "Petz Ração",
+      "cents": 13490,
+      "categoryId": "pets",
+      "cardId": "card_inter",
+      "date": "2026-11-15T16:10:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-15T16:10:00.000"
+    },
+    {
+      "id": "exp_nov_8",
+      "name": "Cinemark",
+      "cents": 6800,
+      "categoryId": "lazer",
+      "cardId": "card_nubank",
+      "date": "2026-11-14T21:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-14T21:00:00.000"
+    },
+    {
+      "id": "exp_nov_9",
+      "name": "KaBuM Mouse Gamer",
+      "cents": 24990,
+      "categoryId": "tecnologia",
+      "cardId": "card_itau",
+      "date": "2026-11-12T10:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-12T10:00:00.000"
+    },
+    {
+      "id": "exp_nov_10",
+      "name": "Shell Gasolina",
+      "cents": 18000,
+      "categoryId": "transporte",
+      "cardId": "card_bradesco",
+      "date": "2026-11-08T15:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-08T15:00:00.000"
+    },
+    {
+      "id": "exp_nov_11",
+      "name": "iFood",
+      "cents": 4750,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-11-07T19:40:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-07T19:40:00.000"
+    },
+    {
+      "id": "exp_out_1",
+      "name": "Supermercado Carrefour",
+      "cents": 41280,
+      "categoryId": "alimentacao",
+      "cardId": "card_inter",
+      "date": "2026-10-22T18:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-22T18:00:00.000"
+    },
+    {
+      "id": "exp_out_2",
+      "name": "Booking Hotel Gramado",
+      "cents": 52000,
+      "categoryId": "viagem",
+      "cardId": "card_itau",
+      "date": "2026-10-18T12:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-18T12:00:00.000"
+    },
+    {
+      "id": "exp_out_3",
+      "name": "iFood",
+      "cents": 6290,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-10-14T20:20:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-14T20:20:00.000"
+    },
+    {
+      "id": "exp_out_4",
+      "name": "Uber",
+      "cents": 3850,
+      "categoryId": "transporte",
+      "cardId": "card_nubank",
+      "date": "2026-10-11T22:45:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-11T22:45:00.000"
+    },
+    {
+      "id": "exp_out_5",
+      "name": "Zara Camiseta",
+      "cents": 15990,
+      "categoryId": "compras",
+      "cardId": "card_itau",
+      "date": "2026-10-09T15:10:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-09T15:10:00.000"
+    },
+    {
+      "id": "exp_set_1",
+      "name": "Supermercado Assaí",
+      "cents": 38900,
+      "categoryId": "alimentacao",
+      "cardId": "card_inter",
+      "date": "2026-09-19T11:30:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-09-19T11:30:00.000"
+    },
+    {
+      "id": "exp_set_2",
+      "name": "Hollow Knight Silksong",
+      "cents": 11990,
+      "categoryId": "jogos",
+      "cardId": "card_nubank",
+      "date": "2026-09-12T20:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-09-12T20:00:00.000"
+    },
+    {
+      "id": "exp_set_3",
+      "name": "Uber",
+      "cents": 4420,
+      "categoryId": "transporte",
+      "cardId": "card_nubank",
+      "date": "2026-09-08T08:15:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-09-08T08:15:00.000"
+    },
+    {
+      "id": "exp_ago_1",
+      "name": "Supermercado Assaí",
+      "cents": 35500,
+      "categoryId": "alimentacao",
+      "cardId": "card_bradesco",
+      "date": "2026-08-21T16:40:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-08-21T16:40:00.000"
+    },
+    {
+      "id": "exp_ago_2",
+      "name": "Udemy Curso Flutter",
+      "cents": 3990,
+      "categoryId": "educacao",
+      "cardId": "card_nubank",
+      "date": "2026-08-14T19:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-08-14T19:00:00.000"
+    }
+  ],
+  "cardSpans": {},
+  "widgetOrder": [],
+  "hiddenWidgets": [],
+  "navTabs": []
+}

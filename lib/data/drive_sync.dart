@@ -293,7 +293,9 @@ class SyncService extends ChangeNotifier {
 
   static SyncService attach(Store store, {bool restoreSession = true}) {
     final svc = SyncService._(store, store.prefs);
-    if (restoreSession && svc._accountEmail != null) {
+    if (restoreSession &&
+        svc._accountEmail != null &&
+        store.data.onboardingDone) {
       unawaited(svc._restoreSilentSession());
     }
     return svc;
@@ -319,6 +321,17 @@ class SyncService extends ChangeNotifier {
   SyncConflict? get pendingConflict => _pendingConflict;
 
   bool get isSupportedPlatform => !kIsWeb;
+
+  /// Verdadeiro quando existem dados locais que ainda não foram enviados ao Drive.
+  bool get hasUnsyncedChanges {
+    if (!isConnected) return _store.hasMeaningfulData;
+    if (_pendingConflict != null) return true;
+    final last = _lastSyncedAt;
+    if (last == null) return _store.hasMeaningfulData;
+    final local = _store.data.updatedAt;
+    if (local == null) return false;
+    return local.isAfter(last.add(const Duration(seconds: 2)));
+  }
 
   GoogleSignIn _ensureSignIn() =>
       _googleSignIn ??= GoogleSignIn(scopes: const [driveAppDataScope]);
@@ -375,10 +388,10 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> _restoreSilentSession() async {
-    if (!isSupportedPlatform) return;
+    if (!isSupportedPlatform || !_store.data.onboardingDone) return;
     try {
       final acc = await _ensureSignIn().signInSilently();
-      if (_disposed) return;
+      if (_disposed || !_store.data.onboardingDone) return;
       if (acc != null) {
         _setAccount(acc);
         _startPeriodicTimer();
@@ -423,25 +436,36 @@ class SyncService extends ChangeNotifier {
   // ── Gatilhos automáticos ──────────────────────────────────
 
   void notifyLocalChange() {
-    if (!isConnected || !_autoSync || _frequency != SyncFrequency.realtime) {
+    if (!_store.data.onboardingDone ||
+        !isConnected ||
+        !_autoSync ||
+        _frequency != SyncFrequency.realtime) {
       return;
     }
     if (_pendingConflict != null) return;
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 8), () {
-      if (!_disposed && isConnected && _autoSync) {
+      if (!_disposed &&
+          _store.data.onboardingDone &&
+          isConnected &&
+          _autoSync) {
         unawaited(syncNow(silent: true));
       }
     });
   }
 
   void onAppResumed() {
-    if (!isConnected || !_autoSync) return;
+    if (!_store.data.onboardingDone || !isConnected || !_autoSync) return;
     unawaited(_syncIfDue());
   }
 
   Future<void> _syncIfDue() async {
-    if (!isConnected || !_autoSync || _pendingConflict != null) return;
+    if (!_store.data.onboardingDone ||
+        !isConnected ||
+        !_autoSync ||
+        _pendingConflict != null) {
+      return;
+    }
     final interval = _frequency.pullInterval;
     if (interval == null) return;
     final last = _lastSyncedAt;

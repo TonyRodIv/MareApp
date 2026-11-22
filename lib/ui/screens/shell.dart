@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme.dart';
+import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
@@ -10,7 +11,101 @@ import 'box_form.dart';
 import 'caixinhas.dart';
 import 'extrato.dart';
 import 'home.dart';
+import 'insights.dart';
 import 'profile.dart';
+
+/// Destino configurável da barra de navegação inferior.
+class NavDestination {
+  final String id;
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final bool locked;
+  const NavDestination({
+    required this.id,
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    this.locked = false,
+  });
+}
+
+/// Todas as telas que podem ser fixadas na barra de navegação inferior.
+const navDestinations = <NavDestination>[
+  NavDestination(
+    id: 'home',
+    label: 'Carteira',
+    subtitle: 'Resumo do ciclo e saldo livre',
+    icon: LucideIcons.wallet,
+  ),
+  NavDestination(
+    id: 'extrato',
+    label: 'Extrato',
+    subtitle: 'Todos os gastos e filtros',
+    icon: LucideIcons.receiptText,
+  ),
+  NavDestination(
+    id: 'caixinhas',
+    label: 'Caixinhas',
+    subtitle: 'Metas e reservas mensais',
+    icon: LucideIcons.piggyBank,
+  ),
+  NavDestination(
+    id: 'categorias',
+    label: 'Categorias',
+    subtitle: 'Divisão de gastos por categoria',
+    icon: LucideIcons.chartPie,
+  ),
+  NavDestination(
+    id: 'assinaturas',
+    label: 'Assinaturas',
+    subtitle: 'Serviços recorrentes e gráfico',
+    icon: LucideIcons.tv,
+  ),
+  NavDestination(
+    id: 'historico',
+    label: 'Histórico',
+    subtitle: 'Evolução dos últimos ciclos',
+    icon: LucideIcons.chartColumn,
+  ),
+  NavDestination(
+    id: 'ritmo',
+    label: 'Ritmo',
+    subtitle: 'Meta diária, calendário e sequência',
+    icon: LucideIcons.zap,
+  ),
+  NavDestination(
+    id: 'perfil',
+    label: 'Seu Perfil',
+    subtitle: 'Finanças e configurações',
+    icon: LucideIcons.user,
+    locked: true,
+  ),
+];
+
+/// Resolve a lista efetiva de abas fixadas (2 a 5 itens, sempre com `perfil`).
+List<String> effectiveNavTabs(AppData d) {
+  final validIds = {for (final n in navDestinations) n.id};
+  if (d.navTabs.isEmpty) {
+    return d.boxes.isNotEmpty
+        ? const ['home', 'extrato', 'caixinhas', 'perfil']
+        : const ['home', 'extrato', 'perfil'];
+  }
+  final out = <String>[];
+  for (final id in d.navTabs) {
+    if (validIds.contains(id) && !out.contains(id) && out.length < 5) {
+      out.add(id);
+    }
+  }
+  if (!out.contains('perfil')) {
+    if (out.length >= 5) out.removeLast();
+    out.add('perfil');
+  }
+  if (out.length < 2) {
+    if (!out.contains('home')) out.insert(0, 'home');
+  }
+  return out;
+}
 
 /// Navega com a transição nativa do iOS (swipe para voltar incluso).
 Future<V?> push<V>(BuildContext context, Widget page) =>
@@ -47,8 +142,20 @@ class Shell extends StatefulWidget {
 }
 
 class _ShellState extends State<Shell> {
-  int _tab = 0;
+  final _tabId = ValueNotifier<String>('home');
   final _extratoFilter = ValueNotifier<ExtratoFilter?>(null);
+  late final Map<String, Widget> _pageCache = {
+    'home': const RepaintBoundary(child: HomeScreen()),
+    'extrato': RepaintBoundary(child: ExtratoScreen(filter: _extratoFilter)),
+    'caixinhas': const RepaintBoundary(child: CaixinhasScreen()),
+    'categorias': const RepaintBoundary(child: CategoriesScreen(embedded: true)),
+    'assinaturas': const RepaintBoundary(
+      child: SubscriptionsScreen(embedded: true),
+    ),
+    'historico': const RepaintBoundary(child: HistoryScreen(embedded: true)),
+    'ritmo': const RepaintBoundary(child: RhythmScreen(embedded: true)),
+    'perfil': const RepaintBoundary(child: ProfileScreen()),
+  };
 
   @override
   void initState() {
@@ -56,39 +163,82 @@ class _ShellState extends State<Shell> {
     shellNav._impl = _goTo;
   }
 
+  @override
+  void dispose() {
+    _tabId.dispose();
+    _extratoFilter.dispose();
+    super.dispose();
+  }
+
+  static const _legacyTabIds = ['home', 'extrato', 'caixinhas', 'perfil'];
+
   void _goTo(int tab, {ExtratoFilter? filter}) {
-    if (filter != null) _extratoFilter.value = filter;
-    if (tab == 2 && context.storeRead.data.boxes.isEmpty) {
+    final targetId = (tab >= 0 && tab < _legacyTabIds.length)
+        ? _legacyTabIds[tab]
+        : 'home';
+    final s = context.storeRead;
+    if (targetId == 'caixinhas' && s.data.boxes.isEmpty) {
       pushFluid(context, const BoxForm());
       return;
     }
-    setState(() => _tab = tab);
+    final tabs = effectiveNavTabs(s.data);
+    if (tabs.contains(targetId)) {
+      if (filter != null) _extratoFilter.value = filter;
+      _tabId.value = targetId;
+      return;
+    }
+    // Se a tela não está fixada na barra inferior, abre como página empilhada.
+    if (targetId == 'extrato') {
+      final f = ValueNotifier<ExtratoFilter?>(filter);
+      push(context, ExtratoScreen(filter: f, standalone: true));
+    } else if (targetId == 'caixinhas') {
+      push(context, const CaixinhasScreen(standalone: true));
+    } else if (targetId == 'perfil') {
+      _tabId.value = 'perfil';
+    }
+  }
+
+  NavItem _buildNavItem(String id, AppData d) {
+    final dest = navDestinations.firstWhere(
+      (n) => n.id == id,
+      orElse: () => navDestinations.first,
+    );
+    return switch (id) {
+      'home' => NavItem(
+        dest.label,
+        dest.icon,
+        activeBuilder: (col, sz) =>
+            _FilledNavIcon(kind: 0, color: col, size: sz),
+      ),
+      'extrato' => NavItem(
+        dest.label,
+        dest.icon,
+        activeBuilder: (col, sz) =>
+            _FilledNavIcon(kind: 1, color: col, size: sz),
+      ),
+      'caixinhas' => NavItem(
+        dest.label,
+        dest.icon,
+        activeBuilder: (col, sz) =>
+            _FilledNavIcon(kind: 2, color: col, size: sz),
+      ),
+      'perfil' => NavItem(
+        dest.label,
+        dest.icon,
+        custom: Avatar(path: d.avatarPath, name: d.userName, size: 24),
+      ),
+      _ => NavItem(dest.label, dest.icon),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.store;
-    final hasBoxes = s.data.boxes.isNotEmpty;
-    final effectiveTab = (!hasBoxes && _tab == 2) ? 0 : _tab;
-    if (effectiveTab != _tab) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _tab == 2 && context.storeRead.data.boxes.isEmpty) {
-          setState(() => _tab = 0);
-        }
-      });
-    }
-    final pages = [
-      const HomeScreen(),
-      ExtratoScreen(filter: _extratoFilter),
-      const CaixinhasScreen(),
-      const ProfileScreen(),
-    ];
-    final logicalTabs = hasBoxes ? const [0, 1, 2, 3] : const [0, 1, 3];
-    final navIndex = logicalTabs
-        .indexOf(effectiveTab)
-        .clamp(0, logicalTabs.length - 1);
+    final tabs = effectiveNavTabs(s.data);
     final bottom = MediaQuery.paddingOf(context).bottom;
+    final orderedPages = [for (final id in tabs) _pageCache[id]!];
+
     return ShellScope(
       goTo: _goTo,
       child: SheetScaler(
@@ -96,20 +246,32 @@ class _ShellState extends State<Shell> {
           backgroundColor: c.bg,
           child: Stack(
             children: [
-              RepaintBoundary(
-                child: IndexedStack(index: effectiveTab, children: pages),
+              ValueListenableBuilder<String>(
+                valueListenable: _tabId,
+                builder: (_, activeId, _) {
+                  final idx = tabs.indexOf(activeId);
+                  final safeIdx = idx < 0 ? 0 : idx;
+                  if (idx < 0) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && !tabs.contains(_tabId.value)) {
+                        _tabId.value = tabs.first;
+                      }
+                    });
+                  }
+                  return IndexedStack(index: safeIdx, children: orderedPages);
+                },
               ),
-              // Progressive blur contido logo atrás da barra inferior flutuante
+              // Progressive blur mais encorpado atrás da barra inferior flutuante
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: 126 + bottom,
+                height: 140 + bottom,
                 child: ProgressiveBlur(
                   direction: AxisDirection.up,
-                  maxSigma: 18,
+                  maxSigma: 22,
                   tint: c.isDark ? const Color(0xFF0A0A0A) : null,
-                  tintOpacity: c.isDark ? 0.80 : 0.82,
+                  tintOpacity: c.isDark ? 0.82 : 0.84,
                 ),
               ),
               Positioned(
@@ -119,39 +281,19 @@ class _ShellState extends State<Shell> {
                 child: Center(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 520),
-                    child: FloatingNavBar(
-                      index: navIndex,
-                      onTap: (i) => setState(() => _tab = logicalTabs[i]),
-                      items: [
-                        NavItem(
-                          'Carteira',
-                          LucideIcons.wallet,
-                          activeBuilder: (col, sz) =>
-                              _FilledNavIcon(kind: 0, color: col, size: sz),
-                        ),
-                        NavItem(
-                          'Extrato',
-                          LucideIcons.receiptText,
-                          activeBuilder: (col, sz) =>
-                              _FilledNavIcon(kind: 1, color: col, size: sz),
-                        ),
-                        if (hasBoxes)
-                          NavItem(
-                            'Caixinhas',
-                            LucideIcons.piggyBank,
-                            activeBuilder: (col, sz) =>
-                                _FilledNavIcon(kind: 2, color: col, size: sz),
-                          ),
-                        NavItem(
-                          'Seu Perfil',
-                          LucideIcons.user,
-                          custom: Avatar(
-                            path: s.data.avatarPath,
-                            name: s.data.userName,
-                            size: 24,
-                          ),
-                        ),
-                      ],
+                    child: ValueListenableBuilder<String>(
+                      valueListenable: _tabId,
+                      builder: (_, activeId, _) {
+                        final idx = tabs.indexOf(activeId);
+                        final navIndex = idx < 0 ? 0 : idx;
+                        return FloatingNavBar(
+                          index: navIndex,
+                          onTap: (i) => _tabId.value = tabs[i],
+                          items: [
+                            for (final id in tabs) _buildNavItem(id, s.data),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),

@@ -519,14 +519,17 @@ class PayCard {
   String last4;
   int color;
   CardBrand brand;
+  bool isCard;
 
   PayCard({
     String? id,
     required this.name,
-    required this.last4,
+    this.last4 = '',
     required this.color,
     this.brand = CardBrand.other,
-  }) : id = id ?? newId();
+    bool? isCard,
+  }) : id = id ?? newId(),
+       isCard = isCard ?? last4.trim().isNotEmpty;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -534,17 +537,22 @@ class PayCard {
     'last4': last4,
     'color': color,
     'brand': brand.name,
+    'isCard': isCard,
   };
-  factory PayCard.fromJson(Map<String, dynamic> j) => PayCard(
-    id: j['id'] as String?,
-    name: j['name'] as String? ?? 'Cartão',
-    last4: j['last4'] as String? ?? '',
-    color: (j['color'] as num?)?.toInt() ?? cardColors.first.toARGB32(),
-    brand: CardBrand.values.firstWhere(
-      (b) => b.name == j['brand'],
-      orElse: () => CardBrand.other,
-    ),
-  );
+  factory PayCard.fromJson(Map<String, dynamic> j) {
+    final l4 = j['last4'] as String? ?? '';
+    return PayCard(
+      id: j['id'] as String?,
+      name: j['name'] as String? ?? 'Cartão',
+      last4: l4,
+      color: (j['color'] as num?)?.toInt() ?? cardColors.first.toARGB32(),
+      brand: CardBrand.values.firstWhere(
+        (b) => b.name == j['brand'],
+        orElse: () => CardBrand.other,
+      ),
+      isCard: j['isCard'] as bool? ?? l4.trim().isNotEmpty,
+    );
+  }
 }
 
 // ── Salário ─────────────────────────────────────────────────
@@ -586,6 +594,9 @@ class AppData {
   /// IDs dos widgets ocultados pelo usuário na Carteira.
   List<String> hiddenWidgets;
 
+  /// IDs das abas fixadas na barra de navegação inferior (vazio = padrão).
+  List<String> navTabs;
+
   /// Última alteração local (UTC), usada para sincronização com o Google Drive.
   DateTime? updatedAt;
 
@@ -605,10 +616,12 @@ class AppData {
     Map<String, int>? cardSpans,
     List<String>? widgetOrder,
     List<String>? hiddenWidgets,
+    List<String>? navTabs,
     this.updatedAt,
   }) : cardSpans = cardSpans ?? {},
        widgetOrder = widgetOrder ?? [],
        hiddenWidgets = hiddenWidgets ?? [],
+       navTabs = navTabs ?? [],
        userSince = userSince ?? DateTime.now().year,
        salaries = salaries ?? [],
        expenses = expenses ?? [],
@@ -635,6 +648,7 @@ class AppData {
     'cardSpans': cardSpans,
     'widgetOrder': widgetOrder,
     'hiddenWidgets': hiddenWidgets,
+    'navTabs': navTabs,
   };
 
   factory AppData.fromJson(Map<String, dynamic> j) {
@@ -669,6 +683,7 @@ class AppData {
       hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? [])
           .map((e) => '$e')
           .toList(),
+      navTabs: ((j['navTabs'] as List?) ?? []).map((e) => '$e').toList(),
       updatedAt: _date(j['updatedAt'])?.toUtc(),
     );
   }

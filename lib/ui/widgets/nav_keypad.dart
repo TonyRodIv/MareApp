@@ -63,107 +63,131 @@ class FloatingNavBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(34),
             ),
           ),
-          // Estilo "X": corpo translúcido com blur forte e borda uniforme de 1px,
-          // sem brilho nem degradê na borda. O fundo continua legível por baixo.
+          // Estilo "X": fundo translúcido com blur forte isolado num RepaintBoundary
+          // próprio para que o indicador animado das abas não re-execute o
+          // BackdropFilter a cada frame da troca de aba.
           child: ClipRSuperellipse(
             borderRadius: BorderRadius.circular(34),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-              child: Container(
-                padding: const EdgeInsets.all(Space.xs),
-                decoration: ShapeDecoration(
-                  color: c.isDark
-                      ? const Color(0xFF16161A).withValues(alpha: 0.56)
-                      : const Color(0xFFFFFFFF).withValues(alpha: 0.62),
-                  shape: RoundedSuperellipseBorder(
-                    borderRadius: BorderRadius.circular(34),
-                    side: BorderSide(
-                      color: c.isDark
-                          ? Palette.neutral0.withValues(alpha: 0.10)
-                          : Palette.neutral950.withValues(alpha: 0.08),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                RepaintBoundary(
+                  child: BackdropFilter(
+                    filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(
+                        color: c.isDark
+                            ? const Color(0xFF16161A).withValues(alpha: 0.56)
+                            : const Color(0xFFFFFFFF).withValues(alpha: 0.62),
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(34),
+                          side: BorderSide(
+                            color: c.isDark
+                                ? Palette.neutral0.withValues(alpha: 0.10)
+                                : Palette.neutral950.withValues(alpha: 0.08),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-                child: LayoutBuilder(
-                  builder: (ctx, box) {
-                    final w = box.maxWidth / items.length;
-                    return Stack(
-                      children: [
-                        SpringBuilder(
-                          value: index.toDouble(),
-                          spring: Springs.snappy,
-                          builder: (_, v, vel) {
-                            final stretch = (vel.abs() * 0.025).clamp(
-                              0.0,
-                              0.16,
-                            );
-                            return Positioned(
-                              left: v * w - (w * stretch / 2),
-                              top: 0,
-                              bottom: 0,
-                              width: w * (1 + stretch),
-                              child: Container(
-                                decoration: ShapeDecoration(
-                                  color: c.navActive,
-                                  shape: RoundedSuperellipseBorder(
-                                    borderRadius: BorderRadius.circular(30),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        Row(
+                RepaintBoundary(
+                  child: Padding(
+                    padding: const EdgeInsets.all(Space.xs),
+                    child: LayoutBuilder(
+                      builder: (ctx, box) {
+                        final w = box.maxWidth / items.length;
+                        return Stack(
                           children: [
-                            for (var i = 0; i < items.length; i++)
-                              Expanded(
-                                child: Pressable(
-                                  semanticLabel: items[i].label,
-                                  scale: 0.94,
-                                  onTap: () => onTap(i),
-                                  child: SizedBox.expand(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        if (items[i].custom != null)
-                                          items[i].custom!
-                                        else if (i == index &&
-                                            items[i].activeBuilder != null)
-                                          items[i].activeBuilder!(activeFg, 22)
-                                        else
-                                          Icon(
-                                            items[i].icon,
-                                            size: 22,
-                                            color: i == index
-                                                ? activeFg
-                                                : inactiveFg,
-                                          ),
-                                        const SizedBox(height: Space.xxs),
-                                        Text(
-                                          items[i].label,
-                                          maxLines: 1,
-                                          style: T.micro.copyWith(
-                                            color: i == index
-                                                ? activeFg
-                                                : inactiveFg,
-                                            fontWeight: i == index
-                                                ? FontWeight.w600
-                                                : FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
+                            SpringBuilder(
+                              value: index.toDouble(),
+                              spring: Springs.of(42, 0.90),
+                              builder: (_, v, vel) {
+                                final stretch = (vel.abs() * 0.018).clamp(
+                                  0.0,
+                                  0.12,
+                                );
+                                return Positioned(
+                                  left: v * w - (w * stretch / 2),
+                                  top: 0,
+                                  bottom: 0,
+                                  width: w * (1 + stretch),
+                                  child: DecoratedBox(
+                                    decoration: ShapeDecoration(
+                                      color: c.navActive,
+                                      shape: RoundedSuperellipseBorder(
+                                        borderRadius: BorderRadius.circular(30),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
+                                );
+                              },
+                            ),
+                            Row(
+                              children: [
+                                for (var i = 0; i < items.length; i++)
+                                  Expanded(
+                                    child: Semantics(
+                                      button: true,
+                                      selected: i == index,
+                                      label: items[i].label,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.opaque,
+                                        onTap: () {
+                                          if (i == index) return;
+                                          HapticFeedback.selectionClick();
+                                          onTap(i);
+                                        },
+                                        child: SizedBox.expand(
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              if (items[i].custom != null)
+                                                items[i].custom!
+                                              else if (i == index &&
+                                                  items[i].activeBuilder !=
+                                                      null)
+                                                items[i].activeBuilder!(
+                                                  activeFg,
+                                                  22,
+                                                )
+                                              else
+                                                Icon(
+                                                  items[i].icon,
+                                                  size: 22,
+                                                  color: i == index
+                                                      ? activeFg
+                                                      : inactiveFg,
+                                                ),
+                                              const SizedBox(height: Space.xxs),
+                                              Text(
+                                                items[i].label,
+                                                maxLines: 1,
+                                                style: T.micro.copyWith(
+                                                  color: i == index
+                                                      ? activeFg
+                                                      : inactiveFg,
+                                                  fontWeight: i == index
+                                                      ? FontWeight.w600
+                                                      : FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ],
-                        ),
-                      ],
-                    );
-                  },
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
@@ -236,10 +260,14 @@ class AmountDisplay extends StatelessWidget {
 class QuickAddChips extends StatelessWidget {
   final AmountController controller;
   final bool center;
+  final List<int> amounts;
+  final Color? chipBg;
   const QuickAddChips({
     super.key,
     required this.controller,
     this.center = true,
+    this.amounts = const [10, 20, 50, 100],
+    this.chipBg,
   });
 
   @override
@@ -248,9 +276,10 @@ class QuickAddChips extends StatelessWidget {
     spacing: 8,
     runSpacing: 8,
     children: [
-      for (final v in const [10, 20, 50, 100])
+      for (final v in amounts)
         ChipButton(
           '+$v',
+          bg: chipBg,
           onTap: () {
             HapticFeedback.lightImpact();
             controller.add(v * 100);
@@ -262,7 +291,14 @@ class QuickAddChips extends StatelessWidget {
 
 class Keypad extends StatelessWidget {
   final AmountController controller;
-  const Keypad({super.key, required this.controller});
+  final Color? keyColor;
+  final double keyHeight;
+  const Keypad({
+    super.key,
+    required this.controller,
+    this.keyColor,
+    this.keyHeight = 62,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -285,11 +321,11 @@ class Keypad extends StatelessWidget {
           semanticLabel: label,
           onTap: onTap,
           child: Container(
-            height: 62,
+            height: keyHeight,
             decoration: ShapeDecoration(
-              color: ghost ? null : c.card,
+              color: ghost ? null : (keyColor ?? c.card),
               shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
             alignment: Alignment.center,

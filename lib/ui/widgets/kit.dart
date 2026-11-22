@@ -80,6 +80,23 @@ enum BtnKind { primary, secondary, ghost, outline, danger }
 /// Vermelho saturado com contraste ≥ 4.5 contra o texto claro (vermelho 50).
 Color dangerFill() => ensureContrast(Palette.red.s600, [Palette.red.s50], 4.5);
 
+/// Gera par (fundo desbotado suave, texto/ícone mais claro/nítido no centro)
+/// adaptado ao tema claro e escuro em OKLCH — padrão dos botões principais da
+/// Carteira e da Sincronização.
+(Color, Color) softActionTone(Color seed, {required bool isDark}) {
+  final o = toOklch(seed);
+  if (isDark) {
+    final bg = fromOklch(0.32, (o.c * 0.48).clamp(0.038, 0.082), o.h);
+    final rawFg = fromOklch(0.93, (o.c * 0.16).clamp(0.012, 0.028), o.h);
+    final fg = ensureContrast(rawFg, [bg], 7.0);
+    return (bg, fg);
+  }
+  final bg = fromOklch(0.90, (o.c * 0.36).clamp(0.028, 0.064), o.h);
+  final rawFg = fromOklch(0.32, (o.c * 0.52).clamp(0.045, 0.095), o.h);
+  final fg = ensureContrast(rawFg, [bg], 7.0);
+  return (bg, fg);
+}
+
 class PillButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -265,6 +282,7 @@ class ChipButton extends StatelessWidget {
   final bool selected;
   final IconData? icon;
   final Color? dot;
+  final Color? bg;
   const ChipButton(
     this.label, {
     super.key,
@@ -272,6 +290,7 @@ class ChipButton extends StatelessWidget {
     this.selected = false,
     this.icon,
     this.dot,
+    this.bg,
   });
 
   @override
@@ -284,7 +303,7 @@ class ChipButton extends StatelessWidget {
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: ShapeDecoration(
-          color: selected ? c.primary : c.card,
+          color: selected ? c.primary : (bg ?? c.card),
           shape: RoundedSuperellipseBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -365,6 +384,7 @@ class AppCard extends StatelessWidget {
   final EdgeInsets padding;
   final Color? color;
   final bool expandChild;
+  final bool bordered;
   const AppCard({
     super.key,
     this.title,
@@ -374,6 +394,7 @@ class AppCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.color,
     this.expandChild = false,
+    this.bordered = false,
   });
 
   @override
@@ -396,9 +417,11 @@ class AppCard extends StatelessWidget {
               ],
         shape: RoundedSuperellipseBorder(
           borderRadius: BorderRadius.circular(Space.radiusCard),
-          side: BorderSide(
-            color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
-          ),
+          side: bordered
+              ? BorderSide(
+                  color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
+                )
+              : BorderSide.none,
         ),
       ),
       child: Column(
@@ -490,11 +513,15 @@ class Segmented<V extends Object> extends StatelessWidget {
   final V value;
   final Map<V, String> options;
   final ValueChanged<V> onChanged;
+  final Color? trackColor;
+  final Color? thumbColor;
   const Segmented({
     super.key,
     required this.value,
     required this.options,
     required this.onChanged,
+    this.trackColor,
+    this.thumbColor,
   });
 
   /// Barra de abas em formato pílula (altura 40px igual aos chips de filtro,
@@ -504,8 +531,8 @@ class Segmented<V extends Object> extends StatelessWidget {
     final c = context.c;
     final keys = options.keys.toList();
     final index = keys.indexOf(value).clamp(0, keys.length - 1);
-    final track = c.isDark ? c.card : c.surfaceLow;
-    final thumb = c.isDark ? c.surfaceHigh : c.card;
+    final track = trackColor ?? (c.isDark ? c.card : c.surfaceLow);
+    final thumb = thumbColor ?? (c.isDark ? c.surfaceHigh : c.card);
     return Container(
       height: 40,
       width: double.infinity,
@@ -614,6 +641,9 @@ class AppField extends StatelessWidget {
   final List<TextInputFormatter>? formatters;
   final TextCapitalization capitalization;
   final bool pill;
+  final Color? bg;
+  final int? maxLines;
+  final int? minLines;
   const AppField({
     super.key,
     this.controller,
@@ -630,11 +660,15 @@ class AppField extends StatelessWidget {
     this.formatters,
     this.capitalization = TextCapitalization.sentences,
     this.pill = false,
+    this.bg,
+    this.maxLines = 1,
+    this.minLines,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final fill = bg ?? c.card;
     final field = CupertinoTextField(
       controller: controller,
       focusNode: focusNode,
@@ -645,6 +679,8 @@ class AppField extends StatelessWidget {
       autofocus: autofocus,
       textInputAction: action,
       maxLength: maxLength,
+      maxLines: maxLines,
+      minLines: minLines,
       inputFormatters: formatters,
       textCapitalization: capitalization,
       keyboardAppearance: c.brightness,
@@ -672,17 +708,19 @@ class AppField extends StatelessWidget {
       decoration: pill
           ? const BoxDecoration(color: Color(0x00000000))
           : BoxDecoration(
-              color: c.card,
-              border: Border.all(
-                color: c.border.withValues(alpha: c.isDark ? 0.55 : 0.75),
-              ),
+              color: fill,
+              border: bg != null
+                  ? null
+                  : Border.all(
+                      color: c.border.withValues(alpha: c.isDark ? 0.55 : 0.75),
+                    ),
               borderRadius: BorderRadius.circular(Space.radiusField),
             ),
     );
     if (!pill) return field;
     return Container(
       decoration: ShapeDecoration(
-        color: c.card,
+        color: fill,
         shape: const StadiumBorder(),
       ),
       child: field,
@@ -696,12 +734,14 @@ class SelectField extends StatelessWidget {
   final String placeholder;
   final VoidCallback onTap;
   final Widget? leading;
+  final Color? bg;
   const SelectField({
     super.key,
     this.value,
     required this.placeholder,
     required this.onTap,
     this.leading,
+    this.bg,
   });
 
   @override
@@ -714,7 +754,7 @@ class SelectField extends StatelessWidget {
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: ShapeDecoration(
-          color: c.card,
+          color: bg ?? c.card,
           shape: RoundedSuperellipseBorder(
             borderRadius: BorderRadius.circular(Space.radiusField),
           ),
@@ -804,20 +844,22 @@ class BrandLogo extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           fallback,
-          // O logo só entra no círculo quando termina de carregar; sem rede ou
-          // em erro permanece o ícone inteligente/categoria sem flicker.
+          // O logo só entra no círculo quando termina de carregar; sempre
+          // recortado no formato circular exato com BoxFit.cover (sem sobras
+          // quadradas dentro do container).
           Image.network(
             brandLogoUrl(spec.domain),
-            fit: BoxFit.contain,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
             frameBuilder: (ctx, child, frame, sync) {
               if (frame == null && !sync) return const SizedBox.shrink();
               return ClipOval(
-                child: Container(
-                  padding: EdgeInsets.all(size * spec.paddingRatio),
+                child: ColoredBox(
                   color: spec.bg,
-                  child: child,
+                  child: SizedBox.square(dimension: size, child: child),
                 ),
               );
             },
@@ -1122,11 +1164,11 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
           end: end,
           colors: [
             baseColor.withValues(alpha: widget.tintOpacity),
-            baseColor.withValues(alpha: widget.tintOpacity * 0.55),
-            baseColor.withValues(alpha: widget.tintOpacity * 0.16),
+            baseColor.withValues(alpha: widget.tintOpacity * 0.58),
+            baseColor.withValues(alpha: widget.tintOpacity * 0.18),
             baseColor.withValues(alpha: 0),
           ],
-          stops: const [0.0, 0.40, 0.74, 1.0],
+          stops: const [0.0, 0.36, 0.72, 1.0],
         ),
       ),
     );
@@ -1192,10 +1234,10 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
       child: RepaintBoundary(
         child: LayoutBuilder(
           builder: (context, box) {
-            final bandPx = (box.maxHeight.isFinite ? box.maxHeight : 140.0) * dpr;
-            // Converte o raio lógico para pixels físicos para manter blur encorpado
-            // em telas de alta densidade (2x–3x), sem perder a suavidade.
-            final radiusPx = (widget.maxSigma * dpr * 1.15).clamp(12.0, 56.0);
+            final bandPx = (box.maxHeight.isFinite ? box.maxHeight : 160.0) * dpr;
+            // Converte o raio lógico para pixels físicos para blur cremoso e
+            // encorpado em telas 2x–3x, apoiado por 48 amostras IGN no shader.
+            final radiusPx = (widget.maxSigma * dpr * 1.30).clamp(16.0, 68.0);
             shader.setFloat(2, radiusPx);
             shader.setFloat(3, fromTop ? 0.0 : 1.0);
             shader.setFloat(4, bandPx);
@@ -1279,12 +1321,12 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
             left: 0,
             right: 0,
             top: 0,
-            bottom: -56,
+            bottom: -92,
             child: ProgressiveBlur(
               direction: AxisDirection.down,
-              maxSigma: 16,
+              maxSigma: 20,
               tint: c.isDark ? const Color(0xFF0A0A0A) : null,
-              tintOpacity: c.isDark ? 0.72 : 0.80,
+              tintOpacity: c.isDark ? 0.78 : 0.84,
             ),
           ),
         Padding(
@@ -1443,9 +1485,6 @@ class EmptyState extends StatelessWidget {
         color: c.card,
         shape: RoundedSuperellipseBorder(
           borderRadius: BorderRadius.circular(Space.radiusCard),
-          side: BorderSide(
-            color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7),
-          ),
         ),
       ),
       child: Column(
@@ -2632,4 +2671,83 @@ class _SheetBodyState extends State<SheetBody> {
       ],
     );
   }
+}
+
+/// Anel circular de progresso reutilizado em Caixinhas e no detalhe de Categoria.
+class ProgressRing extends StatelessWidget {
+  final double size;
+  final double stroke;
+  final double fraction;
+  final Color color;
+  final Color track;
+  final Widget child;
+  const ProgressRing({
+    super.key,
+    required this.size,
+    required this.stroke,
+    required this.fraction,
+    required this.color,
+    required this.track,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _RingPainter(
+          fraction: fraction.clamp(0.0, 1.0),
+          color: color,
+          track: track,
+          stroke: stroke,
+        ),
+        child: Center(child: child),
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  final double fraction;
+  final Color color;
+  final Color track;
+  final double stroke;
+  _RingPainter({
+    required this.fraction,
+    required this.color,
+    required this.track,
+    required this.stroke,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - stroke) / 2;
+    final trackPaint = Paint()
+      ..color = track
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    canvas.drawCircle(center, radius, trackPaint);
+
+    if (fraction > 0) {
+      final progPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        -math.pi / 2,
+        2 * math.pi * fraction,
+        false,
+        progPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.fraction != fraction || old.color != color || old.track != track;
 }

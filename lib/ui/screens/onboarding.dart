@@ -5,12 +5,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/cycle.dart';
 import '../../core/theme.dart';
 import '../../data/drive_sync.dart';
 import '../../data/store.dart';
+import '../widgets/avatar_cropper.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
@@ -101,26 +101,23 @@ class _OnboardingState extends State<Onboarding> {
     try {
       final x = await ImagePicker().pickImage(
         source: src,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 82,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 90,
       );
-      if (x == null) return;
-      final dir = await getApplicationDocumentsDirectory();
-      final dest = File(
-        '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      await File(x.path).copy(dest.path);
-      if (!mounted) return;
+      if (x == null || !mounted) return;
+      final cropped = await cropAvatarPhoto(context, File(x.path));
+      if (cropped == null || !mounted) return;
       HapticFeedback.mediumImpact();
-      setState(() => _avatarPath = dest.path);
+      setState(() => _avatarPath = cropped);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         toast(
           context,
           'Não foi possível usar essa foto',
           icon: LucideIcons.triangleAlert,
         );
+      }
     }
   }
 
