@@ -410,21 +410,20 @@ class SubscriptionsScreen extends StatelessWidget {
           ),
           const SizedBox(height: Space.lg),
 
-          // Bolhas proporcionais interativas (toque abre o sheet do gasto)
+          // Gráfico em anel segmentado na cor tema de cada assinatura
           AppCard(
             title: 'Distribuição',
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SubscriptionBubbles(
+                SubscriptionDonutChart(
                   subs: subs,
                   hidden: hidden,
-                  height: 196,
                   onSelect: (e) => showExpenseActions(context, e),
                 ),
-                const SizedBox(height: Space.sm),
+                const SizedBox(height: Space.md),
                 Text(
-                  'Tamanho proporcional ao valor. Toque numa bolha para ver detalhes.',
+                  'Toque num serviço para destacar no gráfico ou toque novamente para abrir detalhes.',
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
               ],

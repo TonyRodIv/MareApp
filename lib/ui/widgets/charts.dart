@@ -10,7 +10,7 @@ import '../../core/theme.dart';
 import '../../data/brands.dart';
 import '../../data/finance.dart';
 import '../../data/models.dart';
-import 'kit.dart' show Pressable;
+import 'kit.dart' show MoneyText, Pressable;
 import 'motion.dart';
 
 /// Células que acendem em cascata com mola (base dos gráficos "waffle").
@@ -775,6 +775,312 @@ class HistoryBars extends StatelessWidget {
     ].map((m) => m * mag).firstWhere((s) => s >= raw, orElse: () => 10 * mag));
     return [for (var i = 0; i <= 3; i++) (step * i * 100).round()];
   }
+}
+
+/// Cor tema da assinatura: usa a cor oficial da marca quando reconhecida
+/// (Spotify verde, Netflix vermelho, Prime azul, Claude terracota…) ou uma
+/// cor distinta da paleta do app para serviços personalizados.
+Color subscriptionBrandColor(AppColors c, Expense e, int index) {
+  final brand = brandAccentColorFor(e.name);
+  if (brand != null) return brand;
+  final fallback = <Color>[
+    c.palette.primary[400],
+    c.palette.companion[400],
+    const Color(0xFF3395FF),
+    const Color(0xFFBF75E5),
+    const Color(0xFF5DD27A),
+    const Color(0xFFFFAA33),
+  ];
+  return fallback[index % fallback.length];
+}
+
+/// Gráfico interativo em anel segmentado (Donut) para Assinaturas:
+/// cada serviço aparece na sua própria cor tema, com destaque ao tocar na fatia
+/// ou na legenda abaixo e detalhamento proporcional sem sobreposição.
+class SubscriptionDonutChart extends StatefulWidget {
+  final List<Expense> subs;
+  final bool hidden;
+  final ValueChanged<Expense>? onSelect;
+  const SubscriptionDonutChart({
+    super.key,
+    required this.subs,
+    this.hidden = false,
+    this.onSelect,
+  });
+
+  @override
+  State<SubscriptionDonutChart> createState() => _SubscriptionDonutChartState();
+}
+
+class _SubscriptionDonutChartState extends State<SubscriptionDonutChart> {
+  int? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final list = [...widget.subs]..sort((a, b) => b.cents.compareTo(a.cents));
+    if (list.isEmpty) return const SizedBox.shrink();
+    final total = list.fold<int>(0, (t, e) => t + e.cents);
+    if (total <= 0) return const SizedBox.shrink();
+    final colors = [
+      for (var i = 0; i < list.length; i++)
+        subscriptionBrandColor(c, list[i], i),
+    ];
+    final sel = _selected != null && _selected! < list.length ? _selected : null;
+    final active = sel != null ? list[sel] : null;
+    final activeColor = sel != null ? colors[sel] : c.primary;
+
+    return Column(
+      children: [
+        // ── Donut segmentado com centro interativo
+        Center(
+          child: SizedBox(
+            width: 196,
+            height: 196,
+            child: SpringBuilder(
+              value: 1.0,
+              from: 0.0,
+              spring: Springs.settle,
+              builder: (_, progress, _) => Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size.square(196),
+                    painter: _DonutPainter(
+                      values: [for (final e in list) e.cents / total],
+                      colors: colors,
+                      selected: sel,
+                      progress: progress.clamp(0.0, 1.0),
+                      trackColor: c.cardAlt,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 124,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (active != null) ...[
+                          Text(
+                            active.name,
+                            style: T.smallStrong.copyWith(color: activeColor),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: MoneyText(
+                              active.cents,
+                              hidden: widget.hidden,
+                              style: T.cardValue,
+                            ),
+                          ),
+                          Text(
+                            '${(active.cents / total * 100).round()}% das assinaturas',
+                            style: T.tiny.copyWith(color: c.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ] else ...[
+                          Text(
+                            '${list.length} ${list.length == 1 ? 'serviço' : 'serviços'}',
+                            style: T.small.copyWith(color: c.textSecondary),
+                          ),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: MoneyText(
+                              total,
+                              hidden: widget.hidden,
+                              style: T.cardValue,
+                            ),
+                          ),
+                          Text(
+                            'por ciclo',
+                            style: T.tiny.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.lg),
+
+        // ── Barras proporcionais na cor tema de cada assinatura
+        Column(
+          children: [
+            for (var i = 0; i < list.length; i++) ...[
+              if (i > 0) const SizedBox(height: Space.md),
+              _SubShareRow(
+                expense: list[i],
+                color: colors[i],
+                share: list[i].cents / total,
+                hidden: widget.hidden,
+                selected: sel == i,
+                onTap: () {
+                  if (sel == i) {
+                    widget.onSelect?.call(list[i]);
+                  } else {
+                    setState(() => _selected = i);
+                  }
+                },
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SubShareRow extends StatelessWidget {
+  final Expense expense;
+  final Color color;
+  final double share;
+  final bool hidden;
+  final bool selected;
+  final VoidCallback onTap;
+  const _SubShareRow({
+    required this.expense,
+    required this.color,
+    required this.share,
+    required this.hidden,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final pct = (share * 100).round();
+    return Pressable(
+      onTap: onTap,
+      scale: 0.985,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.md,
+          vertical: Space.sm,
+        ),
+        decoration: ShapeDecoration(
+          color: selected ? color.withValues(alpha: c.isDark ? 0.14 : 0.10) : const Color(0x00000000),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Space.radiusMd),
+          ),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: Space.sm),
+                Expanded(
+                  child: Text(
+                    expense.name,
+                    style: T.labelStrong.copyWith(color: c.text),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  fmtMoney(expense.cents, hidden: hidden),
+                  style: T.labelStrong.copyWith(color: c.text),
+                ),
+                const SizedBox(width: Space.sm),
+                SizedBox(
+                  width: 34,
+                  child: Text(
+                    '$pct%',
+                    textAlign: TextAlign.right,
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            SpringBar(
+              fraction: share,
+              color: color,
+              track: c.cardAlt,
+              height: 5,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DonutPainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+  final int? selected;
+  final double progress;
+  final Color trackColor;
+  _DonutPainter({
+    required this.values,
+    required this.colors,
+    required this.selected,
+    required this.progress,
+    required this.trackColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    const baseStroke = 20.0;
+    const activeStroke = 24.0;
+    final radius = (size.width - activeStroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = trackColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = baseStroke,
+    );
+
+    if (values.isEmpty || progress <= 0.001) return;
+    final totalSweep = 2 * math.pi * progress;
+    final gap = values.length > 1 ? 0.055 : 0.0;
+    var start = -math.pi / 2;
+
+    for (var i = 0; i < values.length; i++) {
+      final rawSweep = values[i] * totalSweep;
+      final sweep = math.max(0.02, rawSweep - gap);
+      final isSel = selected == i;
+      final dimmed = selected != null && !isSel;
+      final paint = Paint()
+        ..color = dimmed ? colors[i].withValues(alpha: 0.30) : colors[i]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSel ? activeStroke : baseStroke
+        ..strokeCap = values.length == 1 ? StrokeCap.butt : StrokeCap.round;
+
+      canvas.drawArc(rect, start + gap / 2, sweep, false, paint);
+      start += rawSweep;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DonutPainter old) =>
+      old.progress != progress ||
+      old.selected != selected ||
+      old.trackColor != trackColor ||
+      old.values.length != values.length;
 }
 
 /// Gastos por dia da semana (Dom–Sáb). A barra mais alta começa selecionada e

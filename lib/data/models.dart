@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/money.dart';
+import 'brands.dart';
 
 final _rnd = Random();
 
@@ -112,20 +113,62 @@ const categories = <Category>[
     'show',
     'bar',
     'festa',
-    'viagem',
     'passeio',
-    'jogo',
     'ingresso',
     'entretenimento',
+    'teatro',
+    'boliche',
+    'parque',
+  ]),
+  Category('jogos', 'Jogos', LucideIcons.gamepad2, Color(0xFF9B6BFF), [
+    'jogo',
+    'jogos',
+    'game',
+    'games',
+    'nintendo',
+    'switch',
+    'playstation',
+    'xbox',
+    'steam',
+    'controle',
+    'console',
+  ]),
+  Category('viagem', 'Viagens', LucideIcons.plane, Color(0xFF38BDF8), [
+    'viagem',
+    'hotel',
+    'pousada',
+    'passagem',
+    'aerea',
+    'voo',
+    'airbnb',
+    'booking',
+    'decolar',
+    'hospedagem',
   ]),
   Category('compras', 'Compras', LucideIcons.shoppingBag, Color(0xFF5BBDEB), [
     'shopee',
     'amazon',
     'mercado livre',
-    'shein',
     'loja',
     'presente',
-    'eletrônico',
+    'compras',
+  ]),
+  Category('tecnologia', 'Tecnologia', LucideIcons.laptop, Color(0xFF60A5FA), [
+    'eletronico',
+    'notebook',
+    'computador',
+    'celular',
+    'smartphone',
+    'tablet',
+    'teclado',
+    'mouse',
+    'monitor',
+    'fone',
+    'setup',
+    'tech',
+    'kabum',
+    'pichau',
+    'apple',
   ]),
   Category('assinaturas', 'Assinaturas', LucideIcons.tv, Color(0xFF59C0D2), [
     'netflix',
@@ -144,14 +187,23 @@ const categories = <Category>[
   ]),
   Category('moda', 'Moda e Beleza', LucideIcons.shirt, Color(0xFFFF6482), [
     'roupa',
-    'tênis',
     'tenis',
-    'salão',
     'salao',
     'cabelo',
     'maquiagem',
     'perfume',
     'barbearia',
+    'shein',
+  ]),
+  Category('pets', 'Pets', LucideIcons.pawPrint, Color(0xFFF59E0B), [
+    'pet',
+    'racao',
+    'veterinario',
+    'cachorro',
+    'gato',
+    'petshop',
+    'cobasi',
+    'petz',
   ]),
   Category('outros', 'Outros', LucideIcons.ellipsis, Color(0xFF33D2CB), []),
 ];
@@ -165,13 +217,18 @@ Category categoryById(String? id) {
   );
 }
 
-/// Sugere a categoria a partir do nome digitado ("Uber pra casa" → Transporte).
+/// Sugere a categoria a partir do nome digitado ("Nintendo" → Lazer, "Uber pra casa" → Transporte).
 Category? guessCategory(String name) {
-  final n = name.toLowerCase();
-  if (n.trim().isEmpty) return null;
+  final trimmed = name.trim();
+  if (trimmed.isEmpty) return null;
+  final smartId = smartCategoryIdFor(trimmed);
+  if (smartId != null) return categoryById(smartId);
+  final n = foldText(trimmed);
   for (final c in categories) {
     for (final k in c.keywords) {
-      if (RegExp('(^|[^a-zà-ú0-9])${RegExp.escape(k)}').hasMatch(n)) return c;
+      if (RegExp('(^|[^a-z0-9])${RegExp.escape(foldText(k))}').hasMatch(n)) {
+        return c;
+      }
     }
   }
   return null;

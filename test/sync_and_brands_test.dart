@@ -1,7 +1,10 @@
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:mare/data/brands.dart';
 import 'package:mare/data/drive_sync.dart';
+import 'package:mare/data/models.dart';
+import 'package:mare/data/validation.dart';
 
 void main() {
   group('reconcileSync', () {
@@ -132,6 +135,42 @@ void main() {
       expect(smartIconFor('Mensalidade academia'), LucideIcons.dumbbell);
       expect(smartIconFor('Corte de cabelo'), LucideIcons.scissors);
       expect(smartIconFor('Ração do gato'), LucideIcons.pawPrint);
+    });
+
+    test('relaciona jogos exclusivos à plataforma e multiplataforma ao controle', () {
+      expect(brandDomainFor('Zelda Tears of the Kingdom'), 'nintendo.com');
+      expect(brandDomainFor('God of War Ragnarok'), 'playstation.com');
+      expect(brandDomainFor('Forza Horizon 5'), 'xbox.com');
+      expect(brandDomainFor('Minecraft'), 'minecraft.net');
+
+      // Jogos multiplataforma: sem marca única, usam controle e caem em Jogos
+      expect(brandDomainFor('Elden Ring'), isNull);
+      expect(smartIconFor('Elden Ring'), LucideIcons.gamepad2);
+      expect(guessCategory('Elden Ring')?.id, 'jogos');
+      expect(smartIconFor('Hollow Knight'), LucideIcons.gamepad2);
+      expect(guessCategory('Nintendo')?.id, 'jogos');
+    });
+
+    test('fornece cores tema oficiais para assinaturas conhecidas', () {
+      expect(brandAccentColorFor('Spotify'), const Color(0xFF1DB954));
+      expect(brandAccentColorFor('Netflix'), const Color(0xFFE50914));
+      expect(brandAccentColorFor('Claude Pro'), const Color(0xFFD97757));
+    });
+
+    test('reposiciona gastos antigos nas novas categorias automaticamente', () {
+      final d = AppData(
+        expenses: [
+          Expense(name: 'Nintendo', cents: 644, categoryId: 'outros', date: DateTime.now()),
+          Expense(name: 'Switch 2', cents: 35800, categoryId: 'lazer', date: DateTime.now()),
+          Expense(name: 'KaBuM SSD', cents: 42000, categoryId: 'compras', date: DateTime.now()),
+          Expense(name: 'Ração Cobasi', cents: 12000, categoryId: 'outros', date: DateTime.now()),
+        ],
+      );
+      expect(sanitizeAppData(d), isTrue);
+      expect(d.expenses[0].categoryId, 'jogos');
+      expect(d.expenses[1].categoryId, 'jogos');
+      expect(d.expenses[2].categoryId, 'tecnologia');
+      expect(d.expenses[3].categoryId, 'pets');
     });
   });
 }

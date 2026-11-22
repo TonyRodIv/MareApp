@@ -199,9 +199,39 @@ void normalizeCard(PayCard c) {
   if (c.last4.length > 4) c.last4 = c.last4.substring(0, 4);
 }
 
+/// Categorias especializadas adicionadas na versão atual.
+const _specializedCategories = {'jogos', 'viagem', 'tecnologia', 'pets'};
+const _legacyParentBuckets = {
+  'lazer',
+  'compras',
+  'transporte',
+  'saude',
+  'outros',
+};
+
+/// Reposiciona gastos antigos que estavam em "Outros" ou em categorias genéricas
+/// para a categoria mais precisa quando o nome corresponde claramente.
+/// Retorna `true` se houve alteração.
+bool migrateExpenseCategory(Expense e) {
+  final guessed = guessCategory(e.name);
+  if (guessed == null || guessed.id == e.categoryId) return false;
+  if (e.categoryId == 'outros' && guessed.id != 'outros') {
+    e.categoryId = guessed.id;
+    return true;
+  }
+  if (_specializedCategories.contains(guessed.id) &&
+      _legacyParentBuckets.contains(e.categoryId)) {
+    e.categoryId = guessed.id;
+    return true;
+  }
+  return false;
+}
+
 /// Sanitiza toda a árvore [AppData] ao carregar do disco ou importar backups,
 /// garantindo que dados antigos ou malformados nunca quebrem os cálculos.
-void sanitizeAppData(AppData d) {
+/// Retorna `true` se algum gasto foi migrado para novas categorias.
+bool sanitizeAppData(AppData d) {
+  var migrated = false;
   d.cycleStartDay = d.cycleStartDay.clamp(
     MoneyLimits.minCycleDay,
     MoneyLimits.maxCycleDay,
@@ -221,11 +251,12 @@ void sanitizeAppData(AppData d) {
   }
   final cardIds = d.cards.map((c) => c.id).toSet();
 
-  // Gastos
+  // Gastos + migração automática para novas categorias
   d.expenses.removeWhere((e) => e.cents <= 0);
   for (final e in d.expenses) {
     if (e.name.trim().isEmpty) e.name = categoryById(e.categoryId).label;
     normalizeExpense(e, validCardIds: cardIds);
+    if (migrateExpenseCategory(e)) migrated = true;
   }
 
   // Caixinhas
@@ -255,4 +286,5 @@ void sanitizeAppData(AppData d) {
       normalizeMovement(m);
     }
   }
+  return migrated;
 }

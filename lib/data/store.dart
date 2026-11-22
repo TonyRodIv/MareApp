@@ -40,7 +40,10 @@ class Store extends ChangeNotifier {
       }
       d = AppData();
     }
-    sanitizeAppData(d);
+    final migrated = sanitizeAppData(d);
+    if (migrated) {
+      await prefs.setString(_key, jsonEncode(d.toJson()));
+    }
     return Store._(prefs, d);
   }
 
