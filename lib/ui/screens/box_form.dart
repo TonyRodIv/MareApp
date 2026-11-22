@@ -26,9 +26,10 @@ class _BoxFormState extends State<BoxForm> {
   late final _fixed = AmountController(
     _mode == PlanMode.fixed ? widget.box?.currentPlan.amount ?? 0 : 0,
   );
-  late double _percent = _mode == PlanMode.percent
-      ? (widget.box!.currentPlan.amount / 100)
-      : 10;
+  late double _percent =
+      widget.box != null && widget.box!.currentPlan.mode == PlanMode.percent
+      ? (widget.box!.currentPlan.amount / 100).clamp(1.0, 100.0)
+      : 10.0;
   late final _goal = AmountController(widget.box?.goalCents ?? 0);
   late String _icon = widget.box?.icon ?? 'piggy';
   late int _color = widget.box?.color ?? boxColors.first.toARGB32();
@@ -102,8 +103,9 @@ class _BoxFormState extends State<BoxForm> {
   void _save() {
     final s = context.storeRead;
     final goal = _goal.value > 0 ? _goal.value : null;
+    final String? err;
     if (widget.box == null) {
-      s.addBox(
+      err = s.addBox(
         name: _name.text,
         icon: _icon,
         color: _color,
@@ -112,7 +114,7 @@ class _BoxFormState extends State<BoxForm> {
         goal: goal,
       );
     } else {
-      s.updateBox(
+      err = s.updateBox(
         widget.box!.id,
         name: _name.text,
         icon: _icon,
@@ -121,6 +123,10 @@ class _BoxFormState extends State<BoxForm> {
         amount: _amount,
         goal: goal,
       );
+    }
+    if (err != null) {
+      toast(context, err, icon: LucideIcons.triangleAlert);
+      return;
     }
     HapticFeedback.mediumImpact();
     Navigator.pop(context);
@@ -152,9 +158,11 @@ class _BoxFormState extends State<BoxForm> {
               child: Container(
                 height: 4,
                 width: double.infinity,
-                decoration: BoxDecoration(
+                decoration: ShapeDecoration(
                   color: c.border,
-                  borderRadius: BorderRadius.circular(2),
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
                 alignment: Alignment.centerLeft,
                 child: TweenAnimationBuilder<double>(
@@ -164,9 +172,11 @@ class _BoxFormState extends State<BoxForm> {
                   builder: (_, v, _) => FractionallySizedBox(
                     widthFactor: v,
                     child: Container(
-                      decoration: BoxDecoration(
+                      decoration: ShapeDecoration(
                         color: c.primary,
-                        borderRadius: BorderRadius.circular(2),
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(2),
+                        ),
                       ),
                     ),
                   ),
@@ -298,7 +308,7 @@ class _BoxFormState extends State<BoxForm> {
               ] else ...[
                 Text(
                   '${_percent.toStringAsFixed(_percent % 1 == 0 ? 0 : 1)}%',
-                  style: T.display.copyWith(fontSize: 48, color: c.primary),
+                  style: T.displayLg.copyWith(color: c.primary),
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
@@ -316,8 +326,9 @@ class _BoxFormState extends State<BoxForm> {
                   activeColor: c.primary,
                   thumbColor: c.isDark ? c.onPrimary : Palette.neutral0,
                   onChanged: (v) {
-                    if (v.round() != _percent.round())
+                    if (v.round() != _percent.round()) {
                       HapticFeedback.selectionClick();
+                    }
                     setState(() => _percent = v.roundToDouble());
                   },
                 ),
@@ -369,18 +380,17 @@ class _BoxFormState extends State<BoxForm> {
                   horizontal: Space.base,
                   vertical: Space.base,
                 ),
-                style: T.title.copyWith(color: c.text, fontSize: 28),
-                placeholderStyle: T.title.copyWith(
+                style: T.pageTitle.copyWith(color: c.text),
+                placeholderStyle: T.pageTitle.copyWith(
                   color: c.textTertiary,
-                  fontSize: 28,
                 ),
                 decoration: BoxDecoration(
                   color: c.card,
-                  borderRadius: BorderRadius.circular(Space.radiusField),
                   border: Border.all(
                     color: _name.text.trim().isNotEmpty ? c.primary : c.border,
                     width: 1.5,
                   ),
+                  borderRadius: BorderRadius.circular(Space.radiusField),
                 ),
               ),
               const SizedBox(height: Space.base),
@@ -418,9 +428,11 @@ class _BoxFormState extends State<BoxForm> {
                 duration: const Duration(milliseconds: 220),
                 curve: easeOutExpo,
                 padding: const EdgeInsets.all(Space.base),
-                decoration: BoxDecoration(
+                decoration: ShapeDecoration(
                   color: color,
-                  borderRadius: BorderRadius.circular(Space.radiusCard),
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(Space.radiusCard),
+                  ),
                 ),
                 child: Row(
                   children: [
@@ -429,7 +441,7 @@ class _BoxFormState extends State<BoxForm> {
                       height: 48,
                       decoration: BoxDecoration(
                         color: Palette.neutral0.withValues(alpha: 0.16),
-                        borderRadius: BorderRadius.circular(Space.radiusMd),
+                        shape: BoxShape.circle,
                       ),
                       child: Icon(boxIcons[_icon], color: light, size: 24),
                     ),
@@ -474,7 +486,7 @@ class _BoxFormState extends State<BoxForm> {
                         height: 48,
                         decoration: BoxDecoration(
                           color: _icon == e.key ? color : c.card,
-                          borderRadius: BorderRadius.circular(Space.radiusMd),
+                          shape: BoxShape.circle,
                           border: Border.all(
                             color: _icon == e.key ? color : c.border,
                           ),
