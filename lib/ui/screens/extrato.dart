@@ -142,40 +142,45 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
             ),
           ),
         ),
-        CustomScrollView(
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            PinnedCupertinoBar(
-              height: 60,
-              builder: (ctx, _) => Row(
-                children: [
-                  if (widget.standalone) ...[
-                    const BackChevron(),
-                    const SizedBox(width: Space.xs),
-                  ],
-                  Expanded(
-                    child: Text(
-                      'Extrato',
-                      style: T.pageTitle.copyWith(color: c.text),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: Space.sm),
-                  _CycleBarPill(
-                    label: cy.label(),
-                    onPick: () => _openCyclePicker(context, f),
-                  ),
-                ],
-              ),
+        CollapsingTitleScope(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, 0),
-              sliver: SliverList.list(
-                children: [
-                  Segmented<int>(
+            slivers: [
+              PinnedCupertinoBar(
+                height: 60,
+                builder: (ctx, progress) => Row(
+                  children: [
+                    if (widget.standalone) ...[
+                      const BackChevron(),
+                      Expanded(child: BarTitle('Extrato', progress: progress)),
+                    ] else
+                      Expanded(
+                        child: Text(
+                          'Extrato',
+                          style: T.pageTitle.copyWith(color: c.text),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const SizedBox(width: Space.sm),
+                    _CycleBarPill(
+                      label: cy.label(),
+                      onPick: () => _openCyclePicker(context, f),
+                    ),
+                  ],
+                ),
+              ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, 0),
+          sliver: SliverList.list(
+            children: [
+              if (widget.standalone) ...[
+                LargeTitle('Extrato', style: T.pageTitle),
+                const SizedBox(height: Space.base),
+              ],
+              Segmented<int>(
                     value: _kind,
                     options: const {0: 'Todos', 1: 'Recorrentes', 2: 'Únicos'},
                     onChanged: (v) => setState(() => _kind = v),
@@ -359,6 +364,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
               ),
             ),
           ],
+          ),
         ),
         // Botão flutuante no modo standalone (quando na navbar, o Shell desenha acima do blur)
         if (widget.standalone)
@@ -399,23 +405,12 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
   }
 
   void _openSearch(BuildContext context, Cycle cy) {
-    Navigator.of(context).push<void>(
-      PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 280),
-        reverseTransitionDuration: const Duration(milliseconds: 220),
-        pageBuilder: (_, _, _) => ExtratoSearchScreen(
-          cycle: cy,
-          initialCard: _card,
-          initialCat: _cat,
-        ),
-        transitionsBuilder: (_, anim, _, child) {
-          final curve = CurvedAnimation(
-            parent: anim,
-            curve: easeOutExpo,
-            reverseCurve: Curves.easeInCubic,
-          );
-          return FadeTransition(opacity: curve, child: child);
-        },
+    pushMorph<void>(
+      context,
+      ExtratoSearchScreen(
+        cycle: cy,
+        initialCard: _card,
+        initialCat: _cat,
       ),
     );
   }

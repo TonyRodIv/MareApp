@@ -48,50 +48,54 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
     );
     final pad = sidePadding(context, maxWidth: 720);
 
-    final body = Stack(
-      children: [
-        const GlowBackground(height: 460),
-        CustomScrollView(
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
+    final heroPrefix = widget.standalone ? 'standalone-box' : 'tab-box';
+    final scroll = CustomScrollView(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      slivers: [
+        PinnedCupertinoBar(
+          height: 60,
+          maxWidth: 720,
+          builder: (ctx, progress) => Row(
+            children: [
+              if (widget.standalone) ...[
+                const BackChevron(),
+                Expanded(child: BarTitle('Caixinhas', progress: progress)),
+              ] else
+                Expanded(
+                  child: Text(
+                    'Caixinhas',
+                    style: T.pageTitle.copyWith(color: c.text),
+                  ),
+                ),
+              RoundIconButton(
+                LucideIcons.plus,
+                size: 44,
+                label: 'Nova caixinha',
+                bg: c.primary,
+                fg: c.onPrimary,
+                onTap: () => pushFluid(context, const BoxForm()),
+              ),
+            ],
           ),
-          slivers: [
-            PinnedCupertinoBar(
-              height: 60,
-              maxWidth: 720,
-              builder: (ctx, _) => Row(
-                children: [
-                  if (widget.standalone) ...[
-                    const BackChevron(),
-                    const SizedBox(width: Space.xs),
-                  ],
-                  Expanded(
-                    child: Text(
-                      'Caixinhas',
-                      style: T.pageTitle.copyWith(color: c.text),
-                    ),
-                  ),
-                  RoundIconButton(
-                    LucideIcons.plus,
-                    size: 44,
-                    label: 'Nova caixinha',
-                    bg: c.primary,
-                    fg: c.onPrimary,
-                    onTap: () => pushFluid(context, const BoxForm()),
-                  ),
-                ],
-              ),
-            ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                pad,
-                Space.lg,
-                pad,
-                widget.standalone ? Space.xl : navClearance(context),
-              ),
-              sliver: SliverList.list(
-                children: [
-                  // ── Hero centralizado (evita duplicar ícone quando a lista está vazia)
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            pad,
+            widget.standalone ? Space.sm : Space.lg,
+            pad,
+            widget.standalone
+                ? Space.xl + MediaQuery.paddingOf(context).bottom
+                : navClearance(context),
+          ),
+          sliver: SliverList.list(
+            children: [
+              if (widget.standalone) ...[
+                LargeTitle('Caixinhas', style: T.pageTitle),
+                const SizedBox(height: Space.lg),
+              ],
+              // ── Hero centralizado (evita duplicar ícone quando a lista está vazia)
                   if (open.isNotEmpty) ...[
                     Column(
                       children: [
@@ -166,14 +170,24 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                       ),
                       children: [
                         for (final box in list)
-                          _BoxRow(box: box, f: f, hidden: hidden),
+                          _BoxRow(
+                            box: box,
+                            f: f,
+                            hidden: hidden,
+                            heroPrefix: heroPrefix,
+                          ),
                       ],
                     ),
                 ],
               ),
             ),
           ],
-        ),
+        );
+
+    final body = Stack(
+      children: [
+        const GlowBackground(height: 460),
+        widget.standalone ? CollapsingTitleScope(child: scroll) : scroll,
       ],
     );
     if (!widget.standalone) return body;
@@ -183,12 +197,55 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
   }
 }
 
+/// Shuttle vetorial do anel + ícone da caixinha: escala sem pixelização nem
+/// overflow de `40px` (lista) até `136px` (detalhe).
+Widget _boxRingShuttle(
+  Caixinha box,
+  double fraction,
+  Color accent,
+  Color track,
+  bool isDark,
+) {
+  return LayoutBuilder(
+    builder: (_, constraints) {
+      final s = constraints.biggest.shortestSide.clamp(32.0, 160.0);
+      final stroke = (s * 0.06).clamp(3.0, 8.0);
+      final inner = s * 0.74;
+      final iconSz = s * 0.31;
+      return Center(
+        child: ProgressRing(
+          size: s,
+          stroke: stroke,
+          fraction: fraction,
+          color: accent,
+          track: track,
+          child: Container(
+            width: inner,
+            height: inner,
+            decoration: BoxDecoration(
+              color: box.colorValue.withValues(alpha: isDark ? 0.20 : 0.13),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(box.iconData, size: iconSz, color: accent),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 /// Linha de caixinha no novo padrão agrupado, com anel circular de progresso de 40px.
 class _BoxRow extends StatelessWidget {
   final Caixinha box;
   final Finance f;
   final bool hidden;
-  const _BoxRow({required this.box, required this.f, required this.hidden});
+  final String heroPrefix;
+  const _BoxRow({
+    required this.box,
+    required this.f,
+    required this.hidden,
+    required this.heroPrefix,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -199,25 +256,38 @@ class _BoxRow extends StatelessWidget {
     final hasGoal = goal != null && goal > 0;
     final pct = hasGoal ? (bal / goal).clamp(0.0, 1.0) : 0.35;
     final accent = c.tone(box.colorValue);
+    final ringTag = '$heroPrefix-ring-${box.id}';
+    final titleTag = '$heroPrefix-title-${box.id}';
 
     return ListRow(
-      leading: ProgressRing(
-        size: 40,
-        stroke: 3,
-        fraction: pct,
-        color: accent,
-        track: c.cardAlt,
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            color: box.colorValue.withValues(alpha: c.isDark ? 0.22 : 0.14),
-            shape: BoxShape.circle,
+      leading: Hero(
+        tag: ringTag,
+        flightShuttleBuilder: (_, _, _, _, _) => _boxRingShuttle(
+          box,
+          hasGoal ? pct : 0.72,
+          accent,
+          c.cardAlt,
+          c.isDark,
+        ),
+        child: ProgressRing(
+          size: 40,
+          stroke: 3,
+          fraction: pct,
+          color: accent,
+          track: c.cardAlt,
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: box.colorValue.withValues(alpha: c.isDark ? 0.22 : 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(box.iconData, size: 16, color: accent),
           ),
-          child: Icon(box.iconData, size: 16, color: accent),
         ),
       ),
       title: box.name,
+      titleHeroTag: titleTag,
       subtitle: hasGoal
           ? '${fmtMoney(bal, hidden: hidden)} de ${fmtMoney(goal, hidden: hidden)}'
           : '+${fmtMoney(per, hidden: hidden)} por ciclo',
@@ -230,7 +300,10 @@ class _BoxRow extends StatelessWidget {
             )
           : null,
       arrow: true,
-      onTap: () => push(context, BoxDetail(id: box.id)),
+      onTap: () => pushMorph(
+        context,
+        BoxDetail(id: box.id, heroPrefix: heroPrefix),
+      ),
     );
   }
 }
@@ -239,7 +312,8 @@ class _BoxRow extends StatelessWidget {
 /// ações em pílulas limpas e lista espaçada de movimentações.
 class BoxDetail extends StatelessWidget {
   final String id;
-  const BoxDetail({super.key, required this.id});
+  final String? heroPrefix;
+  const BoxDetail({super.key, required this.id, this.heroPrefix});
 
   @override
   Widget build(BuildContext context) {
@@ -286,12 +360,13 @@ class BoxDetail extends StatelessWidget {
                   children: [
                     const BackChevron(),
                     Expanded(
-                      child: Text(
+                      child: HeroText(
                         box.name,
+                        tag: heroPrefix != null
+                            ? '$heroPrefix-title-${box.id}'
+                            : null,
                         style: T.bodyStrong.copyWith(color: c.text),
                         textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     RoundIconButton(
@@ -305,67 +380,102 @@ class BoxDetail extends StatelessWidget {
                 ),
               ),
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(pad, Space.lg, pad, Space.xl),
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.lg,
+                  pad,
+                  Space.xl + MediaQuery.paddingOf(context).bottom,
+                ),
                 sliver: SliverList.list(
                   children: [
                     // ── Hero circular centralizado (inspirado na tela central de Savings)
                     Column(
                       children: [
-                        SpringBuilder(
-                          value: hasGoal ? fraction : 0.72,
-                          from: 0,
-                          spring: Springs.settle,
-                          builder: (_, v, _) => ProgressRing(
-                            size: 136,
-                            stroke: 8,
-                            fraction: v,
-                            color: c.tone(box.colorValue),
-                            track: c.cardAlt,
-                            child: Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                color: box.colorValue.withValues(
-                                  alpha: c.isDark ? 0.18 : 0.12,
+                        Builder(
+                          builder: (_) {
+                            final accent = c.tone(box.colorValue);
+                            final targetFrac = hasGoal ? fraction : 0.72;
+                            final ring = SpringBuilder(
+                              value: targetFrac,
+                              from: heroPrefix != null ? targetFrac : 0,
+                              spring: Springs.settle,
+                              builder: (_, v, _) => ProgressRing(
+                                size: 136,
+                                stroke: 8,
+                                fraction: v,
+                                color: accent,
+                                track: c.cardAlt,
+                                child: Container(
+                                  width: 100,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: box.colorValue.withValues(
+                                      alpha: c.isDark ? 0.18 : 0.12,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    box.iconData,
+                                    size: 42,
+                                    color: accent,
+                                  ),
                                 ),
-                                shape: BoxShape.circle,
                               ),
-                              child: Icon(
-                                box.iconData,
-                                size: 42,
-                                color: c.tone(box.colorValue),
-                              ),
-                            ),
-                          ),
+                            );
+                            if (heroPrefix == null) return ring;
+                            return Hero(
+                              tag: '$heroPrefix-ring-${box.id}',
+                              flightShuttleBuilder: (_, _, _, _, _) =>
+                                  _boxRingShuttle(
+                                    box,
+                                    targetFrac,
+                                    accent,
+                                    c.cardAlt,
+                                    c.isDark,
+                                  ),
+                              child: ring,
+                            );
+                          },
                         ),
                         const SizedBox(height: Space.lg),
-                        CountingMoney(
-                          cents: bal,
-                          builder: (v) => MoneyText(
-                            v,
-                            hidden: hidden,
-                            style: T.displayLg,
-                            color: bal < 0 ? c.negative : null,
+                        Reveal(
+                          index: 0,
+                          dy: 10,
+                          child: Column(
+                            children: [
+                              CountingMoney(
+                                cents: bal,
+                                builder: (v) => MoneyText(
+                                  v,
+                                  hidden: hidden,
+                                  style: T.displayLg,
+                                  color: bal < 0 ? c.negative : null,
+                                ),
+                              ),
+                              const SizedBox(height: Space.xs),
+                              Text(
+                                hasGoal
+                                    ? bal >= goal
+                                          ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
+                                          : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
+                                    : plan.mode == PlanMode.percent
+                                    ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/ciclo'
+                                    : '+${fmtMoney(per, hidden: hidden)} por ciclo',
+                                textAlign: TextAlign.center,
+                                style: T.label.copyWith(color: c.textSecondary),
+                              ),
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: Space.xs),
-                        Text(
-                          hasGoal
-                              ? bal >= goal
-                                    ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
-                                    : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
-                              : plan.mode == PlanMode.percent
-                              ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/ciclo'
-                              : '+${fmtMoney(per, hidden: hidden)} por ciclo',
-                          textAlign: TextAlign.center,
-                          style: T.label.copyWith(color: c.textSecondary),
                         ),
                       ],
                     ),
                     const SizedBox(height: Space.lg),
 
                     // ── Ações rápidas em botões circulares neutros
-                    Row(
+                    Reveal(
+                      index: 1,
+                      dy: 12,
+                      child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         CircleAction(
@@ -442,6 +552,7 @@ class BoxDetail extends StatelessWidget {
                           },
                         ),
                       ],
+                    ),
                     ),
 
                     if (moves.isEmpty) ...[

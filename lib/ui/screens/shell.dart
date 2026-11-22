@@ -1,7 +1,4 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
-import 'package:flutter/material.dart' show PredictiveBackPageTransitionsBuilder;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme.dart';
@@ -111,43 +108,19 @@ List<String> effectiveNavTabs(AppData d) {
   return out;
 }
 
-/// Rota com gesto preditivo nativo do Android (enquanto mantém a transição
-/// Cupertino nativa no iOS/macOS).
-class _PredictivePageRoute<V> extends CupertinoPageRoute<V> {
-  _PredictivePageRoute({required super.builder});
-
-  static const _androidBuilder = PredictiveBackPageTransitionsBuilder();
-
-  @override
-  Widget buildTransitions(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return _androidBuilder.buildTransitions<V>(
-        this,
-        context,
-        animation,
-        secondaryAnimation,
-        child,
-      );
-    }
-    return super.buildTransitions(
-      context,
-      animation,
-      secondaryAnimation,
-      child,
-    );
-  }
-}
-
-/// Navega com gesto preditivo nativo no Android e swipe Cupertino no iOS.
+/// Navega com transição fluida e gesto preditivo nativo no Android (e swipe Cupertino no iOS).
 Future<V?> push<V>(BuildContext context, Widget page) =>
-    Navigator.of(context).push<V>(_PredictivePageRoute<V>(builder: (_) => page));
+    Navigator.of(context).push<V>(MarePageRoute<V>(builder: (_) => page));
 
-/// Abre fluxos de criação com a transição "fluida" (sobe + desfoca).
+/// Navega para uma subpágina com transição "só de elementos" (sem cortina deslizando):
+/// o fundo permanece estável enquanto elementos `Hero` voam e se transformam no lugar,
+/// mantendo o gesto preditivo nativo no Android.
+Future<V?> pushMorph<V>(BuildContext context, Widget page) =>
+    Navigator.of(context).push<V>(
+      MarePageRoute<V>(builder: (_) => page, morph: true),
+    );
+
+/// Abre fluxos de criação com transição modal fluida e gesto preditivo no Android.
 Future<V?> pushFluid<V>(BuildContext context, Widget page) =>
     Navigator.of(context).push<V>(FluidModalRoute(builder: (_) => page));
 

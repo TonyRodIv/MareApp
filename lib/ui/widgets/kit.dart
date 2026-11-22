@@ -11,7 +11,8 @@ import '../../core/money.dart';
 import '../../data/brands.dart';
 import '../../core/color_engine.dart';
 import '../../core/theme.dart';
-import 'motion.dart' show BlurSwitcher, SpringBuilder, Springs, easeOutExpo;
+import 'motion.dart'
+    show BlurSwitcher, HeroText, SpringBuilder, Springs, easeOutExpo;
 
 // ── Toque com feedback (escala + háptico) ───────────────────
 
@@ -2163,6 +2164,7 @@ class ListGroup extends StatelessWidget {
 class ListRow extends StatelessWidget {
   final Widget? leading;
   final String title;
+  final String? titleHeroTag;
   final String? subtitle;
   final String? value;
   final Color? titleColor;
@@ -2175,6 +2177,7 @@ class ListRow extends StatelessWidget {
     super.key,
     this.leading,
     required this.title,
+    this.titleHeroTag,
     this.subtitle,
     this.value,
     this.titleColor,
@@ -2202,14 +2205,13 @@ class ListRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
+                HeroText(
                   title,
+                  tag: titleHeroTag,
                   style: (strong
                           ? T.bodyStrong
                           : (iconless ? T.bodyMedium : T.body))
                       .copyWith(color: titleColor ?? c.text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),

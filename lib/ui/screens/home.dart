@@ -812,7 +812,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     return AppCard(
       title: 'Gastos por categoria',
-      onTap: () => push(context, const CategoriesScreen()),
+      onTap: () => pushMorph(
+        context,
+        CategoriesScreen(
+          waffleHeroTag: total > 0 ? 'home-cat-waffle' : null,
+        ),
+      ),
       child: total <= 0
           ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -825,10 +830,14 @@ class _HomeScreenState extends State<HomeScreen> {
               direction: w < 280 ? Axis.vertical : Axis.horizontal,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CategoryWaffle(
-                  data: data,
-                  maxCategories: 3,
-                  width: w < 280 ? w : (w * 0.36).clamp(100.0, 200.0),
+                Hero(
+                  tag: 'home-cat-waffle',
+                  flightShuttleBuilder: heroFittedShuttle,
+                  child: CategoryWaffle(
+                    data: data,
+                    maxCategories: 3,
+                    width: w < 280 ? w : (w * 0.36).clamp(100.0, 200.0),
+                  ),
                 ),
                 const SizedBox(width: 16, height: 14),
                 Flexible(
