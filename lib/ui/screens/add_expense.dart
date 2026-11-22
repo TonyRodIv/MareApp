@@ -147,7 +147,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 children: [
                   BackChevron(onTap: () => _go(-1)),
                   const Spacer(),
-                  if (_step > 0)
+                  if (_step > 0 && _step < 3)
                     BlurSwitcher(
                       alignment: Alignment.centerRight,
                       child: Text(
@@ -410,9 +410,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           index: 0,
           child: Row(
             children: [
-              IconBadge(
-                categoryById(_category).icon,
-                categoryById(_category).color,
+              BrandLogo(
+                name: _name.text.trim(),
+                icon: categoryById(_category).icon,
+                color: categoryById(_category).color,
                 size: 52,
               ),
               const SizedBox(width: 14),

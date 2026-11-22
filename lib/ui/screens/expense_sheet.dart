@@ -65,12 +65,6 @@ class ExpenseSheet extends StatelessWidget {
     void close() => Navigator.of(context).pop();
 
     return SheetBody(
-      bottom: PillButton(
-        'Excluir gasto',
-        kind: BtnKind.danger,
-        height: 52,
-        onTap: () => _delete(context, e, close),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -157,22 +151,28 @@ class ExpenseSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Ações rápidas
+          // Ações rápidas circulares (mesmo padrão das ações de Caixinhas)
           Reveal(
             blur: false,
             index: 2,
             baseDelay: Duration.zero,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Expanded(
-                  child: _Tile(LucideIcons.pencil, 'Editar', () {
+                CircleAction(
+                  icon: LucideIcons.pencil,
+                  label: 'Editar',
+                  size: canEnd ? 56 : 62,
+                  onTap: () {
                     close();
                     openEditExpense(host, e);
-                  }),
+                  },
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _Tile(LucideIcons.copy, 'Duplicar', () {
+                CircleAction(
+                  icon: LucideIcons.copy,
+                  label: 'Duplicar',
+                  size: canEnd ? 56 : 62,
+                  onTap: () {
                     s.addExpense(
                       Expense(
                         name: e.name,
@@ -184,22 +184,25 @@ class ExpenseSheet extends StatelessWidget {
                     );
                     close();
                     toast(host, 'Duplicado para hoje');
-                  }),
+                  },
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: canEnd
-                      ? _Tile(LucideIcons.repeat, 'Encerrar', () {
-                          s.endRecurring(e.id);
-                          close();
-                          toast(host, 'Não repete a partir do próximo ciclo');
-                        })
-                      : _Tile(LucideIcons.calendarCheck, 'Para hoje', () {
-                          final m = e.copy()..date = DateTime.now();
-                          s.updateExpense(m);
-                          close();
-                          toast(host, 'Movido para hoje');
-                        }),
+                if (canEnd)
+                  CircleAction(
+                    icon: LucideIcons.calendarOff,
+                    label: 'Encerrar',
+                    size: 56,
+                    onTap: () {
+                      s.endRecurring(e.id);
+                      close();
+                      toast(host, 'Não repete a partir do próximo ciclo');
+                    },
+                  ),
+                CircleAction(
+                  icon: LucideIcons.trash2,
+                  label: 'Excluir',
+                  danger: true,
+                  size: canEnd ? 56 : 62,
+                  onTap: () => _delete(context, e, close),
                 ),
               ],
             ),
@@ -323,45 +326,6 @@ class ExpenseSheet extends StatelessWidget {
     s.deleteExpense(e.id);
     close();
     if (host.mounted) toast(host, 'Gasto excluído', icon: LucideIcons.trash2);
-  }
-}
-
-class _Tile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _Tile(this.icon, this.label, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Pressable(
-      onTap: onTap,
-      semanticLabel: label,
-      child: Container(
-        height: 76,
-        decoration: ShapeDecoration(
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: c.borderStrong),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 22, color: c.text),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: T.small.copyWith(
-                color: c.text,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 

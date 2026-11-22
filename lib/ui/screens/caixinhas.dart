@@ -698,12 +698,6 @@ class MovementSheet extends StatelessWidget {
     void close() => Navigator.of(context).pop();
 
     return SheetBody(
-      bottom: PillButton(
-        'Excluir movimentação',
-        kind: BtnKind.danger,
-        height: 52,
-        onTap: () => _delete(context, box, m, close),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -786,22 +780,28 @@ class MovementSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Ações rápidas (mesmos 3 tiles neutros do ExpenseSheet)
+          // Ações rápidas circulares (mesmo padrão do detalhe de gasto)
           Reveal(
             blur: false,
             index: 2,
             baseDelay: Duration.zero,
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Expanded(
-                  child: _MoveTile(LucideIcons.pencil, 'Editar', () {
+                CircleAction(
+                  icon: LucideIcons.pencil,
+                  label: 'Editar',
+                  size: canEnd ? 56 : 62,
+                  onTap: () {
                     close();
                     editMovement(host, box.id, m.type, existing: m);
-                  }),
+                  },
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _MoveTile(LucideIcons.copy, 'Duplicar', () {
+                CircleAction(
+                  icon: LucideIcons.copy,
+                  label: 'Duplicar',
+                  size: canEnd ? 56 : 62,
+                  onTap: () {
                     final err = s.addMovement(
                       box.id,
                       Movement(
@@ -818,35 +818,25 @@ class MovementSheet extends StatelessWidget {
                     } else {
                       toast(host, 'Duplicado para hoje');
                     }
-                  }),
+                  },
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: canEnd
-                      ? _MoveTile(LucideIcons.repeat, 'Encerrar', () {
-                          s.endMovement(box.id, m.id);
-                          close();
-                          toast(host, 'Não repete a partir do próximo ciclo');
-                        })
-                      : _MoveTile(LucideIcons.calendarCheck, 'Para hoje', () {
-                          final updated = Movement(
-                            id: m.id,
-                            name: m.name,
-                            cents: m.cents,
-                            type: m.type,
-                            date: DateTime.now(),
-                            recurrence: m.recurrence,
-                            endDate: m.endDate,
-                          );
-                          final err = s.updateMovement(box.id, updated);
-                          close();
-                          if (!host.mounted) return;
-                          if (err != null) {
-                            toast(host, err, icon: LucideIcons.triangleAlert);
-                          } else {
-                            toast(host, 'Movido para hoje');
-                          }
-                        }),
+                if (canEnd)
+                  CircleAction(
+                    icon: LucideIcons.calendarOff,
+                    label: 'Encerrar',
+                    size: 56,
+                    onTap: () {
+                      s.endMovement(box.id, m.id);
+                      close();
+                      toast(host, 'Não repete a partir do próximo ciclo');
+                    },
+                  ),
+                CircleAction(
+                  icon: LucideIcons.trash2,
+                  label: 'Excluir',
+                  danger: true,
+                  size: canEnd ? 56 : 62,
+                  onTap: () => _delete(context, box, m, close),
                 ),
               ],
             ),
@@ -943,45 +933,6 @@ class MovementSheet extends StatelessWidget {
     if (host.mounted) {
       toast(host, 'Movimentação excluída', icon: LucideIcons.trash2);
     }
-  }
-}
-
-class _MoveTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _MoveTile(this.icon, this.label, this.onTap);
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Pressable(
-      onTap: onTap,
-      semanticLabel: label,
-      child: Container(
-        height: 76,
-        decoration: ShapeDecoration(
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: c.borderStrong),
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 22, color: c.text),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: T.small.copyWith(
-                color: c.text,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
