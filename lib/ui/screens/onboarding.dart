@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/cycle.dart';
 import '../../core/theme.dart';
+import '../../data/drive_sync.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
@@ -33,7 +34,7 @@ class _OnboardingState extends State<Onboarding> {
   int _startDay = 5;
   final _nameFocus = FocusNode();
 
-  static const _steps = 7;
+  static const _steps = 8;
 
   @override
   void initState() {
@@ -55,7 +56,7 @@ class _OnboardingState extends State<Onboarding> {
     _ => true,
   };
 
-  bool get _canSkip => _step == 2 || _step == 4;
+  bool get _canSkip => _step == 2 || _step == 4 || _step == 6;
 
   void _go(int delta) {
     final next = (_step + delta).clamp(0, _steps - 1);
@@ -154,7 +155,11 @@ class _OnboardingState extends State<Onboarding> {
     final bg = c.isDark ? c.bg : Palette.neutral0;
     final progress = _step == 0 ? 0.0 : _step / (_steps - 1);
     final showGlow =
-        _step == 0 || _step == 2 || _step == 3 || _step == _steps - 1;
+        _step == 0 ||
+        _step == 2 ||
+        _step == 3 ||
+        _step == 6 ||
+        _step == _steps - 1;
 
     return CupertinoPageScaffold(
       backgroundColor: bg,
@@ -330,14 +335,59 @@ class _OnboardingState extends State<Onboarding> {
             onTap: hasPhoto ? () => _go(1) : _openPhotoOptions,
           ),
           if (!hasPhoto) ...[
-            const SizedBox(height: Space.md),
-            PillButton(
-              'Agora não',
-              kind: BtnKind.outline,
-              height: 52,
-              onTap: () => _go(1),
+            const SizedBox(height: Space.sm),
+            CupertinoButton(
+              padding: const EdgeInsets.symmetric(
+                horizontal: Space.base,
+                vertical: Space.md,
+              ),
+              minimumSize: Size.zero,
+              onPressed: () => _go(1),
+              child: Text(
+                'Agora não',
+                style: T.label.copyWith(
+                  color: context.c.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ),
           ],
+        ],
+      );
+    }
+    if (_step == 6) {
+      final c = context.c;
+      final sync = context.sync;
+      if (sync.isConnected) {
+        return PillButton(
+          'Continuar',
+          trailingIcon: LucideIcons.arrowRight,
+          onTap: () => _go(1),
+        );
+      }
+      return Column(
+        children: [
+          PillButton(
+            sync.isSyncing ? 'Conectando…' : 'Conectar Google Drive',
+            icon: LucideIcons.cloud,
+            onTap: sync.isSyncing ? null : _connectDrive,
+          ),
+          const SizedBox(height: Space.sm),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.base,
+              vertical: Space.md,
+            ),
+            minimumSize: Size.zero,
+            onPressed: () => _go(1),
+            child: Text(
+              'Agora não',
+              style: T.label.copyWith(
+                color: c.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       );
     }
@@ -715,9 +765,117 @@ class _OnboardingState extends State<Onboarding> {
           ),
         );
 
+      case 6:
+        return _driveSyncStep(context);
+
       default:
         return _summary(context);
     }
+  }
+
+  Future<void> _connectDrive() async {
+    final sync = context.syncRead;
+    final res = await sync.connect();
+    if (!mounted) return;
+    if (res.ok) {
+      if (_avatarPath == null &&
+          sync.accountPhotoUrl != null &&
+          sync.accountPhotoUrl!.isNotEmpty) {
+        setState(() => _avatarPath = sync.accountPhotoUrl);
+      }
+      toast(context, res.message, icon: LucideIcons.check);
+      // Se já havia backup no Drive e foi restaurado, o onboarding já terminou.
+      if (!context.storeRead.data.onboardingDone) {
+        _go(1);
+      }
+    } else {
+      toast(context, res.message, icon: LucideIcons.triangleAlert);
+    }
+  }
+
+  Widget _driveSyncStep(BuildContext context) {
+    final c = context.c;
+    final sync = context.sync;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Spacer(),
+        SpringBuilder(
+          value: 1,
+          from: 0.72,
+          spring: Springs.bouncy,
+          builder: (_, t, _) => Transform.scale(
+            scale: t,
+            child: Container(
+              width: 84,
+              height: 84,
+              decoration: BoxDecoration(
+                color: c.primarySoft,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: c.primary.withValues(alpha: 0.35),
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                sync.isConnected ? LucideIcons.check : LucideIcons.cloud,
+                color: c.primary,
+                size: 36,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.lg),
+        Reveal(
+          index: 1,
+          child: Text(
+            sync.isConnected
+                ? 'Google Drive conectado'
+                : 'Sincronize com o Google Drive',
+            textAlign: TextAlign.center,
+            style: T.pageTitle.copyWith(color: c.text),
+          ),
+        ),
+        const SizedBox(height: Space.sm),
+        Reveal(
+          index: 2,
+          child: Text(
+            sync.isConnected
+                ? '${sync.accountEmail ?? 'Conta conectada'} · seus backups serão salvos automaticamente.'
+                : 'Guarde uma cópia privada na sua conta Google para nunca perder seus lançamentos ao trocar de celular.',
+            textAlign: TextAlign.center,
+            style: T.label.copyWith(color: c.textSecondary),
+          ),
+        ),
+        const SizedBox(height: Space.lg),
+        Reveal(
+          index: 3,
+          child: Container(
+            padding: const EdgeInsets.all(Space.base),
+            decoration: ShapeDecoration(
+              color: c.card,
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(Space.radiusCard),
+                side: BorderSide(color: c.border.withValues(alpha: 0.5)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(LucideIcons.shieldCheck, size: 20, color: c.primary),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: Text(
+                    'Apenas o maré acessa seu arquivo de backup numa pasta oculta do seu Drive.',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const Spacer(),
+      ],
+    );
   }
 
   String _firstName() => _name.text.trim().split(' ').first;

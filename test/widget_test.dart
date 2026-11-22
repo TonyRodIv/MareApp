@@ -63,6 +63,8 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   await settle(tester, 500);
   await tapText(tester, 'Continuar'); // dia de virada
   await settle(tester, 500);
+  await tapText(tester, 'Agora não'); // sincronização com Google Drive (opcional)
+  await settle(tester, 500);
   expect(tester.takeException(), isNull);
   await tapText(tester, 'Entrar no app');
   await settle(tester, 900);
