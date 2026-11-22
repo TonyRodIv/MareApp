@@ -171,6 +171,7 @@ class RoundIconButton extends StatelessWidget {
   final Color? bg;
   final Color? fg;
   final String? label;
+  final bool glass;
   const RoundIconButton(
     this.icon, {
     super.key,
@@ -179,38 +180,64 @@ class RoundIconButton extends StatelessWidget {
     this.bg,
     this.fg,
     this.label,
+    this.glass = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return Pressable(
-      onTap: onTap,
-      semanticLabel: label,
-      child: Container(
+    final iconChild = AnimatedSwitcher(
+      duration: const Duration(milliseconds: 320),
+      switchInCurve: Curves.easeOutBack,
+      switchOutCurve: Curves.easeIn,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: RotationTransition(
+          turns: Tween(begin: -0.16, end: 0.0).animate(anim),
+          child: ScaleTransition(scale: anim, child: child),
+        ),
+      ),
+      child: Icon(
+        icon,
+        key: ValueKey(icon.codePoint),
+        size: size * 0.46,
+        color: fg ?? c.text,
+      ),
+    );
+    final Widget body;
+    if (glass) {
+      final glassBg = bg ??
+          (c.isDark
+              ? const Color(0xFF16161A).withValues(alpha: 0.56)
+              : const Color(0xFFFFFFFF).withValues(alpha: 0.62));
+      body = ClipOval(
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: glassBg,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: c.isDark
+                    ? Palette.neutral0.withValues(alpha: 0.12)
+                    : Palette.neutral950.withValues(alpha: 0.08),
+              ),
+            ),
+            child: iconChild,
+          ),
+        ),
+      );
+    } else {
+      body = Container(
         width: size,
         height: size,
         decoration: BoxDecoration(color: bg ?? c.card, shape: BoxShape.circle),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 320),
-          switchInCurve: Curves.easeOutBack,
-          switchOutCurve: Curves.easeIn,
-          transitionBuilder: (child, anim) => FadeTransition(
-            opacity: anim,
-            child: RotationTransition(
-              turns: Tween(begin: -0.16, end: 0.0).animate(anim),
-              child: ScaleTransition(scale: anim, child: child),
-            ),
-          ),
-          child: Icon(
-            icon,
-            key: ValueKey(icon.codePoint),
-            size: size * 0.46,
-            color: fg ?? c.text,
-          ),
-        ),
-      ),
-    );
+        child: iconChild,
+      );
+    }
+    return Pressable(onTap: onTap, semanticLabel: label, child: body);
   }
 }
 
@@ -819,8 +846,26 @@ class Avatar extends StatelessWidget {
               .take(2)
               .map((p) => p.characters.first.toUpperCase())
               .join();
-    final file = path == null ? null : File(path!);
-    final hasImg = file != null && file.existsSync();
+    final isNetwork =
+        path != null &&
+        (path!.startsWith('http://') || path!.startsWith('https://'));
+    final file = (path == null || isNetwork) ? null : File(path!);
+    final hasFile = file != null && file.existsSync();
+    final fallback = Center(
+      child: initials.isEmpty
+          ? Icon(
+              LucideIcons.user,
+              color: Palette.brandSky,
+              size: size * 0.45,
+            )
+          : Text(
+              initials,
+              style: T.bodyStrong.copyWith(
+                fontSize: size * 0.36,
+                color: Palette.brandSky,
+              ),
+            ),
+    );
     return Container(
       width: size,
       height: size,
@@ -829,23 +874,17 @@ class Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: Palette.brandDeep,
       ),
-      child: hasImg
+      child: isNetwork
+          ? Image.network(
+              path!,
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+              errorBuilder: (_, _, _) => fallback,
+            )
+          : hasFile
           ? Image.file(file, fit: BoxFit.cover, width: size, height: size)
-          : Center(
-              child: initials.isEmpty
-                  ? Icon(
-                      LucideIcons.user,
-                      color: Palette.brandSky,
-                      size: size * 0.45,
-                    )
-                  : Text(
-                      initials,
-                      style: T.bodyStrong.copyWith(
-                        fontSize: size * 0.36,
-                        color: Palette.brandSky,
-                      ),
-                    ),
-            ),
+          : fallback,
     );
   }
 }
@@ -1154,7 +1193,10 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
         child: LayoutBuilder(
           builder: (context, box) {
             final bandPx = (box.maxHeight.isFinite ? box.maxHeight : 140.0) * dpr;
-            shader.setFloat(2, widget.maxSigma);
+            // Converte o raio lógico para pixels físicos para manter blur encorpado
+            // em telas de alta densidade (2x–3x), sem perder a suavidade.
+            final radiusPx = (widget.maxSigma * dpr * 1.15).clamp(12.0, 56.0);
+            shader.setFloat(2, radiusPx);
             shader.setFloat(3, fromTop ? 0.0 : 1.0);
             shader.setFloat(4, bandPx);
             return ClipRect(
@@ -1240,7 +1282,7 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
             bottom: -56,
             child: ProgressiveBlur(
               direction: AxisDirection.down,
-              maxSigma: 10,
+              maxSigma: 16,
               tint: c.isDark ? const Color(0xFF0A0A0A) : null,
               tintOpacity: c.isDark ? 0.72 : 0.80,
             ),

@@ -77,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     hidden ? LucideIcons.eyeOff : LucideIcons.eye,
                     size: 44,
                     label: hidden ? 'Mostrar valores' : 'Ocultar valores',
-                    bg: c.card.withValues(alpha: 0.78),
+                    glass: true,
                     onTap: s.toggleHideValues,
                   ),
                   const SizedBox(width: Space.sm),

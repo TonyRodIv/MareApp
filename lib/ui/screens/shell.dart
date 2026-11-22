@@ -107,7 +107,7 @@ class _ShellState extends State<Shell> {
                 height: 126 + bottom,
                 child: ProgressiveBlur(
                   direction: AxisDirection.up,
-                  maxSigma: 10,
+                  maxSigma: 18,
                   tint: c.isDark ? const Color(0xFF0A0A0A) : null,
                   tintOpacity: c.isDark ? 0.80 : 0.82,
                 ),

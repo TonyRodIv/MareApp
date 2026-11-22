@@ -286,7 +286,7 @@ class BoxDetail extends StatelessWidget {
                       LucideIcons.ellipsis,
                       size: 44,
                       label: 'Mais opções',
-                      bg: c.card.withValues(alpha: 0.78),
+                      glass: true,
                       onTap: () => _more(context, box, bal),
                     ),
                   ],
