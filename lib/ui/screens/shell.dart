@@ -76,11 +76,12 @@ class _ShellState extends State<Shell> {
               left: 0,
               right: 0,
               bottom: 0,
-              height: 92 + bottom,
+              height: 126 + bottom,
               child: ProgressiveBlur(
                 direction: AxisDirection.up,
-                maxSigma: 18,
-                tintOpacity: c.isDark ? 0.62 : 0.78,
+                maxSigma: 10,
+                tint: c.isDark ? const Color(0xFF0A0A0A) : null,
+                tintOpacity: c.isDark ? 0.80 : 0.82,
               ),
             ),
             Positioned(

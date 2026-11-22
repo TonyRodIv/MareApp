@@ -755,7 +755,7 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
       // de BackdropFilter cujo sigma cai até 0 na borda interna. Assim o desfoque
       // chega a sumir de verdade, em vez de ficar num sigma fixo com só o tint
       // esmaecendo.
-      const strips = 16;
+      const strips = 28;
       return IgnorePointer(
         child: RepaintBoundary(
           child: Stack(
@@ -856,11 +856,12 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
             left: 0,
             right: 0,
             top: 0,
-            bottom: -14,
+            bottom: -56,
             child: ProgressiveBlur(
               direction: AxisDirection.down,
-              maxSigma: 18,
-              tintOpacity: c.isDark ? 0.56 : 0.76,
+              maxSigma: 10,
+              tint: c.isDark ? const Color(0xFF0A0A0A) : null,
+              tintOpacity: c.isDark ? 0.72 : 0.80,
             ),
           ),
         Padding(

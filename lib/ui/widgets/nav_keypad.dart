@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -29,7 +31,6 @@ class FloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final bottom = MediaQuery.of(context).padding.bottom;
-    final pillBg = c.isDark ? const Color(0xEC111113) : const Color(0xF0FFFFFF);
     final activeBg = c.isDark ? const Color(0xFF242427) : const Color(0xFFEBEBF0);
     final activeFg = c.isDark ? Palette.neutral0 : Palette.brandInk;
     final inactiveFg = c.isDark ? const Color(0xFF9A9AA2) : const Color(0xFF767680);
@@ -39,22 +40,37 @@ class FloatingNavBar extends StatelessWidget {
       child: RepaintBoundary(
         child: Container(
           height: 66,
-          padding: const EdgeInsets.all(Space.xs),
           decoration: BoxDecoration(
-            color: pillBg,
             borderRadius: BorderRadius.circular(34),
-            border: Border.all(
-              color: c.isDark ? Palette.neutral0.withValues(alpha: 0.08) : Palette.neutral950.withValues(alpha: 0.06),
-            ),
             boxShadow: [
               BoxShadow(
-                color: Palette.neutral950.withValues(alpha: c.isDark ? 0.48 : 0.09),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
+                color: Palette.neutral950.withValues(alpha: c.isDark ? 0.42 : 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
               ),
             ],
           ),
-          child: LayoutBuilder(
+          // Vidro leve: desfoca o que passa por trás, tinge de leve, brilho
+          // suave no topo e borda de 1px que clareia no canto superior esquerdo.
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(34),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+              child: CustomPaint(
+                foregroundPainter: _GlassEdgePainter(dark: c.isDark),
+                child: Container(
+                  padding: const EdgeInsets.all(Space.xs),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(34),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: c.isDark
+                          ? [const Color(0xFF1C1C1F).withValues(alpha: 0.74), const Color(0xFF121214).withValues(alpha: 0.84)]
+                          : [const Color(0xFFFFFFFF).withValues(alpha: 0.80), const Color(0xFFF1F4F7).withValues(alpha: 0.72)],
+                    ),
+                  ),
+                  child: LayoutBuilder(
             builder: (ctx, box) {
               final w = box.maxWidth / items.length;
               return Stack(
@@ -70,7 +86,12 @@ class FloatingNavBar extends StatelessWidget {
                         bottom: 0,
                         width: w * (1 + stretch),
                         child: Container(
-                          decoration: BoxDecoration(color: activeBg, borderRadius: BorderRadius.circular(30)),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(30),
+                            color: activeBg.withValues(alpha: c.isDark ? 0.92 : 0.9),
+                            border: Border.all(color: Palette.neutral0.withValues(alpha: c.isDark ? 0.10 : 0.7)),
+                            boxShadow: [BoxShadow(color: Palette.neutral950.withValues(alpha: c.isDark ? 0.30 : 0.06), blurRadius: 8, offset: const Offset(0, 2))],
+                          ),
                         ),
                       );
                     },
@@ -118,10 +139,59 @@ class FloatingNavBar extends StatelessWidget {
               );
             },
           ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
   }
+}
+
+/// Borda de vidro: 1px que clareia no canto superior esquerdo e quase some no
+/// inferior direito, mais um brilho muito leve no alto da pílula.
+class _GlassEdgePainter extends CustomPainter {
+  final bool dark;
+  _GlassEdgePainter({required this.dark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(34));
+    const base = Palette.neutral0;
+    canvas.drawRRect(
+      rrect.deflate(0.5),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            base.withValues(alpha: dark ? 0.26 : 0.95),
+            base.withValues(alpha: dark ? 0.04 : 0.30),
+            base.withValues(alpha: dark ? 0.12 : 0.60),
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ).createShader(Offset.zero & size),
+    );
+    // Brilho suave no topo (a "lente" do vidro).
+    canvas.save();
+    canvas.clipRRect(rrect);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height * 0.5),
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [base.withValues(alpha: dark ? 0.07 : 0.35), base.withValues(alpha: 0)],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.5)),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_GlassEdgePainter old) => old.dark != dark;
 }
 
 // ── Valor grande + teclado numérico (Figma 414:2887) ────────
