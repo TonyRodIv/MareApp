@@ -8,7 +8,6 @@ import '../../core/theme.dart';
 import '../../data/finance.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
-import '../widgets/charts.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
@@ -98,17 +97,38 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final total = items.fold<int>(0, (t, e) => t + e.cents);
     final salary = f.salaryFor(cy);
     final pad = sidePadding(context);
-    final weekly = List<int>.filled(7, 0);
-    for (final e in items.where((e) => !e.isRecurring)) {
-      weekly[e.date.weekday % 7] += e.cents;
-    }
     final usedCats = allInCycle.map((e) => e.categoryId).toSet();
 
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      slivers: [
+    return Stack(
+      children: [
+        const GlowBackground(height: 440),
+        // Véu suave na cor do fundo (escuro no dark, claro no light) para deixar
+        // o brilho do Extrato mais contido e elegante.
+        IgnorePointer(
+          child: SizedBox(
+            height: 440,
+            width: double.infinity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    c.bg.withValues(alpha: c.isDark ? 0.48 : 0.54),
+                    c.bg.withValues(alpha: c.isDark ? 0.68 : 0.72),
+                    c.bg.withValues(alpha: 0),
+                  ],
+                  stops: const [0.0, 0.55, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+        CustomScrollView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
         PinnedCupertinoBar(
           height: 60,
           builder: (ctx, _) => Row(
@@ -116,7 +136,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
               Expanded(
                 child: Text(
                   'Extrato',
-                  style: T.title.copyWith(color: c.text, fontSize: 26),
+                  style: T.pageTitle.copyWith(color: c.text),
                 ),
               ),
               RoundIconButton(
@@ -197,7 +217,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                       builder: (v) => MoneyText(
                         v,
                         hidden: hidden,
-                        style: T.display.copyWith(fontSize: 40),
+                        style: T.displayLg,
                       ),
                     ),
                     if (salary > 0)
@@ -209,17 +229,10 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                 ),
               ),
               const SizedBox(height: Space.lg),
-              if (weekly.any((x) => x > 0)) ...[
-                AppCard(
-                  title: 'Gastos por dia da semana',
-                  child: WeekdayBars(values: weekly, hidden: hidden),
-                ),
-                const SizedBox(height: Space.base),
-              ],
-              const SizedBox(height: Space.md),
               AppField(
                 controller: _search,
                 placeholder: 'Buscar gasto ou categoria',
+                pill: true,
                 prefix: Icon(
                   LucideIcons.search,
                   size: 18,
@@ -353,6 +366,8 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
             ],
           ),
         ),
+      ],
+    ),
       ],
     );
   }

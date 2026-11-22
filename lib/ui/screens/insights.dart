@@ -9,6 +9,7 @@ import '../widgets/charts.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
+import 'expense_sheet.dart';
 import 'extrato.dart';
 import 'shell.dart';
 
@@ -16,10 +17,12 @@ import 'shell.dart';
 class _DetailPage extends StatelessWidget {
   final String title;
   final String? subtitle;
+  final Widget? trailing;
   final List<Widget> children;
   const _DetailPage({
     required this.title,
     this.subtitle,
+    this.trailing,
     required this.children,
   });
 
@@ -27,59 +30,48 @@ class _DetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final pad = sidePadding(context);
-    return CupertinoPageScaffold(
-      backgroundColor: c.bg,
-      child: Stack(
-        children: [
-          const GlowBackground(height: 460),
-          CustomScrollView(
-            physics: const BouncingScrollPhysics(),
-            slivers: [
-              PinnedCupertinoBar(
-                height: 60,
-                builder: (ctx, progress) => Row(
-                  children: [
-                    const BackChevron(),
-                    Expanded(
-                      child: AnimatedOpacity(
-                        duration: const Duration(milliseconds: 160),
-                        opacity: progress > 0.35 ? 1.0 : 0.0,
-                        child: Text(
-                          title,
-                          style: T.bodyStrong.copyWith(color: c.text),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+    return SheetScaler(
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: Stack(
+          children: [
+            const GlowBackground(height: 460),
+            CollapsingTitleScope(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  PinnedCupertinoBar(
+                    height: 60,
+                    builder: (ctx, progress) => Row(
+                      children: [
+                        const BackChevron(),
+                        Expanded(child: BarTitle(title, progress: progress)),
+                        trailing ?? const SizedBox(width: 44),
+                      ],
                     ),
-                    const SizedBox(width: 44),
-                  ],
-                ),
-              ),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
-                sliver: SliverList.list(
-                  children: [
-                    Text(
-                      title,
-                      style: T.title.copyWith(color: c.text, fontSize: 28),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
+                    sliver: SliverList.list(
+                      children: [
+                        LargeTitle(title, style: T.pageTitle),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: Space.xs),
+                          Text(
+                            subtitle!,
+                            style: T.label.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                        const SizedBox(height: Space.lg),
+                        ...children,
+                      ],
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: Space.xs),
-                      Text(
-                        subtitle!,
-                        style: T.label.copyWith(color: c.textSecondary),
-                      ),
-                    ],
-                    const SizedBox(height: Space.lg),
-                    ...children,
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -100,6 +92,7 @@ class CategoriesScreen extends StatelessWidget {
     final total = data.fold<int>(0, (t, e) => t + e.value);
     final prev = f.byCategory(f.current.prev(s.data.cycleStartDay));
     final prevMap = {for (final e in prev) e.key.id: e.value};
+    final mono = categoryMonochromeColors(c, data.length);
     return _DetailPage(
       title: 'Por categoria',
       subtitle: '${f.current.label()} · ${fmtMoney(total, hidden: hidden)}',
@@ -117,62 +110,55 @@ class CategoriesScreen extends StatelessWidget {
               child: SizedBox(width: 220, child: CategoryWaffle(data: data)),
             ),
           ),
-          const SizedBox(height: 12),
-          for (final e in data)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: AppCard(
-                onTap: () {
-                  Navigator.of(context).popUntil((r) => r.isFirst);
-                  _openExtratoFiltered(context, e.key.id);
-                },
-                child: Column(
+          ListGroup(
+            title: 'Categorias',
+            trailing: Text(
+              fmtMoney(total, hidden: hidden),
+              style: T.smallStrong.copyWith(color: c.textSecondary),
+            ),
+            children: [
+              for (var i = 0; i < data.length; i++)
+                Column(
                   children: [
-                    Row(
-                      children: [
-                        IconBadge(e.key.icon, e.key.color, size: 40),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                e.key.label,
-                                style: T.bodyStrong.copyWith(color: c.text),
-                              ),
-                              Text(
-                                _delta(e.value, prevMap[e.key.id], hidden),
-                                style: T.small.copyWith(color: c.textSecondary),
-                              ),
-                            ],
+                    ListRow(
+                      leading: IconBadge(data[i].key.icon, mono[i], size: 40),
+                      title: data[i].key.label,
+                      subtitle: _delta(
+                        data[i].value,
+                        prevMap[data[i].key.id],
+                        hidden,
+                      ),
+                      trailing: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            fmtMoney(data[i].value, hidden: hidden),
+                            style: T.bodyMedium.copyWith(color: c.text),
                           ),
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              fmtMoney(e.value, hidden: hidden),
-                              style: T.bodyStrong.copyWith(color: c.text),
-                            ),
-                            Text(
-                              '${(e.value / total * 100).round()}%',
-                              style: T.small.copyWith(color: c.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ],
+                          Text(
+                            '${(data[i].value / total * 100).round()}%',
+                            style: T.small.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                      arrow: true,
+                      onTap: () {
+                        Navigator.of(context).popUntil((r) => r.isFirst);
+                        _openExtratoFiltered(context, data[i].key.id);
+                      },
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     SpringBar(
-                      fraction: e.value / total,
-                      color: c.tone(e.key.color),
+                      fraction: data[i].value / total,
+                      color: mono[i],
                       track: c.cardAlt,
-                      height: 6,
+                      height: 5,
                     ),
                   ],
                 ),
-              ),
-            ),
+            ],
+          ),
         ],
       ],
     );
@@ -239,21 +225,13 @@ class RhythmScreen extends StatelessWidget {
                 spacing: 14,
                 runSpacing: 8,
                 children: [
+                  _legend(context, c.palette.primary[200], 'Sem gastos'),
                   _legend(
                     context,
-                    c.isDark ? Palette.teal100 : Palette.teal200,
-                    'Sem gastos',
-                  ),
-                  _legend(
-                    context,
-                    c.isDark ? Palette.teal550 : Palette.teal750,
+                    c.isDark ? c.palette.primary[500] : c.palette.primary[700],
                     'Dentro da meta',
                   ),
-                  _legend(
-                    context,
-                    c.isDark ? const Color(0xFF5B8087) : Palette.neutral400,
-                    'Passou da meta',
-                  ),
+                  _legend(context, c.textTertiary, 'Passou da meta'),
                   _legend(context, c.accentWarm, 'Hoje'),
                 ],
               ),
@@ -289,51 +267,37 @@ class RhythmScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        AppCard(
+        ListGroup(
           title: 'Resumo',
-          child: Column(
-            children: [
-              _line(context, 'Salário', f.salaryFor(cy), hidden),
-              _line(context, 'Gastos recorrentes', -f.fixedTotal(cy), hidden),
+          gap: 12,
+          children: [
+            _line(context, 'Salário', f.salaryFor(cy), hidden),
+            _line(context, 'Gastos recorrentes', -f.fixedTotal(cy), hidden),
+            _line(
+              context,
+              'Aportes nas caixinhas',
+              -f.contributionsTotal(cy),
+              hidden,
+            ),
+            _line(context, 'Gastos do dia a dia', -f.variableTotal(cy), hidden),
+            if (f.committed(cy) - f.fixedTotal(cy) - f.contributionsTotal(cy) !=
+                0)
               _line(
                 context,
-                'Aportes nas caixinhas',
-                -f.contributionsTotal(cy),
+                'Extras e resgates de caixinhas',
+                -(f.committed(cy) -
+                    f.fixedTotal(cy) -
+                    f.contributionsTotal(cy)),
                 hidden,
               ),
-              _line(
-                context,
-                'Gastos do dia a dia',
-                -f.variableTotal(cy),
-                hidden,
-              ),
-              if (f.committed(cy) -
-                      f.fixedTotal(cy) -
-                      f.contributionsTotal(cy) !=
-                  0)
-                _line(
-                  context,
-                  'Extras e resgates de caixinhas',
-                  -(f.committed(cy) -
-                      f.fixedTotal(cy) -
-                      f.contributionsTotal(cy)),
-                  hidden,
-                ),
-              Container(
-                height: 1,
-                color: c.border,
-                margin: const EdgeInsets.symmetric(vertical: 8),
-              ),
-              _line(
-                context,
-                'Saldo livre',
-                f.freeBalance(cy),
-                hidden,
-                strong: true,
-              ),
-            ],
-          ),
+            _line(
+              context,
+              'Saldo livre',
+              f.freeBalance(cy),
+              hidden,
+              strong: true,
+            ),
+          ],
         ),
       ],
     );
@@ -345,9 +309,11 @@ class RhythmScreen extends StatelessWidget {
       Container(
         width: 12,
         height: 12,
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(3),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(3),
+          ),
         ),
       ),
       const SizedBox(width: 6),
@@ -363,24 +329,14 @@ class RhythmScreen extends StatelessWidget {
     bool strong = false,
   }) {
     final c = context.c;
-    final st = (strong ? T.bodyStrong : T.label).copyWith(
-      color: strong ? c.text : c.textSecondary,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: st)),
-          Text(
-            fmtMoney(v, hidden: hidden),
-            style: st.copyWith(
-              color: v < 0 && strong
-                  ? c.negative
-                  : (strong ? c.text : c.textSecondary),
-            ),
-          ),
-        ],
-      ),
+    return ListRow(
+      title: label,
+      titleColor: strong ? c.text : c.textSecondary,
+      value: fmtMoney(v, hidden: hidden),
+      valueColor: v < 0 && strong
+          ? c.negative
+          : (strong ? c.text : c.textSecondary),
+      strong: strong,
     );
   }
 }
@@ -395,14 +351,26 @@ class SubscriptionsScreen extends StatelessWidget {
     final c = context.c;
     final s = context.store;
     final f = s.f;
+    final cy = f.current;
     final hidden = s.data.hideValues;
-    final subs = f.subscriptions(f.current);
+    final subs = f.subscriptions(cy);
     final total = subs.fold<int>(0, (t, e) => t + e.cents);
+    final salary = f.salaryFor(cy);
+    final totalExpenses = f.expensesTotal(cy);
+    final shareBase = salary > 0 ? salary : totalExpenses;
+    final shareLabel = salary > 0 ? 'do salário' : 'dos gastos';
+    final share = shareBase > 0 ? (total / shareBase).clamp(0.0, 1.0) : 0.0;
+
     return _DetailPage(
       title: 'Assinaturas',
-      subtitle: subs.isEmpty
-          ? null
-          : '${fmtMoney(total, hidden: hidden)} por mês · ${fmtMoney(total * 12, hidden: hidden)} por ano',
+      trailing: RoundIconButton(
+        LucideIcons.plus,
+        size: 40,
+        label: 'Nova assinatura',
+        bg: c.primary,
+        fg: c.onPrimary,
+        onTap: () => openAddExpense(context),
+      ),
       children: [
         if (subs.isEmpty)
           EmptyState(
@@ -414,25 +382,135 @@ class SubscriptionsScreen extends StatelessWidget {
             onAction: () => openAddExpense(context),
           )
         else ...[
-          AppCard(
-            child: SubscriptionBubbles(subs: subs, hidden: hidden),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            decoration: BoxDecoration(
-              color: c.card,
-              borderRadius: BorderRadius.circular(Space.radiusCard),
-            ),
-            clipBehavior: Clip.antiAlias,
+          // Hero centralizado (mesmo ritmo de Extrato e Caixinhas)
+          Center(
             child: Column(
               children: [
-                for (final e in subs) ExpenseRow(e: e, f: f, hidden: hidden),
+                Text(
+                  'Custo mensal',
+                  style: T.label.copyWith(color: c.textSecondary),
+                ),
+                const SizedBox(height: Space.xs),
+                CountingMoney(
+                  cents: total,
+                  builder: (v) => MoneyText(
+                    v,
+                    hidden: hidden,
+                    style: T.displayLg,
+                  ),
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  '${fmtMoney(total * 12, hidden: hidden)} por ano · ${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}',
+                  style: T.small.copyWith(color: c.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: Space.lg),
+
+          // Bolhas proporcionais interativas (toque abre o sheet do gasto)
+          AppCard(
+            title: 'Distribuição',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SubscriptionBubbles(
+                  subs: subs,
+                  hidden: hidden,
+                  height: 196,
+                  onSelect: (e) => showExpenseActions(context, e),
+                ),
+                const SizedBox(height: Space.sm),
+                Text(
+                  'Tamanho proporcional ao valor. Toque numa bolha para ver detalhes.',
+                  style: T.small.copyWith(color: c.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.md),
+
+          // Resumo em 2 cards neutros com padding 16px
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: AppCard(
+                    title: 'Maior serviço',
+                    expandChild: true,
+                    onTap: () => showExpenseActions(context, subs.first),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        MoneyText(
+                          subs.first.cents,
+                          hidden: hidden,
+                          style: T.cardValue,
+                        ),
+                        const SizedBox(height: Space.xxs),
+                        Text(
+                          subs.first.name,
+                          style: T.small.copyWith(color: c.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: AppCard(
+                    title: 'Peso no ciclo',
+                    expandChild: true,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        SpringBar(
+                          fraction: share,
+                          color: c.primary,
+                          track: c.cardAlt,
+                          height: 6,
+                        ),
+                        const SizedBox(height: Space.md),
+                        Text(
+                          '${(share * 100).round()}%',
+                          style: T.cardValue.copyWith(color: c.text),
+                        ),
+                        const SizedBox(height: Space.xxs),
+                        Text(
+                          shareLabel,
+                          style: T.small.copyWith(color: c.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          ListGroup(
+            title: 'Serviços ativos',
+            trailing: Text(
+              fmtMoney(total, hidden: hidden),
+              style: T.smallStrong.copyWith(color: c.textSecondary),
+            ),
+            children: [
+              for (final e in subs) ExpenseRow(e: e, f: f, hidden: hidden),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
           Text(
             'Toque numa assinatura para editar ou parar de repetir.',
+            textAlign: TextAlign.center,
             style: T.small.copyWith(color: c.textTertiary),
           ),
         ],
@@ -452,7 +530,13 @@ class HistoryScreen extends StatelessWidget {
     final s = context.store;
     final f = s.f;
     final hidden = s.data.hideValues;
-    final cycles = f.lastCycles(12).reversed.toList();
+    final cycles = [
+      for (final cy in f.lastCycles(12).reversed)
+        if (f.salaryFor(cy) > 0 || f.expensesTotal(cy) > 0) cy,
+    ];
+    final fixedColor = c.primary;
+    final varColor = c.primary.withValues(alpha: c.isDark ? 0.45 : 0.35);
+
     return _DetailPage(
       title: 'Histórico',
       subtitle: 'Calculado a partir dos seus lançamentos',
@@ -467,15 +551,15 @@ class HistoryScreen extends StatelessWidget {
                 height: 180,
                 hidden: hidden,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: Space.sm),
               Row(
                 children: [
-                  _dot(c.isDark ? Palette.teal550 : Palette.teal750),
+                  _dot(fixedColor),
                   Text(
                     ' Fixos e caixinhas   ',
                     style: T.small.copyWith(color: c.textSecondary),
                   ),
-                  _dot(c.isDark ? Palette.teal100 : Palette.teal200),
+                  _dot(varColor),
                   Text(
                     ' Dia a dia',
                     style: T.small.copyWith(color: c.textSecondary),
@@ -485,52 +569,21 @@ class HistoryScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        for (final cy in cycles)
-          if (f.salaryFor(cy) > 0 || f.expensesTotal(cy) > 0)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: AppCard(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            cy.label(),
-                            style: T.bodyStrong.copyWith(color: c.text),
-                          ),
-                          Text(
-                            'Gastos ${fmtMoney(f.expensesTotal(cy), hidden: hidden)} · Guardado ${fmtMoney(f.contributionsTotal(cy), hidden: hidden)}',
-                            style: T.small.copyWith(color: c.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          fmtMoney(f.freeBalance(cy), hidden: hidden),
-                          style: T.bodyStrong.copyWith(
-                            color: f.freeBalance(cy) < 0
-                                ? c.negative
-                                : c.positive,
-                          ),
-                        ),
-                        Text(
-                          sameDay(cy.start, f.current.start)
-                              ? 'livre até agora'
-                              : 'sobrou',
-                          style: T.tiny.copyWith(color: c.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ],
+        if (cycles.isNotEmpty)
+          ListGroup(
+            title: 'Ciclos',
+            gap: 18,
+            children: [
+              for (final cy in cycles)
+                ListRow(
+                  title: cy.label(),
+                  subtitle:
+                      '${sameDay(cy.start, f.current.start) ? 'Livre até agora · ' : ''}Gastos ${fmtMoney(f.expensesTotal(cy), hidden: hidden)} · Guardado ${fmtMoney(f.contributionsTotal(cy), hidden: hidden)}',
+                  value: fmtMoney(f.freeBalance(cy), hidden: hidden),
+                  valueColor: f.freeBalance(cy) < 0 ? c.negative : c.text,
                 ),
-              ),
-            ),
+            ],
+          ),
       ],
     );
   }
@@ -538,6 +591,9 @@ class HistoryScreen extends StatelessWidget {
   Widget _dot(Color c) => Container(
     width: 10,
     height: 10,
-    decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3)),
+    decoration: ShapeDecoration(
+      color: c,
+      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(3)),
+    ),
   );
 }

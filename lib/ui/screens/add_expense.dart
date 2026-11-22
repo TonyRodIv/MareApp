@@ -90,11 +90,12 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
       _forward = d > 0;
       _step = next;
     });
-    if (next == 1)
+    if (next == 1) {
       Future.delayed(
         const Duration(milliseconds: 160),
         () => mounted ? _nameFocus.requestFocus() : null,
       );
+    }
     if (next == 2) {
       final idx = categories.indexWhere((c) => c.id == _category);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -105,7 +106,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
 
   void _save() {
     final s = context.storeRead;
-    s.addExpense(
+    final err = s.addExpense(
       Expense(
         name: _name.text.trim(),
         cents: _amount.value,
@@ -116,6 +117,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
         endDate: _rec == Recurrence.monthly ? _end : null,
       ),
     );
+    if (err != null) {
+      toast(context, err, icon: LucideIcons.triangleAlert);
+      return;
+    }
     HapticFeedback.mediumImpact();
     Navigator.pop(context);
     toast(context, 'Gasto salvo');
@@ -248,10 +253,9 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 placeholder: 'Mercado, uber…',
                 keyboardAppearance: c.brightness,
                 cursorColor: c.accent,
-                style: T.title.copyWith(color: c.text, fontSize: 30),
-                placeholderStyle: T.title.copyWith(
+                style: T.pageTitle.copyWith(color: c.text),
+                placeholderStyle: T.pageTitle.copyWith(
                   color: c.textTertiary,
-                  fontSize: 30,
                 ),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: c.border)),
@@ -342,7 +346,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                           ),
                           child: Container(
                             margin: const EdgeInsets.symmetric(horizontal: 8),
-                            decoration: BoxDecoration(
+                            decoration: ShapeDecoration(
                               color: Color.lerp(
                                 cat.color.withValues(
                                   alpha: c.isDark ? 0.22 : 0.16,
@@ -350,7 +354,9 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                                 c.card,
                                 d,
                               ),
-                              borderRadius: BorderRadius.circular(32),
+                              shape: RoundedSuperellipseBorder(
+                                borderRadius: BorderRadius.circular(32),
+                              ),
                             ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -520,7 +526,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
   }
 }
 
-/// Picker de data nativo (Cupertino) num sheet.
+/// Picker de data nativo (Cupertino) num modal compacto colado nas bordas.
 Future<void> pickDate(
   BuildContext context,
   DateTime initial,
@@ -529,21 +535,17 @@ Future<void> pickDate(
   DateTime? min,
 }) {
   var current = initial;
-  return showCupertinoModalPopup(
-    context: context,
+  return showSheet<void>(
+    context,
     builder: (ctx) {
       final c = ctx.c;
-      return Container(
-        height: 330,
-        decoration: BoxDecoration(
-          color: c.card,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              Row(
+      return SizedBox(
+        height: 300,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+              child: Row(
                 children: [
                   if (onClear != null)
                     CupertinoButton(
@@ -569,19 +571,19 @@ Future<void> pickDate(
                   ),
                 ],
               ),
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.date,
-                  initialDateTime: min != null && initial.isBefore(min)
-                      ? min
-                      : initial,
-                  minimumDate: min == null ? null : dateOnly(min),
-                  maximumDate: DateTime(DateTime.now().year + 10),
-                  onDateTimeChanged: (d) => current = d,
-                ),
+            ),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.date,
+                initialDateTime: min != null && initial.isBefore(min)
+                    ? min
+                    : initial,
+                minimumDate: min == null ? null : dateOnly(min),
+                maximumDate: DateTime(DateTime.now().year + 10),
+                onDateTimeChanged: (d) => current = d,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     },
@@ -622,158 +624,180 @@ class _ExpenseFormState extends State<ExpenseForm> {
     final s = context.store;
     final df = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
     final cat = categoryById(_e.categoryId);
+    final pad = sidePadding(context);
     return CupertinoPageScaffold(
       backgroundColor: c.bg,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  Space.gutter,
-                  4,
-                  Space.gutter,
-                  16,
-                ),
-                children: [
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: BackChevron(),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Editar gasto',
-                    style: T.title.copyWith(color: c.text, fontSize: 32),
-                  ),
-                  const SizedBox(height: 20),
-                  Pressable(
-                    onTap: () => setState(() => _typing = !_typing),
-                    child: Container(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: c.border)),
-                      ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: AmountDisplay(cents: _amount.value, size: 40),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  QuickAddChips(controller: _amount, center: false),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 320),
-                    curve: easeOutExpo,
-                    child: _typing
-                        ? Padding(
-                            padding: const EdgeInsets.only(top: 12),
-                            child: Keypad(controller: _amount),
-                          )
-                        : const SizedBox(width: double.infinity),
-                  ),
-                  const SizedBox(height: 18),
-                  const FieldLabel('Nome'),
-                  AppField(
-                    controller: _name,
-                    placeholder: 'Em que você gastou?',
-                    maxLength: 40,
-                  ),
-                  const SizedBox(height: 18),
-                  const FieldLabel('Categoria'),
-                  SelectField(
-                    leading: Icon(cat.icon, color: c.tone(cat.color), size: 20),
-                    value: cat.label,
-                    placeholder: 'não sei ainda',
-                    onTap: () async {
-                      final id = await pickCategory(context, _e.categoryId);
-                      if (id != null) setState(() => _e.categoryId = id);
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  const FieldLabel('Frequência do gasto'),
-                  Segmented<Recurrence>(
-                    value: _e.recurrence,
-                    options: const {
-                      Recurrence.once: 'Único',
-                      Recurrence.monthly: 'Recorrente',
-                    },
-                    onChanged: (r) => setState(() => _e.recurrence = r),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _e.isRecurring
-                        ? 'Repete todo ciclo. Se mudar o valor, os meses anteriores continuam com o valor antigo.'
-                        : 'Conta só no ciclo da data do gasto.',
-                    style: T.small.copyWith(color: c.textSecondary),
-                  ),
-                  const SizedBox(height: 18),
-                  FieldLabel(_e.isRecurring ? 'Começa em' : 'Data'),
-                  SelectField(
-                    leading: Icon(
-                      LucideIcons.calendar,
-                      size: 18,
-                      color: c.textSecondary,
-                    ),
-                    value: df.format(_e.date),
-                    placeholder: '',
-                    onTap: () => pickDate(
-                      context,
-                      _e.date,
-                      (d) => setState(() => _e.date = d),
-                    ),
-                  ),
-                  if (_e.isRecurring) ...[
-                    const SizedBox(height: 14),
-                    const FieldLabel('Termina em (opcional)'),
-                    SelectField(
-                      leading: Icon(
-                        LucideIcons.calendarX,
-                        size: 18,
-                        color: c.textSecondary,
-                      ),
-                      value: _e.endDate == null ? null : df.format(_e.endDate!),
-                      placeholder: 'Sem data final',
-                      onTap: () => pickDate(
-                        context,
-                        _e.endDate ?? DateTime.now(),
-                        (d) => setState(() => _e.endDate = d),
-                        onClear: () => setState(() => _e.endDate = null),
-                        min: _e.date,
-                      ),
-                    ),
-                  ],
-                  if (s.data.cards.isNotEmpty) ...[
-                    const SizedBox(height: 18),
-                    const FieldLabel('Cartão'),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+      child: Column(
+        children: [
+          Expanded(
+            child: CollapsingTitleScope(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(),
+                slivers: [
+                  PinnedCupertinoBar(
+                    height: 60,
+                    builder: (ctx, progress) => Row(
                       children: [
-                        ChipButton(
-                          'Nenhum',
-                          selected: _e.cardId == null,
-                          onTap: () => setState(() => _e.cardId = null),
+                        const BackChevron(),
+                        Expanded(
+                          child: BarTitle('Editar gasto', progress: progress),
                         ),
-                        for (final k in s.data.cards)
-                          ChipButton(
-                            '${k.name} •${k.last4}',
-                            dot: Color(k.color),
-                            selected: _e.cardId == k.id,
-                            onTap: () => setState(() => _e.cardId = k.id),
-                          ),
+                        const SizedBox(width: 44),
                       ],
                     ),
-                  ],
-                ],
-              ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.lg),
+                    sliver: SliverList.list(
+                      children: [
+                        LargeTitle('Editar gasto', style: T.display),
+                      const SizedBox(height: 20),
+                      Pressable(
+                        onTap: () => setState(() => _typing = !_typing),
+                        child: Container(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          decoration: BoxDecoration(
+                            border: Border(bottom: BorderSide(color: c.border)),
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: AmountDisplay(
+                              cents: _amount.value,
+                              size: 40,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      QuickAddChips(controller: _amount, center: false),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 320),
+                        curve: easeOutExpo,
+                        child: _typing
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Keypad(controller: _amount),
+                              )
+                            : const SizedBox(width: double.infinity),
+                      ),
+                      const SizedBox(height: 18),
+                      const FieldLabel('Nome'),
+                      AppField(
+                        controller: _name,
+                        placeholder: 'Em que você gastou?',
+                        maxLength: 40,
+                      ),
+                      const SizedBox(height: 18),
+                      const FieldLabel('Categoria'),
+                      SelectField(
+                        leading: Icon(
+                          cat.icon,
+                          color: c.tone(cat.color),
+                          size: 20,
+                        ),
+                        value: cat.label,
+                        placeholder: 'não sei ainda',
+                        onTap: () async {
+                          final id = await pickCategory(context, _e.categoryId);
+                          if (id != null) setState(() => _e.categoryId = id);
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const FieldLabel('Frequência do gasto'),
+                      Segmented<Recurrence>(
+                        value: _e.recurrence,
+                        options: const {
+                          Recurrence.once: 'Único',
+                          Recurrence.monthly: 'Recorrente',
+                        },
+                        onChanged: (r) => setState(() => _e.recurrence = r),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _e.isRecurring
+                            ? 'Repete todo ciclo. Se mudar o valor, os meses anteriores continuam com o valor antigo.'
+                            : 'Conta só no ciclo da data do gasto.',
+                        style: T.small.copyWith(color: c.textSecondary),
+                      ),
+                      const SizedBox(height: 18),
+                      FieldLabel(_e.isRecurring ? 'Começa em' : 'Data'),
+                      SelectField(
+                        leading: Icon(
+                          LucideIcons.calendar,
+                          size: 18,
+                          color: c.textSecondary,
+                        ),
+                        value: df.format(_e.date),
+                        placeholder: '',
+                        onTap: () => pickDate(
+                          context,
+                          _e.date,
+                          (d) => setState(() {
+                            _e.date = d;
+                            if (_e.endDate != null &&
+                                dateOnly(_e.endDate!).isBefore(dateOnly(d))) {
+                              _e.endDate = d;
+                            }
+                          }),
+                        ),
+                      ),
+                      if (_e.isRecurring) ...[
+                        const SizedBox(height: 14),
+                        const FieldLabel('Termina em (opcional)'),
+                        SelectField(
+                          leading: Icon(
+                            LucideIcons.calendarX,
+                            size: 18,
+                            color: c.textSecondary,
+                          ),
+                          value: _e.endDate == null
+                              ? null
+                              : df.format(_e.endDate!),
+                          placeholder: 'Sem data final',
+                          onTap: () => pickDate(
+                            context,
+                            _e.endDate ?? _e.date,
+                            (d) => setState(() => _e.endDate = d),
+                            onClear: () => setState(() => _e.endDate = null),
+                            min: _e.date,
+                          ),
+                        ),
+                      ],
+                      if (s.data.cards.isNotEmpty) ...[
+                        const SizedBox(height: 18),
+                        const FieldLabel('Cartão'),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ChipButton(
+                              'Nenhum',
+                              selected: _e.cardId == null,
+                              onTap: () => setState(() => _e.cardId = null),
+                            ),
+                            for (final k in s.data.cards)
+                              ChipButton(
+                                k.last4.isNotEmpty
+                                    ? '${k.name} •${k.last4}'
+                                    : k.name,
+                                dot: Color(k.color),
+                                selected: _e.cardId == k.id,
+                                onTap: () => setState(() => _e.cardId = k.id),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.gutter,
-                8,
-                Space.gutter,
-                12,
-              ),
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(pad, 8, pad, 12),
               child: PillButton(
                 'Salvar alterações',
                 onTap: _amount.value > 0 && _name.text.trim().isNotEmpty
@@ -781,8 +805,8 @@ class _ExpenseFormState extends State<ExpenseForm> {
                     : null,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -792,7 +816,11 @@ class _ExpenseFormState extends State<ExpenseForm> {
       ..name = _name.text.trim()
       ..cents = _amount.value;
     if (!_e.isRecurring) _e.endDate = null;
-    context.storeRead.updateExpense(_e);
+    final err = context.storeRead.updateExpense(_e);
+    if (err != null) {
+      toast(context, err, icon: LucideIcons.triangleAlert);
+      return;
+    }
     Navigator.pop(context);
     toast(context, 'Gasto atualizado');
   }
@@ -820,22 +848,25 @@ Future<String?> pickCategory(BuildContext context, String current) {
               child: Pressable(
                 onTap: () => Navigator.pop(ctx, categories[i].id),
                 child: Container(
-                  decoration: BoxDecoration(
+                  padding: const EdgeInsets.all(Space.sm),
+                  decoration: ShapeDecoration(
                     color: categories[i].id == current
-                        ? categories[i].color.withValues(alpha: 0.2)
-                        : c.card,
-                    borderRadius: BorderRadius.circular(20),
-                    border: categories[i].id == current
-                        ? Border.all(color: categories[i].color, width: 1.5)
-                        : null,
+                        ? categories[i].color.withValues(alpha: 0.16)
+                        : c.cardAlt,
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: categories[i].id == current
+                          ? BorderSide(color: categories[i].color, width: 1.5)
+                          : BorderSide.none,
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      IconBadge(
                         categories[i].icon,
-                        color: c.tone(categories[i].color),
-                        size: 28,
+                        categories[i].color,
+                        size: 40,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -843,6 +874,7 @@ Future<String?> pickCategory(BuildContext context, String current) {
                         textAlign: TextAlign.center,
                         style: T.small.copyWith(color: c.text),
                         maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

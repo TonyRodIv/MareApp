@@ -13,10 +13,8 @@ import 'cards.dart';
 /// Detalhe de um gasto em bottom sheet: cabeçalho com ícone e fechar, valor
 /// grande, três ações rápidas e a lista "Detalhes" (cartão, tipo, ciclo, situação).
 Future<void> showExpenseActions(BuildContext context, Expense e) =>
-    showCupertinoSheet<void>(
-      context: context,
-      topGap: 0.07,
-      showDragHandle: true,
+    showIosSheet<void>(
+      context,
       builder: (_) => ExpenseSheet(expenseId: e.id, host: context),
     );
 
@@ -66,252 +64,233 @@ class ExpenseSheet extends StatelessWidget {
 
     void close() => Navigator.of(context).pop();
 
-    return ColoredBox(
-      color: c.card,
-      child: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
-            Space.gutter,
-            24,
-            Space.gutter,
-            24,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cabeçalho: o fechar fica mais alto, à direita; logo e nome entram um
-              // pouco abaixo, fora da linha do botão (como na referência).
-              Reveal(
-                blur: false,
-                baseDelay: Duration.zero,
-                child: SizedBox(
-                  height: 76,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 0,
-                        right: 48,
-                        top: 20,
-                        child: Row(
-                          children: [
-                            BrandLogo(
-                              name: e.name,
-                              icon: cat.icon,
-                              color: cat.color,
-                              size: 52,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    e.name,
-                                    style: T.headline.copyWith(color: c.text),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    cat.label,
-                                    style: T.label.copyWith(
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: RoundIconButton(
-                          LucideIcons.x,
-                          size: 36,
-                          bg: c.cardAlt,
-                          label: 'Fechar',
-                          onTap: close,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Valor e data
-              Reveal(
-                blur: false,
-                index: 1,
-                baseDelay: Duration.zero,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    MoneyText(
-                      e.cents.abs(),
-                      hidden: hidden,
-                      style: T.display.copyWith(fontSize: 40),
-                      color: e.cents < 0 ? c.positive : null,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      dateLabel,
-                      style: T.small.copyWith(color: c.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Ações rápidas
-              Reveal(
-                blur: false,
-                index: 2,
-                baseDelay: Duration.zero,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _Tile(LucideIcons.pencil, 'Editar', () {
-                        close();
-                        openEditExpense(host, e);
-                      }),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _Tile(LucideIcons.copy, 'Duplicar', () {
-                        s.addExpense(
-                          Expense(
-                            name: e.name,
-                            cents: e.cents,
-                            categoryId: e.categoryId,
-                            cardId: e.cardId,
-                            date: DateTime.now(),
-                          ),
-                        );
-                        close();
-                        toast(host, 'Duplicado para hoje');
-                      }),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: canEnd
-                          ? _Tile(LucideIcons.repeat, 'Encerrar', () {
-                              s.endRecurring(e.id);
-                              close();
-                              toast(
-                                host,
-                                'Não repete a partir do próximo ciclo',
-                              );
-                            })
-                          : _Tile(
-                              LucideIcons.trash2,
-                              'Excluir',
-                              () => _delete(context, e, close),
-                              danger: true,
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Detalhes
-              Text(
-                'Detalhes',
-                style: T.headline.copyWith(color: c.text, fontSize: 18),
-              ),
-              const SizedBox(height: 6),
-              _Row(
-                'Cartão',
-                trailing: card == null
-                    ? _val(c, 'Sem cartão')
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          BrandBadge(brand: card.brand),
-                          const SizedBox(width: 8),
-                          Text(
-                            '•• ${card.last4}',
-                            style: T.bodyStrong.copyWith(color: c.text),
-                          ),
-                        ],
-                      ),
-              ),
-              _Row(
-                'Tipo',
-                trailing: _val(c, e.isRecurring ? 'Recorrente' : 'Único'),
-              ),
-              _Row('Categoria', trailing: _val(c, cat.label)),
-              _Row('Ciclo', trailing: _val(c, cycle.label())),
-              if (e.isRecurring)
-                _Row(
-                  'Término',
-                  trailing: _val(
-                    c,
-                    e.endDate == null
-                        ? 'Sem data final'
-                        : DateFormat('dd/MM/yyyy').format(e.endDate!),
-                  ),
-                ),
-              _Row(
-                'Situação',
-                trailing: _val(
-                  c,
-                  status,
-                  color: ended ? c.textSecondary : c.positive,
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // Peso no ciclo
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: c.borderStrong),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+    return SheetBody(
+      bottom: PillButton(
+        'Excluir gasto',
+        kind: BtnKind.danger,
+        height: 52,
+        onTap: () => _delete(context, e, close),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cabeçalho: o fechar fica mais alto, à direita; logo e nome entram um
+          // pouco abaixo, fora da linha do botão (como na referência).
+          Reveal(
+            blur: false,
+            baseDelay: Duration.zero,
+            child: SizedBox(
+              height: 76,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 48,
+                    top: 20,
+                    child: Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Peso nos gastos de ${cycle.label()}',
-                            style: T.small.copyWith(color: c.textSecondary),
-                          ),
+                        BrandLogo(
+                          name: e.name,
+                          icon: cat.icon,
+                          color: cat.color,
+                          size: 52,
                         ),
-                        Text(
-                          '${(share * 100).round()}%',
-                          style: T.bodyStrong.copyWith(color: c.text),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                e.name,
+                                style: T.headline.copyWith(color: c.text),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                cat.label,
+                                style: T.label.copyWith(color: c.textSecondary),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    SpringBar(
-                      fraction: share,
-                      color: c.tone(cat.color),
-                      track: c.surfaceLow,
-                      height: 8,
+                  ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: RoundIconButton(
+                      LucideIcons.x,
+                      size: 36,
+                      bg: c.cardAlt,
+                      label: 'Fechar',
+                      onTap: close,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Valor e data
+          Reveal(
+            blur: false,
+            index: 1,
+            baseDelay: Duration.zero,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MoneyText(
+                  e.cents.abs(),
+                  hidden: hidden,
+                  style: T.displayLg,
+                  color: e.cents < 0 ? c.positive : null,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  dateLabel,
+                  style: T.small.copyWith(color: c.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Ações rápidas
+          Reveal(
+            blur: false,
+            index: 2,
+            baseDelay: Duration.zero,
+            child: Row(
+              children: [
+                Expanded(
+                  child: _Tile(LucideIcons.pencil, 'Editar', () {
+                    close();
+                    openEditExpense(host, e);
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _Tile(LucideIcons.copy, 'Duplicar', () {
+                    s.addExpense(
+                      Expense(
+                        name: e.name,
+                        cents: e.cents,
+                        categoryId: e.categoryId,
+                        cardId: e.cardId,
+                        date: DateTime.now(),
+                      ),
+                    );
+                    close();
+                    toast(host, 'Duplicado para hoje');
+                  }),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: canEnd
+                      ? _Tile(LucideIcons.repeat, 'Encerrar', () {
+                          s.endRecurring(e.id);
+                          close();
+                          toast(host, 'Não repete a partir do próximo ciclo');
+                        })
+                      : _Tile(LucideIcons.calendarCheck, 'Para hoje', () {
+                          final m = e.copy()..date = DateTime.now();
+                          s.updateExpense(m);
+                          close();
+                          toast(host, 'Movido para hoje');
+                        }),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Detalhes
+          Text(
+            'Detalhes',
+            style: T.headline.copyWith(color: c.text),
+          ),
+          const SizedBox(height: 6),
+          _Row(
+            'Cartão',
+            trailing: card == null
+                ? _val(c, 'Sem cartão')
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      BrandBadge(brand: card.brand),
+                      const SizedBox(width: 8),
+                      Text(
+                        '•• ${card.last4}',
+                        style: T.bodyStrong.copyWith(color: c.text),
+                      ),
+                    ],
+                  ),
+          ),
+          _Row(
+            'Tipo',
+            trailing: _val(c, e.isRecurring ? 'Recorrente' : 'Único'),
+          ),
+          _Row('Categoria', trailing: _val(c, cat.label)),
+          _Row('Ciclo', trailing: _val(c, cycle.label())),
+          if (e.isRecurring)
+            _Row(
+              'Término',
+              trailing: _val(
+                c,
+                e.endDate == null
+                    ? 'Sem data final'
+                    : DateFormat('dd/MM/yyyy').format(e.endDate!),
+              ),
+            ),
+          _Row(
+            'Situação',
+            trailing: _val(
+              c,
+              status,
+              color: ended ? c.textSecondary : c.positive,
+            ),
+          ),
+          const SizedBox(height: 18),
+
+          // Peso no ciclo
+          Container(
+            padding: const EdgeInsets.all(Space.base),
+            decoration: ShapeDecoration(
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(18),
+                side: BorderSide(color: c.borderStrong),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Peso nos gastos de ${cycle.label()}',
+                        style: T.small.copyWith(color: c.textSecondary),
+                      ),
+                    ),
+                    Text(
+                      '${(share * 100).round()}%',
+                      style: T.bodyStrong.copyWith(color: c.text),
                     ),
                   ],
                 ),
-              ),
-              if (e.isRecurring) ...[
-                const SizedBox(height: 14),
-                PillButton(
-                  'Excluir gasto',
-                  kind: BtnKind.danger,
-                  height: 48,
-                  onTap: () => _delete(context, e, close),
+                const SizedBox(height: 10),
+                SpringBar(
+                  fraction: share,
+                  color: c.tone(cat.color),
+                  track: c.surfaceLow,
+                  height: 8,
                 ),
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -351,32 +330,33 @@ class _Tile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool danger;
-  const _Tile(this.icon, this.label, this.onTap, {this.danger = false});
+  const _Tile(this.icon, this.label, this.onTap);
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final fg = danger ? Palette.red.s50 : c.text;
     return Pressable(
       onTap: onTap,
       semanticLabel: label,
       child: Container(
         height: 76,
-        decoration: BoxDecoration(
-          // Só borda no neutro; o excluir inverte: fundo saturado, conteúdo claro.
-          color: danger ? dangerFill() : null,
-          borderRadius: BorderRadius.circular(18),
-          border: danger ? null : Border.all(color: c.borderStrong),
+        decoration: ShapeDecoration(
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: c.borderStrong),
+          ),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 22, color: fg),
+            Icon(icon, size: 22, color: c.text),
             const SizedBox(height: 8),
             Text(
               label,
-              style: T.small.copyWith(color: fg, fontWeight: FontWeight.w600),
+              style: T.small.copyWith(
+                color: c.text,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
