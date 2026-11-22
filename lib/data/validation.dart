@@ -141,14 +141,24 @@ String? validateMovement(
   normalizeMovement(normalized);
   sim.movements.add(normalized);
 
-  if (m.sign < 0) {
+  if (m.sign < 0 || replacingId != null) {
     final avail = availableBoxBalance(
       f,
       box,
       excludingMovementId: replacingId,
     );
-    final rawAfter = f.boxRawBalance(sim);
-    if (rawAfter < 0) {
+    final moveCycle = f.cycleOf(normalized.date);
+    final checkKey = moveCycle.key > f.current.key
+        ? moveCycle.key
+        : f.current.key;
+    final rawCurrent = f.boxRawBalance(sim);
+    final rawTarget = checkKey == f.current.key
+        ? rawCurrent
+        : f.boxRawBalance(sim, upTo: f.fromKey(checkKey));
+    if (rawCurrent < 0 || rawTarget < 0) {
+      if (m.sign > 0) {
+        return 'Não é possível reduzir este depósito porque o saldo ficaria negativo.';
+      }
       if (avail <= 0) {
         return 'Saldo insuficiente na caixinha (disponível: R\$ 0,00).';
       }

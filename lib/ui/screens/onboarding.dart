@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/color_engine.dart';
 import '../../core/cycle.dart';
 import '../../core/theme.dart';
 import '../../data/drive_sync.dart';
@@ -32,6 +33,9 @@ class _OnboardingState extends State<Onboarding> {
   final _salary = AmountController();
   String? _avatarPath;
   int _startDay = 5;
+  late final _dayPicker = FixedExtentScrollController(
+    initialItem: _startDay - 1,
+  );
   final _nameFocus = FocusNode();
 
   static const _steps = 8;
@@ -47,6 +51,7 @@ class _OnboardingState extends State<Onboarding> {
   void dispose() {
     _name.dispose();
     _salary.dispose();
+    _dayPicker.dispose();
     _nameFocus.dispose();
     super.dispose();
   }
@@ -149,7 +154,7 @@ class _OnboardingState extends State<Onboarding> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final bg = c.isDark ? c.bg : Palette.neutral0;
+    final bg = c.bg;
     final progress = _step == 0 ? 0.0 : _step / (_steps - 1);
     final showGlow =
         _step == 0 ||
@@ -158,8 +163,13 @@ class _OnboardingState extends State<Onboarding> {
         _step == 6 ||
         _step == _steps - 1;
 
-    return CupertinoPageScaffold(
-      backgroundColor: bg,
+    return PopScope(
+      canPop: _step == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _go(-1);
+      },
+      child: CupertinoPageScaffold(
+        backgroundColor: bg,
       resizeToAvoidBottomInset: true,
       child: Stack(
         children: [
@@ -261,6 +271,7 @@ class _OnboardingState extends State<Onboarding> {
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -601,11 +612,11 @@ class _OnboardingState extends State<Onboarding> {
                                   ),
                                 ),
                                 if (currentSeed == col.toARGB32())
-                                  const Center(
+                                  Center(
                                     child: Icon(
                                       LucideIcons.check,
                                       size: 16,
-                                      color: Palette.neutral0,
+                                      color: onColor(col),
                                     ),
                                   ),
                               ],
@@ -702,9 +713,7 @@ class _OnboardingState extends State<Onboarding> {
               SizedBox(
                 height: 224,
                 child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(
-                    initialItem: _startDay - 1,
-                  ),
+                  scrollController: _dayPicker,
                   itemExtent: 56,
                   selectionOverlay: IgnorePointer(
                     child: Container(

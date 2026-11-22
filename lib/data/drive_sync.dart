@@ -259,6 +259,7 @@ class SyncService extends ChangeNotifier {
   Timer? _periodic;
   bool _disposed = false;
   bool _inFlight = false;
+  int _sessionGen = 0;
 
   SyncStatus _status = SyncStatus.disconnected;
   bool _autoSync = true;
@@ -483,11 +484,21 @@ class SyncService extends ChangeNotifier {
         message: 'A sincronização com Google Drive funciona no app Android.',
       );
     }
+    if (_inFlight) {
+      return const SyncResult(
+        ok: false,
+        message: 'Sincronização já em andamento.',
+      );
+    }
+    final gen = _sessionGen;
     _lastError = null;
     _status = SyncStatus.syncing;
     _emit();
     try {
       final acc = await _ensureSignIn().signIn();
+      if (_disposed || gen != _sessionGen) {
+        return const SyncResult(ok: false, message: 'Sessão encerrada.');
+      }
       if (acc == null) {
         _status = isConnected ? SyncStatus.idle : SyncStatus.disconnected;
         _emit();
@@ -497,6 +508,9 @@ class SyncService extends ChangeNotifier {
       _startPeriodicTimer();
       return await syncNow();
     } catch (e) {
+      if (_disposed || gen != _sessionGen) {
+        return const SyncResult(ok: false, message: 'Sessão encerrada.');
+      }
       final msg = _friendlyError(e);
       _lastError = msg;
       _status = isConnected ? SyncStatus.error : SyncStatus.disconnected;
@@ -506,6 +520,7 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> disconnect() async {
+    _sessionGen++;
     _debounce?.cancel();
     _periodic?.cancel();
     try {
@@ -551,6 +566,7 @@ class SyncService extends ChangeNotifier {
     if (!isConnected && silent) {
       return const SyncResult(ok: false, message: 'Conta não conectada.');
     }
+    final gen = _sessionGen;
     _inFlight = true;
     _lastError = null;
     _status = SyncStatus.syncing;
@@ -558,6 +574,9 @@ class SyncService extends ChangeNotifier {
 
     try {
       final headers = await _authHeaders(silent: silent);
+      if (_disposed || gen != _sessionGen) {
+        return const SyncResult(ok: false, message: 'Sessão encerrada.');
+      }
       if (headers == null) {
         _status = isConnected ? SyncStatus.idle : SyncStatus.disconnected;
         _emit();
@@ -568,27 +587,38 @@ class SyncService extends ChangeNotifier {
       }
 
       final remoteMeta = await _api.findBackup(headers);
+      if (_disposed || gen != _sessionGen) {
+        return const SyncResult(ok: false, message: 'Sessão encerrada.');
+      }
       String? remoteJson;
       DateTime? remoteUpdatedAt = remoteMeta?.modifiedTime;
       if (remoteMeta != null) {
         remoteJson = await _api.downloadBackup(headers, remoteMeta.fileId);
+        if (_disposed || gen != _sessionGen) {
+          return const SyncResult(ok: false, message: 'Sessão encerrada.');
+        }
         remoteUpdatedAt = _extractUpdatedAt(remoteJson) ?? remoteMeta.modifiedTime;
         _remoteModifiedAt = remoteUpdatedAt;
         _remoteSizeBytes = remoteMeta.sizeBytes ?? utf8.encode(remoteJson).length;
       }
 
+      final localSnapshotTs = _store.data.updatedAt ?? DateTime.now().toUtc();
+      final hasLocal = _store.hasMeaningfulData;
+      final hasRemote = remoteMeta != null && remoteJson != null;
       final decision = reconcileSync(
         localUpdatedAt: _store.data.updatedAt,
         remoteUpdatedAt: remoteUpdatedAt,
         lastSyncedAt: _lastSyncedAt,
-        hasLocalData: _store.hasMeaningfulData,
-        hasRemoteData: remoteMeta != null && remoteJson != null,
+        hasLocalData: hasLocal,
+        hasRemoteData: hasRemote,
       );
 
       switch (decision) {
         case SyncDecision.upToDate:
           _pendingConflict = null;
-          _lastSyncedAt = DateTime.now().toUtc();
+          if (hasLocal || hasRemote) {
+            _lastSyncedAt = DateTime.now().toUtc();
+          }
           _status = SyncStatus.idle;
           _savePrefs();
           _emit();
@@ -604,10 +634,13 @@ class SyncService extends ChangeNotifier {
             _store.exportJson(),
             existingFileId: remoteMeta?.fileId,
           );
+          if (_disposed || gen != _sessionGen) {
+            return const SyncResult(ok: false, message: 'Sessão encerrada.');
+          }
           _pendingConflict = null;
           _remoteModifiedAt = meta.modifiedTime ?? DateTime.now().toUtc();
           _remoteSizeBytes = meta.sizeBytes;
-          _lastSyncedAt = DateTime.now().toUtc();
+          _lastSyncedAt = localSnapshotTs;
           _status = SyncStatus.idle;
           _savePrefs();
           _emit();
@@ -629,8 +662,12 @@ class SyncService extends ChangeNotifier {
             _emit();
             return SyncResult(ok: false, message: err);
           }
+          final nowUtc = DateTime.now().toUtc();
           _pendingConflict = null;
-          _lastSyncedAt = DateTime.now().toUtc();
+          _lastSyncedAt =
+              remoteUpdatedAt != null && remoteUpdatedAt.isAfter(nowUtc)
+                  ? remoteUpdatedAt
+                  : nowUtc;
           _status = SyncStatus.idle;
           _savePrefs();
           _emit();
@@ -809,10 +846,10 @@ class SyncService extends ChangeNotifier {
   String _friendlyError(Object e) {
     if (e is PlatformException) {
       final msg = '${e.code} ${e.message ?? ''}'.toLowerCase();
-      if (msg.contains('10') || msg.contains('developer_error')) {
+      if (RegExp(r'\b10\b').hasMatch(msg) || msg.contains('developer_error')) {
         return 'Login Google não configurado no Google Cloud Console (erro 10: verifique o Client ID Android e o SHA-1).';
       }
-      if (msg.contains('network') || msg.contains('7')) {
+      if (msg.contains('network') || RegExp(r'\b7\b').hasMatch(msg)) {
         return 'Sem conexão com a internet para falar com o Google Drive.';
       }
       if (msg.contains('sign_in_canceled')) {
@@ -836,6 +873,7 @@ class SyncService extends ChangeNotifier {
     _disposed = true;
     _debounce?.cancel();
     _periodic?.cancel();
+    _api._http.close();
     if (_store.onLocalChange == notifyLocalChange) {
       _store.onLocalChange = null;
     }

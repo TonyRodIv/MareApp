@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../data/validation.dart';
 import 'kit.dart';
 import 'motion.dart';
 
@@ -164,6 +165,7 @@ class FloatingNavBar extends StatelessWidget {
                                               Text(
                                                 items[i].label,
                                                 maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: T.micro.copyWith(
                                                   color: i == index
                                                       ? activeFg
@@ -202,7 +204,7 @@ class FloatingNavBar extends StatelessWidget {
 /// (como em apps de banco: 1 → 0,01; 12 → 0,12; 123 → 1,23).
 class AmountController extends ValueNotifier<Cents> {
   AmountController([super.value = 0]);
-  static const max = 99999999999; // R$ 999.999.999,99
+  static const max = MoneyLimits.maxCents;
 
   void digit(int d) {
     final next = value * 10 + d;

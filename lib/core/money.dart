@@ -30,18 +30,19 @@ String fmtCompact(Cents c) => _compact.format(c / 100);
 
 /// "12,50" / "12.5" / "1.234,56" → centavos. Retorna null se inválido.
 Cents? parseMoney(String raw) {
-  var s = raw.trim().replaceAll('R\$', '').replaceAll(' ', '');
+  var s = raw.trim().replaceAll('R\$', '').replaceAll(RegExp(r'\s+'), '');
   if (s.isEmpty) return null;
   if (s.contains(',')) {
     s = s.replaceAll('.', '').replaceAll(',', '.');
   }
   final v = double.tryParse(s);
-  if (v == null || v.isNaN || v.isInfinite) return null;
+  if (v == null || !v.isFinite) return null;
   return (v * 100).round();
 }
 
 /// Converte valores float do app antigo (reais) para centavos.
 Cents centsFromLegacy(dynamic v) {
   final n = v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+  if (!n.isFinite) return 0;
   return (n * 100).round();
 }

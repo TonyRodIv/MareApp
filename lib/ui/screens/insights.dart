@@ -59,18 +59,13 @@ class _DetailPage extends StatelessWidget {
                   pad,
                   Space.sm,
                   pad,
-                  embedded ? navClearance(context) : Space.xl,
+                  embedded
+                      ? navClearance(context)
+                      : Space.xl + MediaQuery.paddingOf(context).bottom,
                 ),
                 sliver: SliverList.list(
                   children: [
                     LargeTitle(title, style: T.pageTitle),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: Space.xs),
-                      Text(
-                        subtitle!,
-                        style: T.label.copyWith(color: c.textSecondary),
-                      ),
-                    ],
                     const SizedBox(height: Space.lg),
                     ...children,
                   ],
@@ -473,9 +468,13 @@ class RhythmScreen extends StatelessWidget {
             children: [
               Icon(LucideIcons.zap, color: c.accentWarm),
               const SizedBox(width: 8),
-              Text(
-                '${f.streak} ${f.streak == 1 ? 'dia' : 'dias'} de sequência',
-                style: T.headline.copyWith(color: c.text),
+              Expanded(
+                child: Text(
+                  '${f.streak} ${f.streak == 1 ? 'dia' : 'dias'} de sequência',
+                  style: T.headline.copyWith(color: c.text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -584,18 +583,19 @@ class SubscriptionsScreen extends StatelessWidget {
     final totalExpenses = f.expensesTotal(cy);
     final shareBase = salary > 0 ? salary : totalExpenses;
     final shareLabel = salary > 0 ? 'do salário' : 'dos gastos';
-    final share = shareBase > 0 ? (total / shareBase).clamp(0.0, 1.0) : 0.0;
+    final rawShare = shareBase > 0 ? total / shareBase : 0.0;
+    final share = rawShare.clamp(0.0, 1.0);
 
     return _DetailPage(
       title: 'Assinaturas',
       embedded: embedded,
       trailing: RoundIconButton(
         LucideIcons.plus,
-        size: 40,
+        size: 44,
         label: 'Nova assinatura',
         bg: c.primary,
         fg: c.onPrimary,
-        onTap: () => openAddExpense(context),
+        onTap: () => openAddExpense(context, initialCategoryId: 'assinaturas'),
       ),
       children: [
         if (subs.isEmpty)
@@ -605,7 +605,8 @@ class SubscriptionsScreen extends StatelessWidget {
             message:
                 'Adicione um gasto recorrente na categoria Assinaturas para acompanhar quanto seus serviços custam.',
             action: 'Adicionar',
-            onAction: () => openAddExpense(context),
+            onAction: () =>
+                openAddExpense(context, initialCategoryId: 'assinaturas'),
           )
         else ...[
           // Hero centralizado (mesmo ritmo de Extrato e Caixinhas)
@@ -704,7 +705,7 @@ class SubscriptionsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: Space.md),
                         Text(
-                          '${(share * 100).round()}%',
+                          '${(rawShare * 100).round()}%',
                           style: T.cardValue.copyWith(color: c.text),
                         ),
                         const SizedBox(height: Space.xxs),
@@ -779,17 +780,29 @@ class HistoryScreen extends StatelessWidget {
                 hidden: hidden,
               ),
               const SizedBox(height: Space.sm),
-              Row(
+              Wrap(
+                spacing: Space.md,
+                runSpacing: Space.xs,
                 children: [
-                  _dot(fixedColor),
-                  Text(
-                    ' Fixos e caixinhas   ',
-                    style: T.small.copyWith(color: c.textSecondary),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _dot(fixedColor),
+                      Text(
+                        ' Fixos e caixinhas',
+                        style: T.small.copyWith(color: c.textSecondary),
+                      ),
+                    ],
                   ),
-                  _dot(varColor),
-                  Text(
-                    ' Dia a dia',
-                    style: T.small.copyWith(color: c.textSecondary),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _dot(varColor),
+                      Text(
+                        ' Dia a dia',
+                        style: T.small.copyWith(color: c.textSecondary),
+                      ),
+                    ],
                   ),
                 ],
               ),

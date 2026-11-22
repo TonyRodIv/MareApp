@@ -292,7 +292,7 @@ double? _parseDouble(dynamic raw) {
 
 int? _parseCents(dynamic raw) {
   final d = _parseDouble(raw);
-  if (d == null) return null;
+  if (d == null || !d.isFinite) return null;
   return (d.abs() * 100).round();
 }
 
@@ -389,7 +389,7 @@ Formato esperado:
     {
       "name": "Supermercado",
       "value": 184.50,
-      "category": "mercado",
+      "category": "alimentacao",
       "date": "$todayIso",
       "recurrence": "once",
       "card": "Nubank"
@@ -486,7 +486,7 @@ Formato esperado:
   }
 
   Future<void> _applyImport() async {
-    final p = _preview;
+    var p = _preview;
     if (p == null) return;
     final s = context.storeRead;
 
@@ -499,9 +499,26 @@ Formato esperado:
         action: 'Substituir',
       );
       if (!ok || !mounted) return;
+      // Re-faz o parsing sem cartões existentes para não perder vínculos ao limpar.
+      final (fresh, err) = parseAiImport(
+        _input.text,
+        existingCards: const [],
+        currentCycleKey: s.cycle.key,
+        expectedMode: _mode,
+      );
+      if (fresh == null) {
+        toast(
+          context,
+          err ?? 'Não foi possível preparar a importação',
+          icon: LucideIcons.triangleAlert,
+        );
+        return;
+      }
+      p = fresh;
       s.data.expenses.clear();
       s.data.boxes.clear();
       s.data.cards.clear();
+      if (p.salaryCents != null) s.data.salaries.clear();
     }
 
     if (p.cycleStartDay != null) {

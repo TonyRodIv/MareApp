@@ -345,9 +345,9 @@ class AppColors {
     // só nos botões, ícones e gráficos, nunca no fundo.
     Color tint(double l, [double c = 0]) => fromOklch(l, 0, h);
 
-    final bg = dark ? tint(0.145) : tint(0.968, 0.006);
-    final card = dark ? tint(0.205) : const Color(0xFFFFFFFF);
-    final cardAlt = dark ? tint(0.245) : tint(0.945, 0.007);
+    final bg = dark ? tint(0.085) : tint(0.968, 0.006);
+    final card = dark ? tint(0.175) : const Color(0xFFFFFFFF);
+    final cardAlt = dark ? tint(0.225) : tint(0.945, 0.007);
     final surfaces = [bg, card, cardAlt];
 
     final text = ensureContrast(
@@ -406,8 +406,8 @@ class AppColors {
       bg: bg,
       card: card,
       cardAlt: cardAlt,
-      surfaceLow: dark ? tint(0.105, 0.006) : tint(0.925, 0.008),
-      surfaceHigh: dark ? tint(0.30, 0.010) : const Color(0xFFFFFFFF),
+      surfaceLow: dark ? tint(0.125, 0.006) : tint(0.925, 0.008),
+      surfaceHigh: dark ? tint(0.275, 0.010) : const Color(0xFFFFFFFF),
       borderStrong: dark ? tint(0.40, 0.012) : tint(0.80, 0.010),
       border: dark ? tint(0.30, 0.010) : tint(0.885, 0.008),
       text: text,

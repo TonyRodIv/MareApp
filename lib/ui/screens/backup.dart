@@ -53,6 +53,9 @@ Future<void> exportBackupFlow(BuildContext context) async {
         if (uri != null && context.mounted) toast(context, 'Backup salvo');
       case _ExportWay.share:
         final box = context.findRenderObject() as RenderBox?;
+        final origin = (box != null && box.attached)
+            ? box.localToGlobal(Offset.zero) & box.size
+            : null;
         final dir = await getTemporaryDirectory();
         final file = File('${dir.path}/${_fileName()}');
         await file.writeAsBytes(bytes);
@@ -60,9 +63,7 @@ Future<void> exportBackupFlow(BuildContext context) async {
           ShareParams(
             files: [XFile(file.path, mimeType: 'application/json')],
             subject: 'Backup do maré',
-            sharePositionOrigin: box == null
-                ? null
-                : box.localToGlobal(Offset.zero) & box.size,
+            sharePositionOrigin: origin,
           ),
         );
       case _ExportWay.copy:

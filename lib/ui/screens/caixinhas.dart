@@ -247,6 +247,9 @@ class BoxDetail extends StatelessWidget {
     final s = context.store;
     final box = s.box(id);
     if (box == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.of(context).maybePop();
+      });
       return CupertinoPageScaffold(
         backgroundColor: c.bg,
         child: const SizedBox(),
@@ -480,10 +483,15 @@ class BoxDetail extends StatelessWidget {
       context,
       title: box.name,
       actions: [
-        const SheetAction('Editar caixinha', 'edit', icon: LucideIcons.pencil),
-        if (bal > 0 && box.closedKey == null)
+        if (box.isOpen)
           const SheetAction(
-            'Encerrar e devolver saldo',
+            'Editar caixinha',
+            'edit',
+            icon: LucideIcons.pencil,
+          ),
+        if (box.isOpen)
+          SheetAction(
+            bal > 0 ? 'Encerrar e devolver saldo' : 'Encerrar caixinha',
             'close',
             icon: LucideIcons.archive,
           ),
@@ -711,68 +719,70 @@ class MovementSheet extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Ações rápidas circulares (mesmo padrão do detalhe de gasto)
-          Reveal(
-            blur: false,
-            index: 2,
-            baseDelay: Duration.zero,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                CircleAction(
-                  icon: LucideIcons.pencil,
-                  label: 'Editar',
-                  size: canEnd ? 56 : 62,
-                  onTap: () {
-                    close();
-                    editMovement(host, box.id, m.type, existing: m);
-                  },
-                ),
-                CircleAction(
-                  icon: LucideIcons.copy,
-                  label: 'Duplicar',
-                  size: canEnd ? 56 : 62,
-                  onTap: () {
-                    final err = s.addMovement(
-                      box.id,
-                      Movement(
-                        name: m.name,
-                        cents: m.cents,
-                        type: m.type,
-                        date: DateTime.now(),
-                      ),
-                    );
-                    close();
-                    if (!host.mounted) return;
-                    if (err != null) {
-                      toast(host, err, icon: LucideIcons.triangleAlert);
-                    } else {
-                      toast(host, 'Duplicado para hoje');
-                    }
-                  },
-                ),
-                if (canEnd)
+          // Ações rápidas circulares (somente para caixinhas abertas)
+          if (box.isOpen) ...[
+            Reveal(
+              blur: false,
+              index: 2,
+              baseDelay: Duration.zero,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
                   CircleAction(
-                    icon: LucideIcons.calendarOff,
-                    label: 'Encerrar',
-                    size: 56,
+                    icon: LucideIcons.pencil,
+                    label: 'Editar',
+                    size: canEnd ? 56 : 62,
                     onTap: () {
-                      s.endMovement(box.id, m.id);
                       close();
-                      toast(host, 'Não repete a partir do próximo ciclo');
+                      editMovement(host, box.id, m.type, existing: m);
                     },
                   ),
-                CircleAction(
-                  icon: LucideIcons.trash2,
-                  label: 'Excluir',
-                  danger: true,
-                  size: canEnd ? 56 : 62,
-                  onTap: () => _delete(context, box, m, close),
-                ),
-              ],
+                  CircleAction(
+                    icon: LucideIcons.copy,
+                    label: 'Duplicar',
+                    size: canEnd ? 56 : 62,
+                    onTap: () {
+                      final err = s.addMovement(
+                        box.id,
+                        Movement(
+                          name: m.name,
+                          cents: m.cents,
+                          type: m.type,
+                          date: DateTime.now(),
+                        ),
+                      );
+                      close();
+                      if (!host.mounted) return;
+                      if (err != null) {
+                        toast(host, err, icon: LucideIcons.triangleAlert);
+                      } else {
+                        toast(host, 'Duplicado para hoje');
+                      }
+                    },
+                  ),
+                  if (canEnd)
+                    CircleAction(
+                      icon: LucideIcons.calendarOff,
+                      label: 'Encerrar',
+                      size: 56,
+                      onTap: () {
+                        s.endMovement(box.id, m.id);
+                        close();
+                        toast(host, 'Não repete a partir do próximo ciclo');
+                      },
+                    ),
+                  CircleAction(
+                    icon: LucideIcons.trash2,
+                    label: 'Excluir',
+                    danger: true,
+                    size: canEnd ? 56 : 62,
+                    onTap: () => _delete(context, box, m, close),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
+          ],
 
           // Detalhes
           Text('Detalhes', style: T.headline.copyWith(color: c.text)),
@@ -795,13 +805,13 @@ class MovementSheet extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
-          // Impacto na caixinha
+          // Impacto na caixinha (borderless, mesmo padrão do detalhe de gasto)
           Container(
             padding: const EdgeInsets.all(Space.base),
             decoration: ShapeDecoration(
+              color: c.isDark ? c.bg : c.surfaceLow,
               shape: RoundedSuperellipseBorder(
                 borderRadius: BorderRadius.circular(18),
-                side: BorderSide(color: c.borderStrong),
               ),
             ),
             child: Column(
@@ -825,7 +835,7 @@ class MovementSheet extends StatelessWidget {
                 SpringBar(
                   fraction: share,
                   color: c.tone(box.colorValue),
-                  track: c.surfaceLow,
+                  track: c.isDark ? c.cardAlt : c.border,
                   height: 8,
                 ),
               ],

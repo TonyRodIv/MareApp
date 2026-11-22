@@ -154,7 +154,9 @@ class PillButton extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: T.bodyStrong.copyWith(color: fg),
+            style: (height <= 48 ? T.labelStrong : T.bodyStrong).copyWith(
+              color: fg,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -169,7 +171,9 @@ class PillButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         height: height,
-        padding: const EdgeInsets.symmetric(horizontal: Space.base),
+        padding: EdgeInsets.symmetric(
+          horizontal: height <= 48 ? Space.md : Space.base,
+        ),
         decoration: BoxDecoration(
           color: bg,
           border: border,
@@ -580,25 +584,29 @@ class Segmented<V extends Object> extends StatelessWidget {
                 children: [
                   for (final k in keys)
                     Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          if (k == value) return;
-                          HapticFeedback.selectionClick();
-                          onChanged(k);
-                        },
-                        child: Center(
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 180),
-                            style: (k == value ? T.labelStrong : T.label)
-                                .copyWith(
-                                  fontWeight: FontWeight.w500,
-                                  color: k == value ? c.text : c.textSecondary,
-                                ),
-                            child: Text(
-                              options[k]!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                      child: Semantics(
+                        button: true,
+                        selected: k == value,
+                        label: options[k],
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            if (k == value) return;
+                            HapticFeedback.selectionClick();
+                            onChanged(k);
+                          },
+                          child: Center(
+                            child: AnimatedDefaultTextStyle(
+                              duration: const Duration(milliseconds: 180),
+                              style: (k == value ? T.labelStrong : T.label)
+                                  .copyWith(
+                                    color: k == value ? c.text : c.textSecondary,
+                                  ),
+                              child: Text(
+                                options[k]!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ),
                         ),
@@ -1235,9 +1243,9 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
         child: LayoutBuilder(
           builder: (context, box) {
             final bandPx = (box.maxHeight.isFinite ? box.maxHeight : 160.0) * dpr;
-            // Converte o raio lógico para pixels físicos para blur cremoso e
-            // encorpado em telas 2x–3x, apoiado por 48 amostras IGN no shader.
-            final radiusPx = (widget.maxSigma * dpr * 1.30).clamp(16.0, 68.0);
+            // Converte o raio lógico para pixels físicos (permite rampa suave
+            // a partir de 0px ao iniciar a rolagem).
+            final radiusPx = (widget.maxSigma * dpr * 1.30).clamp(0.0, 68.0);
             shader.setFloat(2, radiusPx);
             shader.setFloat(3, fromTop ? 0.0 : 1.0);
             shader.setFloat(4, bandPx);
@@ -1306,34 +1314,67 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final c = context.c;
-    final progress = overlapsContent
+    final pos = Scrollable.maybeOf(context)?.position;
+    final fallbackProgress = overlapsContent
         ? 1.0
         : (shrinkOffset / 24).clamp(0.0, 1.0);
     final pad = maxWidth == null
         ? sidePadding(context)
         : sidePadding(context, maxWidth: maxWidth!);
-    return Stack(
-      fit: StackFit.expand,
-      clipBehavior: Clip.none,
-      children: [
-        if (progress > 0.01)
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: -92,
-            child: ProgressiveBlur(
-              direction: AxisDirection.down,
-              maxSigma: 20,
-              tint: c.isDark ? const Color(0xFF0A0A0A) : null,
-              tintOpacity: c.isDark ? 0.78 : 0.84,
-            ),
-          ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(pad, top + Space.sm, pad, Space.sm),
-          child: builder(context, progress),
+
+    Widget buildBlur(double t) {
+      if (t <= 0.005) return const SizedBox.shrink();
+      final eased = Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
+      return Positioned(
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: -92,
+        child: ProgressiveBlur(
+          direction: AxisDirection.down,
+          maxSigma: 20 * eased,
+          tint: c.isDark ? c.bg : null,
+          tintOpacity: (c.isDark ? 0.78 : 0.84) * eased,
         ),
-      ],
+      );
+    }
+
+    if (pos != null) {
+      return AnimatedBuilder(
+        animation: pos,
+        builder: (ctx, _) {
+          final pixels = pos.hasPixels ? pos.pixels : 0.0;
+          final t = (pixels / 36.0).clamp(0.0, 1.0);
+          return Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
+            children: [
+              buildBlur(t),
+              Padding(
+                padding: EdgeInsets.fromLTRB(pad, top + Space.sm, pad, Space.sm),
+                child: builder(ctx, t),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: fallbackProgress),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      builder: (ctx, t, _) => Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          buildBlur(t),
+          Padding(
+            padding: EdgeInsets.fromLTRB(pad, top + Space.sm, pad, Space.sm),
+            child: builder(ctx, t),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1466,6 +1507,7 @@ class EmptyState extends StatelessWidget {
   final String? message;
   final String? action;
   final VoidCallback? onAction;
+  final Color? bg;
   const EmptyState({
     super.key,
     required this.icon,
@@ -1473,6 +1515,7 @@ class EmptyState extends StatelessWidget {
     this.message,
     this.action,
     this.onAction,
+    this.bg,
   });
 
   @override
@@ -1482,7 +1525,7 @@ class EmptyState extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(Space.base),
       decoration: ShapeDecoration(
-        color: c.card,
+        color: bg ?? c.card,
         shape: RoundedSuperellipseBorder(
           borderRadius: BorderRadius.circular(Space.radiusCard),
         ),
@@ -1567,6 +1610,8 @@ Future<bool> confirm(
                   child: PillButton(
                     'Cancelar',
                     kind: BtnKind.ghost,
+                    background: c.isDark ? c.cardAlt : c.surfaceLow,
+                    foreground: c.text,
                     height: 52,
                     onTap: () => Navigator.pop(ctx, false),
                   ),
@@ -1700,7 +1745,14 @@ class _EdgeSheetRoute<V> extends PopupRoute<V> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    return builder(context);
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0x00000000),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: builder(context),
+    );
   }
 
   @override
@@ -1980,7 +2032,15 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(widget.icon, size: 18, color: c.accent),
+                    Icon(
+                      widget.icon,
+                      size: 18,
+                      color: ensureContrast(
+                        c.accent,
+                        [c.isDark ? c.surfaceHigh : c.text],
+                        4.5,
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
@@ -2014,7 +2074,7 @@ class SectionHeader extends StatelessWidget {
       Space.base,
       Space.lg,
       Space.base,
-      Space.md,
+      Space.sm,
     ),
     child: Row(
       children: [
@@ -2024,7 +2084,10 @@ class SectionHeader extends StatelessWidget {
             style: T.bodyMedium.copyWith(color: context.c.textSecondary),
           ),
         ),
-        ?trailing,
+        if (trailing != null) ...[
+          const SizedBox(width: Space.sm),
+          trailing!,
+        ],
       ],
     ),
   );
@@ -2057,12 +2120,14 @@ class ListGroup extends StatelessWidget {
   final Widget? trailing;
   final List<Widget> children;
   final double gap;
+  final Color? bg;
   const ListGroup({
     super.key,
     this.title,
     this.trailing,
     required this.children,
     this.gap = 20,
+    this.bg,
   });
 
   @override
@@ -2076,7 +2141,7 @@ class ListGroup extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: ShapeDecoration(
-            color: c.card,
+            color: bg ?? c.card,
             shape: RoundedSuperellipseBorder(
               borderRadius: BorderRadius.circular(28),
             ),
@@ -2380,16 +2445,23 @@ class _IosSheetRoute<R> extends PopupRoute<R> {
     final mq = MediaQuery.of(context);
     final top = mq.padding.top + 14;
     final sheetHeight = math.max(240.0, mq.size.height - top);
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 640),
-        child: _IosSheetFrame(
-          height: sheetHeight,
-          viewInsetBottom: mq.viewInsets.bottom,
-          onDragFraction: _setDragFraction,
-          onDismissed: _completeDismissFromDrag,
-          child: builder(context),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Color(0x00000000),
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: _IosSheetFrame(
+            height: sheetHeight,
+            viewInsetBottom: mq.viewInsets.bottom,
+            onDragFraction: _setDragFraction,
+            onDismissed: _completeDismissFromDrag,
+            child: builder(context),
+          ),
         ),
       ),
     );
@@ -2407,13 +2479,60 @@ class _IosSheetRoute<R> extends PopupRoute<R> {
       curve: easeOutExpo,
       reverseCurve: Curves.easeInCubic,
     );
+    final secCurve = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
     return RepaintBoundary(
       child: SlideTransition(
         position: Tween(
           begin: const Offset(0, 1),
           end: Offset.zero,
         ).animate(curve),
-        child: child,
+        child: AnimatedBuilder(
+          animation: secCurve,
+          child: child,
+          builder: (_, sheetChild) {
+            final s = secCurve.value.clamp(0.0, 1.0);
+            if (s < 0.001) return sheetChild!;
+            final scale = 1.0 - 0.055 * s;
+            final dy = -10.0 * s;
+            final matrix = Matrix4.identity()
+              ..setTranslationRaw(0.0, dy, 0.0)
+              ..scaleByDouble(scale, scale, 1.0, 1.0);
+            return Transform(
+              transform: matrix,
+              alignment: Alignment.topCenter,
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  sheetChild!,
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 640),
+                          child: ClipRSuperellipse(
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(28),
+                            ),
+                            child: ColoredBox(
+                              color: const Color(
+                                0xFF000000,
+                              ).withValues(alpha: 0.42 * s),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

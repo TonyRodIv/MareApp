@@ -142,7 +142,7 @@ class _CardsStripState extends State<CardsStrip> {
 class CardChip extends StatelessWidget {
   final PayCard card;
   final double width;
-  const CardChip({super.key, required this.card, this.width = 96});
+  const CardChip({super.key, required this.card, this.width = 78});
 
   @override
   Widget build(BuildContext context) {
@@ -158,9 +158,11 @@ class CardChip extends StatelessWidget {
       width: width,
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 6),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(Space.radiusSm),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Space.radiusSm),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,6 +186,7 @@ class CardChip extends StatelessWidget {
                     color: onColor.withValues(alpha: 0.85),
                   ),
                   maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (card.isCard)
@@ -204,9 +207,11 @@ class CardChip extends StatelessWidget {
 
 class BrandBadge extends StatelessWidget {
   final CardBrand brand;
-  const BrandBadge({super.key, required this.brand});
+  final bool bordered;
+  const BrandBadge({super.key, required this.brand, this.bordered = false});
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     Widget box(Widget child) => Container(
       height: 14,
       padding: const EdgeInsets.symmetric(horizontal: 3),
@@ -214,6 +219,9 @@ class BrandBadge extends StatelessWidget {
         color: Palette.neutral0,
         shape: RoundedSuperellipseBorder(
           borderRadius: BorderRadius.circular(3),
+          side: bordered && !c.isDark
+              ? BorderSide(color: c.border)
+              : BorderSide.none,
         ),
       ),
       alignment: Alignment.center,
@@ -277,10 +285,12 @@ class BrandBadge extends StatelessWidget {
           ),
         );
       case CardBrand.other:
-        return const Icon(
-          LucideIcons.creditCard,
-          size: 14,
-          color: Palette.neutral0,
+        return box(
+          const Icon(
+            LucideIcons.creditCard,
+            size: 10,
+            color: Palette.neutral800,
+          ),
         );
     }
   }
@@ -360,6 +370,9 @@ class CardDetailScreen extends StatelessWidget {
     final s = context.store;
     final card = s.card(cardId);
     if (card == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.of(context).maybePop();
+      });
       return CupertinoPageScaffold(
         backgroundColor: c.bg,
         child: const SizedBox(),
@@ -734,9 +747,10 @@ class _CardFormState extends State<_CardForm> {
           FieldLabel(_isCard ? 'Nome do cartão ou banco' : 'Nome do banco ou conta'),
           AppField(
             controller: _name,
+            bg: trackBg,
             placeholder: 'Nubank, Inter, Itaú, PicPay…',
             capitalization: TextCapitalization.words,
-            maxLength: 24,
+            maxLength: 20,
           ),
           if (_isCard) ...[
             const SizedBox(height: Space.base),
@@ -772,7 +786,7 @@ class _CardFormState extends State<_CardForm> {
   void _save() {
     final s = context.storeRead;
     final trimmed = _name.text.trim();
-    s.saveCard(
+    final err = s.saveCard(
       PayCard(
         id: widget.card?.id,
         name: trimmed,
@@ -782,6 +796,10 @@ class _CardFormState extends State<_CardForm> {
         isCard: _isCard,
       ),
     );
+    if (err != null) {
+      toast(context, err, icon: LucideIcons.triangleAlert);
+      return;
+    }
     Navigator.pop(context);
     toast(
       context,
@@ -802,5 +820,6 @@ class _CardFormState extends State<_CardForm> {
     if (!ok || !mounted) return;
     context.storeRead.deleteCard(widget.card!.id);
     Navigator.pop(context);
+    toast(context, 'Conta excluída', icon: LucideIcons.trash2);
   }
 }

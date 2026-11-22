@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/color_engine.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
@@ -148,9 +149,14 @@ class _BoxFormState extends State<BoxForm> {
     final pad = sidePadding(context, maxWidth: 640);
     final progress = (_step + 1) / _steps;
 
-    return CupertinoPageScaffold(
-      backgroundColor: c.bg,
-      child: SafeArea(
+    return PopScope(
+      canPop: _step == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _go(-1);
+      },
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -274,6 +280,7 @@ class _BoxFormState extends State<BoxForm> {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -519,10 +526,10 @@ class _BoxFormState extends State<BoxForm> {
                           ),
                         ),
                         child: _color == col.toARGB32()
-                            ? const Icon(
+                            ? Icon(
                                 LucideIcons.check,
                                 size: 18,
-                                color: Palette.neutral0,
+                                color: onColor(col),
                               )
                             : null,
                       ),
@@ -956,10 +963,10 @@ class _BoxEditSheetState extends State<BoxEditSheet> {
                       ),
                     ),
                     child: _color == col.toARGB32()
-                        ? const Icon(
+                        ? Icon(
                             LucideIcons.check,
                             size: 16,
-                            color: Palette.neutral0,
+                            color: onColor(col),
                           )
                         : null,
                   ),

@@ -101,8 +101,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               sliver: SliverToBoxAdapter(child: _hero(context, f, hidden)),
             ),
-            // ── Cartões (vai até a borda direita da tela; oculto sem contas)
-            if (hasCards)
+            // ── Cartões (ocultos por padrão na Carteira; ativáveis em "Editar grade")
+            if (hasCards && !_effectiveHidden(s).contains('contas'))
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.only(bottom: Space.md),
@@ -219,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   static const _widgetMeta = <String, (String, IconData, int)>{
+    'contas': ('Contas e cartões', LucideIcons.landmark, 2),
     'gastos': ('Seus Gastos', LucideIcons.receipt, 1),
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
     'categorias': ('Gastos por categoria', LucideIcons.chartPie, 2),
@@ -230,9 +231,10 @@ class _HomeScreenState extends State<HomeScreen> {
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
   };
 
-  /// Por padrão, a tela inicial mostra apenas os 5 widgets essenciais.
-  /// Os demais podem ser ativados a qualquer momento em "Editar grade".
+  /// Por padrão, a tela inicial mostra apenas os 5 widgets essenciais (contas
+  /// e extras ficam ocultos até serem ativados em "Editar grade").
   static const _defaultHidden = <String>{
+    'contas',
     'projecao',
     'sequencia',
     'assinaturas',
@@ -243,7 +245,11 @@ class _HomeScreenState extends State<HomeScreen> {
     if (s.data.widgetOrder.isEmpty && s.data.hiddenWidgets.isEmpty) {
       return {..._defaultHidden};
     }
-    return s.data.hiddenWidgets.toSet();
+    final out = s.data.hiddenWidgets.toSet();
+    if (!s.data.widgetOrder.contains('contas')) {
+      out.add('contas');
+    }
+    return out;
   }
 
   List<String> _allIds(List<String> savedOrder) {
@@ -291,10 +297,13 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       switch (id) {
+        case 'contas':
+          continue; // Renderizado na faixa superior CardsStrip
         case 'gastos':
           final spent = f.expensesTotal(cy);
           final sal = f.salaryFor(cy);
-          final ratio = sal > 0 ? (spent / sal).clamp(0.0, 1.0) : 0.0;
+          final rawRatio = sal > 0 ? spent / sal : 0.0;
+          final ratio = rawRatio.clamp(0.0, 1.0);
           tiles.add(
             DashTile(
               id: id,
@@ -303,11 +312,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Seus Gastos',
                 spent,
                 sal > 0
-                    ? '${(ratio * 100).round()}% do salário'
+                    ? '${(rawRatio * 100).round()}% do salário'
                     : 'Neste ciclo',
                 hidden,
                 progress: sal > 0 ? ratio : null,
-                progressColor: ratio > 0.85 ? ctx.c.negative : ctx.c.primary,
+                progressColor: rawRatio > 0.85 ? ctx.c.negative : ctx.c.primary,
                 onTap: () => ShellScope.of(
                   context,
                 )?.goTo(1, filter: const ExtratoFilter()),
@@ -527,6 +536,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: Space.base),
                 ListGroup(
+                  bg: c.isDark ? c.bg : c.surfaceLow,
                   gap: 16,
                   children: [
                     for (var idx = 0; idx < available.length; idx++)

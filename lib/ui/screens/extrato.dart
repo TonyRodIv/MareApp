@@ -26,11 +26,13 @@ class ExtratoFilter {
 /// Extrato: aba Todos mantém recorrentes e únicos juntos; Recorrentes e Únicos
 /// separam conforme a aba superior. Tocar na busca abre página dedicada.
 class ExtratoScreen extends StatefulWidget {
-  final ValueNotifier<ExtratoFilter?> filter;
+  final ValueNotifier<ExtratoFilter?>? filter;
+  final ExtratoFilter? initialFilter;
   final bool standalone;
   const ExtratoScreen({
     super.key,
-    required this.filter,
+    this.filter,
+    this.initialFilter,
     this.standalone = false,
   });
   @override
@@ -46,23 +48,29 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
   @override
   void initState() {
     super.initState();
-    widget.filter.addListener(_applyExternal);
+    final initial = widget.initialFilter ?? widget.filter?.value;
+    if (initial != null) {
+      _cat = initial.categoryId;
+      _card = initial.cardId;
+      if (widget.filter != null) widget.filter!.value = null;
+    }
+    widget.filter?.addListener(_applyExternal);
   }
 
   void _applyExternal() {
-    final f = widget.filter.value;
+    final f = widget.filter?.value;
     if (f == null) return;
     setState(() {
       _offset = 0;
       _cat = f.categoryId;
       _card = f.cardId;
     });
-    widget.filter.value = null;
+    widget.filter!.value = null;
   }
 
   @override
   void dispose() {
-    widget.filter.removeListener(_applyExternal);
+    widget.filter?.removeListener(_applyExternal);
     super.dispose();
   }
 
@@ -74,9 +82,14 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final cy = f.fromKey(f.current.key + _offset);
     final hidden = s.data.hideValues;
     final allInCycle = f.expensesIn(cy);
+    final activeCard = _card == null ? null : s.card(_card);
+    final effectiveCardId = activeCard?.id;
+    final activeCat = _cat == null ? null : categoryById(_cat!);
     var items = allInCycle;
     if (_cat != null) items = items.where((e) => e.categoryId == _cat).toList();
-    if (_card != null) items = items.where((e) => e.cardId == _card).toList();
+    if (effectiveCardId != null) {
+      items = items.where((e) => e.cardId == effectiveCardId).toList();
+    }
 
     if (_kind == 1) items = items.where((e) => e.isRecurring).toList();
     if (_kind == 2) items = items.where((e) => !e.isRecurring).toList();
@@ -100,13 +113,10 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final salary = f.salaryFor(cy);
     final pad = sidePadding(context);
     final usedCats = allInCycle.map((e) => e.categoryId).toSet();
-    final activeFilterCount = (_cat != null ? 1 : 0) + (_card != null ? 1 : 0);
-    final activeCard = _card == null ? null : s.card(_card);
-    final activeCat = _cat == null ? null : categoryById(_cat!);
+    final activeFilterCount =
+        (_cat != null ? 1 : 0) + (effectiveCardId != null ? 1 : 0);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final fabBottom = widget.standalone
-        ? (bottomInset > 0 ? bottomInset : Space.base) + Space.sm
-        : 66 + (bottomInset > 0 ? bottomInset : Space.base) + Space.md;
+    final fabBottom = (bottomInset > 0 ? bottomInset : Space.base) + Space.sm;
 
     final body = Stack(
       children: [
@@ -156,9 +166,6 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                   const SizedBox(width: Space.sm),
                   _CycleBarPill(
                     label: cy.label(),
-                    canNext: _offset < 12,
-                    onPrev: () => setState(() => _offset--),
-                    onNext: () => setState(() => _offset++),
                     onPick: () => _openCyclePicker(context, f),
                   ),
                 ],
@@ -353,34 +360,35 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
             ),
           ],
         ),
-        // Botão flutuante de adicionar gasto no canto inferior direito
-        Positioned(
-          right: pad,
-          bottom: fabBottom,
-          child: Pressable(
-            semanticLabel: 'Adicionar gasto',
-            scale: 0.92,
-            onTap: () => openAddExpense(context),
-            child: Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: c.primary,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Palette.neutral950.withValues(
-                      alpha: c.isDark ? 0.48 : 0.18,
+        // Botão flutuante no modo standalone (quando na navbar, o Shell desenha acima do blur)
+        if (widget.standalone)
+          Positioned(
+            right: pad,
+            bottom: fabBottom,
+            child: Pressable(
+              semanticLabel: 'Adicionar gasto',
+              scale: 0.92,
+              onTap: () => openAddExpense(context),
+              child: Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: c.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Palette.neutral950.withValues(
+                        alpha: c.isDark ? 0.48 : 0.18,
+                      ),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                  ],
+                ),
+                child: Icon(LucideIcons.plus, size: 24, color: c.onPrimary),
               ),
-              child: Icon(LucideIcons.plus, size: 24, color: c.onPrimary),
             ),
           ),
-        ),
       ],
     );
 
@@ -486,7 +494,9 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                               vertical: 12,
                             ),
                             decoration: ShapeDecoration(
-                              color: selected ? c.cardAlt : null,
+                              color: selected
+                                  ? (c.isDark ? c.cardAlt : c.card)
+                                  : null,
                               shape: RoundedSuperellipseBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -599,19 +609,13 @@ Widget _searchShuttle(
   );
 }
 
-/// Seletor compacto de ciclo na top bar do Extrato: vidro fosco com ‹ mês ›
-/// e toque no nome do mês para abrir o seletor de ciclos.
+/// Seletor compacto de ciclo na top bar do Extrato: vidro fosco com nome do
+/// mês e seta para baixo para abrir o seletor rápido de ciclos.
 class _CycleBarPill extends StatelessWidget {
   final String label;
-  final bool canNext;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
   final VoidCallback onPick;
   const _CycleBarPill({
     required this.label,
-    required this.canNext,
-    required this.onPrev,
-    required this.onNext,
     required this.onPick,
   });
 
@@ -621,83 +625,48 @@ class _CycleBarPill extends StatelessWidget {
     final glassBg = c.isDark
         ? const Color(0xFF16161A).withValues(alpha: 0.56)
         : const Color(0xFFFFFFFF).withValues(alpha: 0.62);
-    return ClipRSuperellipse(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          height: 38,
-          decoration: ShapeDecoration(
-            color: glassBg,
-            shape: RoundedSuperellipseBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                color: c.isDark
-                    ? Palette.neutral0.withValues(alpha: 0.12)
-                    : Palette.neutral950.withValues(alpha: 0.08),
+    return Pressable(
+      semanticLabel: 'Escolher ciclo',
+      scale: 0.95,
+      onTap: onPick,
+      child: ClipRSuperellipse(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: ShapeDecoration(
+              color: glassBg,
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: c.isDark
+                      ? Palette.neutral0.withValues(alpha: 0.12)
+                      : Palette.neutral950.withValues(alpha: 0.08),
+                ),
               ),
             ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Pressable(
-                semanticLabel: 'Ciclo anterior',
-                scale: 0.88,
-                onTap: onPrev,
-                child: SizedBox(
-                  width: 34,
-                  height: 38,
-                  child: Icon(
-                    LucideIcons.chevronLeft,
-                    size: 16,
-                    color: c.textSecondary,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                BlurSwitcher(
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    key: ValueKey(label),
+                    style: T.labelStrong.copyWith(color: c.text),
+                    maxLines: 1,
                   ),
                 ),
-              ),
-              Pressable(
-                semanticLabel: 'Escolher ciclo',
-                scale: 0.95,
-                onTap: onPick,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      BlurSwitcher(
-                        alignment: Alignment.center,
-                        child: Text(
-                          label,
-                          key: ValueKey(label),
-                          style: T.labelStrong.copyWith(color: c.text),
-                          maxLines: 1,
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Icon(
-                        LucideIcons.chevronDown,
-                        size: 13,
-                        color: c.textSecondary,
-                      ),
-                    ],
-                  ),
+                const SizedBox(width: 6),
+                Icon(
+                  LucideIcons.chevronDown,
+                  size: 15,
+                  color: c.textSecondary,
                 ),
-              ),
-              Pressable(
-                semanticLabel: 'Próximo ciclo',
-                scale: 0.88,
-                onTap: canNext ? onNext : null,
-                child: SizedBox(
-                  width: 34,
-                  height: 38,
-                  child: Icon(
-                    LucideIcons.chevronRight,
-                    size: 16,
-                    color: canNext ? c.textSecondary : c.textTertiary,
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1021,13 +990,16 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
     final base = _allCycles
         ? [...s.data.expenses]
         : f.expensesIn(widget.cycle);
+    final activeCard = _card == null ? null : s.card(_card);
+    final effectiveCardId = activeCard?.id;
+    final activeCat = _cat == null ? null : categoryById(_cat!);
     final qFold = foldText(_q);
     var results = base;
     if (_cat != null) {
       results = results.where((e) => e.categoryId == _cat).toList();
     }
-    if (_card != null) {
-      results = results.where((e) => e.cardId == _card).toList();
+    if (effectiveCardId != null) {
+      results = results.where((e) => e.cardId == effectiveCardId).toList();
     }
     if (qFold.isNotEmpty) {
       results = results.where((e) {
@@ -1040,9 +1012,8 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
     results.sort((a, b) => b.date.compareTo(a.date));
     final total = results.fold<int>(0, (t, e) => t + e.cents);
     final usedCats = base.map((e) => e.categoryId).toSet();
-    final activeFilterCount = (_cat != null ? 1 : 0) + (_card != null ? 1 : 0);
-    final activeCard = _card == null ? null : s.card(_card);
-    final activeCat = _cat == null ? null : categoryById(_cat!);
+    final activeFilterCount =
+        (_cat != null ? 1 : 0) + (effectiveCardId != null ? 1 : 0);
 
     return SheetScaler(
       child: CupertinoPageScaffold(

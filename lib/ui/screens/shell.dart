@@ -1,4 +1,7 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/material.dart' show PredictiveBackPageTransitionsBuilder;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme.dart';
@@ -7,6 +10,7 @@ import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
+import 'add_expense.dart';
 import 'box_form.dart';
 import 'caixinhas.dart';
 import 'extrato.dart';
@@ -107,9 +111,41 @@ List<String> effectiveNavTabs(AppData d) {
   return out;
 }
 
-/// Navega com a transição nativa do iOS (swipe para voltar incluso).
+/// Rota com gesto preditivo nativo do Android (enquanto mantém a transição
+/// Cupertino nativa no iOS/macOS).
+class _PredictivePageRoute<V> extends CupertinoPageRoute<V> {
+  _PredictivePageRoute({required super.builder});
+
+  static const _androidBuilder = PredictiveBackPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return _androidBuilder.buildTransitions<V>(
+        this,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    return super.buildTransitions(
+      context,
+      animation,
+      secondaryAnimation,
+      child,
+    );
+  }
+}
+
+/// Navega com gesto preditivo nativo no Android e swipe Cupertino no iOS.
 Future<V?> push<V>(BuildContext context, Widget page) =>
-    Navigator.of(context).push<V>(CupertinoPageRoute(builder: (_) => page));
+    Navigator.of(context).push<V>(_PredictivePageRoute<V>(builder: (_) => page));
 
 /// Abre fluxos de criação com a transição "fluida" (sobe + desfoca).
 Future<V?> pushFluid<V>(BuildContext context, Widget page) =>
@@ -165,6 +201,7 @@ class _ShellState extends State<Shell> {
 
   @override
   void dispose() {
+    if (shellNav._impl == _goTo) shellNav._impl = null;
     _tabId.dispose();
     _extratoFilter.dispose();
     super.dispose();
@@ -189,8 +226,10 @@ class _ShellState extends State<Shell> {
     }
     // Se a tela não está fixada na barra inferior, abre como página empilhada.
     if (targetId == 'extrato') {
-      final f = ValueNotifier<ExtratoFilter?>(filter);
-      push(context, ExtratoScreen(filter: f, standalone: true));
+      push(
+        context,
+        ExtratoScreen(initialFilter: filter, standalone: true),
+      );
     } else if (targetId == 'caixinhas') {
       push(context, const CaixinhasScreen(standalone: true));
     } else if (targetId == 'perfil') {
@@ -270,9 +309,62 @@ class _ShellState extends State<Shell> {
                 child: ProgressiveBlur(
                   direction: AxisDirection.up,
                   maxSigma: 22,
-                  tint: c.isDark ? const Color(0xFF0A0A0A) : null,
+                  tint: c.isDark ? c.bg : null,
                   tintOpacity: c.isDark ? 0.82 : 0.84,
                 ),
+              ),
+              // Botão flutuante de adicionar gasto na aba Extrato (ACIMA do blur!)
+              ValueListenableBuilder<String>(
+                valueListenable: _tabId,
+                builder: (_, activeId, _) {
+                  final showFab = activeId == 'extrato' && tabs.contains('extrato');
+                  final fabBottom =
+                      66 + (bottom > 0 ? bottom : Space.base) + Space.md;
+                  final pad = sidePadding(context);
+                  return Positioned(
+                    right: pad,
+                    bottom: fabBottom,
+                    child: IgnorePointer(
+                      ignoring: !showFab,
+                      child: AnimatedScale(
+                        scale: showFab ? 1.0 : 0.72,
+                        duration: const Duration(milliseconds: 180),
+                        curve: easeOutExpo,
+                        child: AnimatedOpacity(
+                          opacity: showFab ? 1.0 : 0.0,
+                          duration: const Duration(milliseconds: 150),
+                          child: Pressable(
+                            semanticLabel: 'Adicionar gasto',
+                            scale: 0.92,
+                            onTap: () => openAddExpense(context),
+                            child: Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: c.primary,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Palette.neutral950.withValues(
+                                      alpha: c.isDark ? 0.48 : 0.18,
+                                    ),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                LucideIcons.plus,
+                                size: 24,
+                                color: c.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
               Positioned(
                 left: 0,

@@ -43,15 +43,15 @@ class SyncScreen extends StatelessWidget {
                     ),
                   ),
                   SliverPadding(
-                    padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
+                    padding: EdgeInsets.fromLTRB(
+                      pad,
+                      Space.sm,
+                      pad,
+                      Space.xl + MediaQuery.paddingOf(context).bottom,
+                    ),
                     sliver: SliverList.list(
                       children: [
                         LargeTitle('Sincronização', style: T.pageTitle),
-                        const SizedBox(height: Space.xs),
-                        Text(
-                          'Backup privado e automático no seu Google Drive',
-                          style: T.label.copyWith(color: c.textSecondary),
-                        ),
                         const SizedBox(height: Space.lg),
 
                         // ── Card principal de conexão / status
@@ -489,12 +489,22 @@ class _ConflictCard extends StatelessWidget {
                 child: PillButton(
                   'Usar da nuvem',
                   kind: BtnKind.ghost,
+                  background: c.isDark ? c.cardAlt : c.surfaceLow,
+                  foreground: c.text,
                   height: 44,
                   onTap: sync.isSyncing
                       ? null
                       : () async {
                           final res = await sync.pullNow();
-                          if (context.mounted) toast(context, res.message);
+                          if (context.mounted) {
+                            toast(
+                              context,
+                              res.message,
+                              icon: res.ok
+                                  ? LucideIcons.check
+                                  : LucideIcons.triangleAlert,
+                            );
+                          }
                         },
                 ),
               ),
@@ -507,7 +517,15 @@ class _ConflictCard extends StatelessWidget {
                       ? null
                       : () async {
                           final res = await sync.pushNow();
-                          if (context.mounted) toast(context, res.message);
+                          if (context.mounted) {
+                            toast(
+                              context,
+                              res.message,
+                              icon: res.ok
+                                  ? LucideIcons.check
+                                  : LucideIcons.triangleAlert,
+                            );
+                          }
                         },
                 ),
               ),

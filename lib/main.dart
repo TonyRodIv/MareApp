@@ -100,7 +100,6 @@ class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
                   : Brightness.dark,
               systemNavigationBarContrastEnforced: false,
             );
-            SystemChrome.setSystemUIOverlayStyle(overlay);
             return AnnotatedRegion<SystemUiOverlayStyle>(
               value: overlay,
               child: AppTheme(

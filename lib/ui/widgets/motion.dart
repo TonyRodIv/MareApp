@@ -256,7 +256,7 @@ class SpringSwitch extends StatelessWidget {
                 color: value ? c.primary : c.cardAlt,
                 shape: RoundedSuperellipseBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: c.border),
+                  side: value ? BorderSide.none : BorderSide(color: c.border),
                 ),
               ),
               child: SpringBuilder(

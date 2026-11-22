@@ -126,7 +126,30 @@ class Store extends ChangeNotifier {
   }
 
   void setCycleStartDay(int day) {
-    data.cycleStartDay = day.clamp(1, 31);
+    final oldKey = cycle.key;
+    final nextDay = day.clamp(1, 31);
+    if (nextDay == data.cycleStartDay) return;
+    data.cycleStartDay = nextDay;
+    final newKey = cycle.key;
+    // Se a virada recuou a chave do ciclo atual, realinha entradas criadas no
+    // ciclo atual para que salário e caixinhas ativos não sumam.
+    if (newKey < oldKey) {
+      for (var i = 0; i < data.salaries.length; i++) {
+        final s = data.salaries[i];
+        if (s.fromKey == oldKey) {
+          data.salaries[i] = SalaryEntry(newKey, s.cents);
+        }
+      }
+      for (final b in data.boxes) {
+        if (b.createdKey == oldKey) b.createdKey = newKey;
+        for (var i = 0; i < b.plans.length; i++) {
+          final p = b.plans[i];
+          if (p.fromKey == oldKey) {
+            b.plans[i] = ContributionPlan(newKey, p.mode, p.amount);
+          }
+        }
+      }
+    }
     _commit();
   }
 
@@ -173,10 +196,10 @@ class Store extends ChangeNotifier {
     return null;
   }
 
-  /// Edita um gasto. Se for recorrente, já tiver vigorado em ciclos anteriores
-  /// e o valor mudou, o histórico é preservado: o antigo encerra no ciclo
-  /// anterior e o novo passa a valer a partir de agora.
-  String? updateExpense(Expense edited) {
+  /// Edita um gasto. Se for recorrente ativo neste ciclo, já tiver vigorado
+  /// em ciclos anteriores e o valor mudou, o histórico é preservado: o antigo
+  /// encerra no ciclo anterior e o novo passa a valer a partir de agora.
+  String? updateExpense(Expense edited, {void Function(String newId)? onSplit}) {
     final i = data.expenses.indexWhere((e) => e.id == edited.id);
     if (i < 0) return 'Gasto não encontrado.';
     final validCards = data.cards.map((c) => c.id).toSet();
@@ -186,22 +209,27 @@ class Store extends ChangeNotifier {
     final old = data.expenses[i];
     final cur = cycle;
     final startedBefore = Cycle.of(old.date, data.cycleStartDay).key < cur.key;
+    final activeNow = f.expenseActive(old, cur);
+    final validNewEnd =
+        edited.endDate == null || !dateOnly(edited.endDate!).isBefore(cur.start);
     if (old.isRecurring &&
         edited.isRecurring &&
         startedBefore &&
+        activeNow &&
+        validNewEnd &&
         old.cents != edited.cents) {
-      old.endDate = cur.start.subtract(const Duration(days: 1));
-      data.expenses.add(
-        Expense(
-          name: edited.name,
-          cents: edited.cents,
-          categoryId: edited.categoryId,
-          cardId: edited.cardId,
-          date: cur.start,
-          recurrence: Recurrence.monthly,
-          endDate: edited.endDate,
-        ),
+      old.endDate = DateTime(cur.start.year, cur.start.month, cur.start.day - 1);
+      final replacement = Expense(
+        name: edited.name,
+        cents: edited.cents,
+        categoryId: edited.categoryId,
+        cardId: edited.cardId,
+        date: cur.start,
+        recurrence: Recurrence.monthly,
+        endDate: edited.endDate,
       );
+      data.expenses.add(replacement);
+      onSplit?.call(replacement.id);
     } else {
       data.expenses[i] = edited;
     }
@@ -213,7 +241,8 @@ class Store extends ChangeNotifier {
   void endRecurring(String id) {
     final e = data.expenses.where((e) => e.id == id).firstOrNull;
     if (e == null) return;
-    e.endDate = cycle.end.subtract(const Duration(days: 1));
+    final end = DateTime(cycle.end.year, cycle.end.month, cycle.end.day - 1);
+    e.endDate = dateOnly(end).isBefore(dateOnly(e.date)) ? e.date : end;
     _commit();
   }
 
@@ -323,7 +352,7 @@ class Store extends ChangeNotifier {
   /// Encerra a caixinha devolvendo o saldo ao ciclo atual. O histórico fica.
   void closeBox(String id) {
     final b = box(id);
-    if (b == null) return;
+    if (b == null || !b.isOpen) return;
     final bal = f.boxBalance(b);
     if (bal > 0) {
       b.movements.add(
@@ -365,9 +394,10 @@ class Store extends ChangeNotifier {
   String? deleteMovement(String boxId, String movementId) {
     final b = box(boxId);
     if (b == null) return 'Caixinha não encontrada.';
+    if (!b.isOpen) return 'Esta caixinha já foi encerrada.';
     final existing = b.movements.where((m) => m.id == movementId).firstOrNull;
     if (existing == null) return null;
-    if (existing.sign > 0 && b.isOpen) {
+    if (existing.sign > 0) {
       final sim = Caixinha.fromJson(b.toJson());
       sim.movements.removeWhere((m) => m.id == movementId);
       if (f.boxRawBalance(sim) < 0) {
@@ -380,11 +410,12 @@ class Store extends ChangeNotifier {
   }
 
   void endMovement(String boxId, String movementId) {
-    final m = box(
-      boxId,
-    )?.movements.where((m) => m.id == movementId).firstOrNull;
+    final b = box(boxId);
+    if (b == null || !b.isOpen) return;
+    final m = b.movements.where((m) => m.id == movementId).firstOrNull;
     if (m == null) return;
-    m.endDate = cycle.end.subtract(const Duration(days: 1));
+    final end = DateTime(cycle.end.year, cycle.end.month, cycle.end.day - 1);
+    m.endDate = dateOnly(end).isBefore(dateOnly(m.date)) ? m.date : end;
     _commit();
   }
 

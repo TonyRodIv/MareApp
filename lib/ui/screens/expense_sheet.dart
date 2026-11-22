@@ -20,17 +20,24 @@ Future<void> showExpenseActions(BuildContext context, Expense e) =>
       builder: (_) => ExpenseSheet(expenseId: e.id, host: context),
     );
 
-class ExpenseSheet extends StatelessWidget {
+class ExpenseSheet extends StatefulWidget {
   final String expenseId;
   final BuildContext
   host; // contexto que continua vivo depois de fechar o sheet
   const ExpenseSheet({super.key, required this.expenseId, required this.host});
 
   @override
+  State<ExpenseSheet> createState() => _ExpenseSheetState();
+}
+
+class _ExpenseSheetState extends State<ExpenseSheet> {
+  late String _id = widget.expenseId;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.store;
-    final e = s.data.expenses.where((x) => x.id == expenseId).firstOrNull;
+    final e = s.data.expenses.where((x) => x.id == _id).firstOrNull;
     if (e == null) return const SizedBox(height: 120);
     final f = s.f;
     final hidden = s.data.hideValues;
@@ -188,7 +195,13 @@ class ExpenseSheet extends StatelessWidget {
                   icon: LucideIcons.pencil,
                   label: 'Editar',
                   size: canEnd ? 56 : 62,
-                  onTap: () => openEditExpense(context, e),
+                  onTap: () => openEditExpense(
+                    context,
+                    e,
+                    onSplit: (newId) {
+                      if (mounted) setState(() => _id = newId);
+                    },
+                  ),
                 ),
                 CircleAction(
                   icon: LucideIcons.copy,
@@ -205,7 +218,7 @@ class ExpenseSheet extends StatelessWidget {
                       ),
                     );
                     close();
-                    toast(host, 'Duplicado para hoje');
+                    toast(widget.host, 'Duplicado para hoje');
                   },
                 ),
                 if (canEnd)
@@ -216,7 +229,7 @@ class ExpenseSheet extends StatelessWidget {
                     onTap: () {
                       s.endRecurring(e.id);
                       close();
-                      toast(host, 'Não repete a partir do próximo ciclo');
+                      toast(widget.host, 'Não repete a partir do próximo ciclo');
                     },
                   ),
                 CircleAction(
@@ -245,7 +258,7 @@ class ExpenseSheet extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (card.isCard)
-                        BrandBadge(brand: card.brand)
+                        BrandBadge(brand: card.brand, bordered: true)
                       else
                         Container(
                           width: 10,
@@ -331,7 +344,7 @@ class ExpenseSheet extends StatelessWidget {
                   SpringBar(
                     fraction: paidInstallments / totalInstallments,
                     color: c.tone(cat.color),
-                    track: c.cardAlt,
+                    track: c.isDark ? c.cardAlt : c.border,
                     height: 8,
                   ),
                   const SizedBox(height: 8),
@@ -462,7 +475,9 @@ class ExpenseSheet extends StatelessWidget {
     if (!ok) return;
     s.deleteExpense(e.id);
     close();
-    if (host.mounted) toast(host, 'Gasto excluído', icon: LucideIcons.trash2);
+    if (widget.host.mounted) {
+      toast(widget.host, 'Gasto excluído', icon: LucideIcons.trash2);
+    }
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/color_engine.dart';
 import '../../core/cycle.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
@@ -853,7 +854,7 @@ class SettingsScreen extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.fromLTRB(
             Space.gutter,
-            20,
+            4,
             Space.gutter,
             24,
           ),
@@ -861,14 +862,33 @@ class SettingsScreen extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Cor de destaque',
-                style: T.headline.copyWith(color: c.text),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Cor de destaque',
+                      style: T.title.copyWith(
+                        color: c.text,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ),
+                  RoundIconButton(
+                    LucideIcons.x,
+                    size: 36,
+                    bg: c.isDark ? c.cardAlt : c.surfaceLow,
+                    label: 'Fechar',
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
               Text(
                 'A cor secundária se ajusta sozinha ao tema.',
-                style: T.small.copyWith(color: c.textSecondary),
+                style: T.small.copyWith(
+                  color: c.textSecondary,
+                  decoration: TextDecoration.none,
+                ),
               ),
               const SizedBox(height: 20),
               Wrap(
@@ -970,11 +990,11 @@ class _AccentSwatch extends StatelessWidget {
                 ),
               ),
               if (selected)
-                const Center(
+                Center(
                   child: Icon(
                     LucideIcons.check,
                     size: 16,
-                    color: Palette.neutral0,
+                    color: onColor(primary),
                   ),
                 ),
             ],
@@ -1058,6 +1078,7 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
   late int _tab = widget.initialTab;
   late final _ctl = AmountController(context.storeRead.f.salary);
   late int _day = context.storeRead.data.cycleStartDay;
+  late final _dayPicker = FixedExtentScrollController(initialItem: _day - 1);
 
   @override
   void initState() {
@@ -1071,6 +1092,7 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
   void dispose() {
     _ctl.removeListener(_refresh);
     _ctl.dispose();
+    _dayPicker.dispose();
     super.dispose();
   }
 
@@ -1215,9 +1237,7 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
                 ),
               ),
               child: CupertinoPicker(
-                scrollController: FixedExtentScrollController(
-                  initialItem: _day - 1,
-                ),
+                scrollController: _dayPicker,
                 itemExtent: 44,
                 onSelectedItemChanged: (i) {
                   HapticFeedback.selectionClick();
@@ -1243,12 +1263,13 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
           PillButton(
             'Salvar',
             onTap: () {
+              // Atualiza o dia de virada ANTES do salário para gravar na chave correta.
+              s.setCycleStartDay(_day);
               final err = s.setSalary(_ctl.value);
               if (err != null) {
                 toast(context, err, icon: LucideIcons.triangleAlert);
                 return;
               }
-              s.setCycleStartDay(_day);
               Navigator.pop(context);
               toast(context, 'Salário e ciclo atualizados');
             },
@@ -1299,13 +1320,15 @@ Future<void> manageCards(BuildContext context) {
             ),
             const SizedBox(height: Space.base),
             if (cards.isEmpty)
-              const EmptyState(
+              EmptyState(
+                bg: c.isDark ? c.bg : c.surfaceLow,
                 icon: LucideIcons.landmark,
                 title: 'Nenhuma conta cadastrada',
                 message: 'Adicione seu banco ou cartão para separar os gastos.',
               )
             else
               ListGroup(
+                bg: c.isDark ? c.bg : c.surfaceLow,
                 children: [
                   for (final k in cards)
                     ListRow(
@@ -1450,6 +1473,7 @@ class _ProfileFormState extends State<_ProfileForm> {
                       ),
                   ],
                 );
+                if (!mounted) return;
                 if (a == 'google' && hasGooglePhoto) {
                   setState(() {
                     _avatar = googlePhoto;
@@ -1496,6 +1520,7 @@ class _ProfileFormState extends State<_ProfileForm> {
               child: ChipButton(
                 'Usar foto da conta Google',
                 icon: LucideIcons.cloud,
+                bg: c.isDark ? c.cardAlt : c.surfaceLow,
                 onTap: () => setState(() {
                   _avatar = googlePhoto;
                   _removed = false;
@@ -1507,6 +1532,7 @@ class _ProfileFormState extends State<_ProfileForm> {
           const FieldLabel('Nome'),
           AppField(
             controller: _name,
+            bg: c.isDark ? c.bg : c.surfaceLow,
             placeholder: 'Seu nome',
             capitalization: TextCapitalization.words,
             maxLength: 30,
@@ -1650,9 +1676,14 @@ class AboutScreen extends StatelessWidget {
                                 color: c.textTertiary,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                'Criado com auxílio do Claude e Antigravity',
-                                style: T.small.copyWith(color: c.textTertiary),
+                              Flexible(
+                                child: Text(
+                                  'Criado com auxílio do Claude e Antigravity',
+                                  textAlign: TextAlign.center,
+                                  style: T.small.copyWith(
+                                    color: c.textTertiary,
+                                  ),
+                                ),
                               ),
                             ],
                           ),

@@ -24,8 +24,14 @@ Future<void> openAddExpense(
     initialCardId: initialCardId,
   ),
 );
-Future<void> openEditExpense(BuildContext context, Expense e) =>
-    showIosSheet<void>(context, builder: (_) => ExpenseForm(expense: e));
+Future<void> openEditExpense(
+  BuildContext context,
+  Expense e, {
+  void Function(String newId)? onSplit,
+}) => showIosSheet<void>(
+  context,
+  builder: (_) => ExpenseForm(expense: e, onSplit: onSplit),
+);
 
 /// Fluxo rápido em passos (Figma 414:2887 → 414:3248 → 431:2342):
 /// valor no teclado → nome com sugestões → categoria em carrossel → detalhes.
@@ -153,9 +159,14 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
     final c = context.c;
     final pad = sidePadding(context, maxWidth: 640);
     final progress = (_step + 1) / 4;
-    return CupertinoPageScaffold(
-      backgroundColor: c.bg,
-      child: SafeArea(
+    return PopScope(
+      canPop: _step == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _go(-1);
+      },
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -260,6 +271,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           ],
         ),
       ),
+    ),
     );
   }
 
@@ -609,8 +621,16 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
             ),
             value: sameDay(_date, DateTime.now()) ? 'Hoje' : df.format(_date),
             placeholder: 'Hoje',
-            onTap: () =>
-                pickDate(context, _date, (d) => setState(() => _date = d)),
+            onTap: () => pickDate(
+              context,
+              _date,
+              (d) => setState(() {
+                _date = d;
+                if (_end != null && dateOnly(_end!).isBefore(dateOnly(d))) {
+                  _end = d;
+                }
+              }),
+            ),
           ),
         ),
         if (_rec == Recurrence.monthly) ...[
@@ -647,7 +667,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
               ),
               for (final k in cards)
                 ChipButton(
-                  '${k.name} •${k.last4}',
+                  k.last4.isNotEmpty ? '${k.name} •${k.last4}' : k.name,
                   dot: Color(k.color),
                   selected: _cardId == k.id,
                   onTap: () => setState(() => _cardId = k.id),
@@ -668,7 +688,11 @@ Future<void> pickDate(
   VoidCallback? onClear,
   DateTime? min,
 }) {
+  final maxDate = DateTime(DateTime.now().year + 10);
+  final minDate = min == null ? null : dateOnly(min);
   var current = initial;
+  if (minDate != null && current.isBefore(minDate)) current = minDate;
+  if (current.isAfter(maxDate)) current = maxDate;
   return showSheet<void>(
     context,
     builder: (ctx) {
@@ -709,11 +733,9 @@ Future<void> pickDate(
             Expanded(
               child: CupertinoDatePicker(
                 mode: CupertinoDatePickerMode.date,
-                initialDateTime: min != null && initial.isBefore(min)
-                    ? min
-                    : initial,
-                minimumDate: min == null ? null : dateOnly(min),
-                maximumDate: DateTime(DateTime.now().year + 10),
+                initialDateTime: current,
+                minimumDate: minDate,
+                maximumDate: maxDate,
                 onDateTimeChanged: (d) => current = d,
               ),
             ),
@@ -727,7 +749,8 @@ Future<void> pickDate(
 /// Formulário completo (Figma 376:9188): usado para editar um gasto.
 class ExpenseForm extends StatefulWidget {
   final Expense expense;
-  const ExpenseForm({super.key, required this.expense});
+  final void Function(String newId)? onSplit;
+  const ExpenseForm({super.key, required this.expense, this.onSplit});
   @override
   State<ExpenseForm> createState() => _ExpenseFormState();
 }
@@ -957,7 +980,10 @@ class _ExpenseFormState extends State<ExpenseForm> {
       ..name = _name.text.trim()
       ..cents = _amount.value;
     if (!_e.isRecurring) _e.endDate = null;
-    final err = context.storeRead.updateExpense(_e);
+    final err = context.storeRead.updateExpense(
+      _e,
+      onSplit: widget.onSplit,
+    );
     if (err != null) {
       toast(context, err, icon: LucideIcons.triangleAlert);
       return;

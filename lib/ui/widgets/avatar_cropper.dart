@@ -84,134 +84,137 @@ class _AvatarCropperPageState extends State<_AvatarCropperPage> {
     final size = MediaQuery.sizeOf(context);
     final cropSize = (size.width - Space.gutter * 2).clamp(220.0, 320.0);
 
-    return CupertinoPageScaffold(
-      backgroundColor: const Color(0xFF0A0A0A),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.md,
-                Space.sm,
-                Space.base,
-                Space.sm,
-              ),
-              child: Row(
-                children: [
-                  Pressable(
-                    semanticLabel: 'Cancelar',
-                    onTap: () => Navigator.pop(context),
-                    child: Padding(
-                      padding: const EdgeInsets.all(Space.sm),
-                      child: Text(
-                        'Cancelar',
-                        style: T.body.copyWith(color: Palette.neutral400),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Ajustar foto',
-                      textAlign: TextAlign.center,
-                      style: T.bodyStrong.copyWith(color: Palette.neutral0),
-                    ),
-                  ),
-                  Pressable(
-                    semanticLabel: 'Resetar zoom',
-                    onTap: () => _transform.value = Matrix4.identity(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(Space.sm),
-                      child: Icon(
-                        LucideIcons.rotateCcw,
-                        size: 20,
-                        color: Palette.neutral400,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.light,
+      child: CupertinoPageScaffold(
+        backgroundColor: const Color(0xFF0A0A0A),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.md,
+                  Space.sm,
+                  Space.base,
+                  Space.sm,
+                ),
+                child: Row(
                   children: [
-                    SizedBox(
-                      width: cropSize,
-                      height: cropSize,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          ClipOval(
-                            child: RepaintBoundary(
-                              key: _captureKey,
-                              child: ColoredBox(
-                                color: const Color(0xFF141416),
-                                child: SizedBox(
-                                  width: cropSize,
-                                  height: cropSize,
-                                  child: InteractiveViewer(
-                                    transformationController: _transform,
-                                    minScale: 1.0,
-                                    maxScale: 4.5,
-                                    boundaryMargin: EdgeInsets.all(
-                                      cropSize * 0.45,
-                                    ),
-                                    child: Image.file(
-                                      widget.source,
-                                      width: cropSize,
-                                      height: cropSize,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          IgnorePointer(
-                            child: Container(
-                              width: cropSize,
-                              height: cropSize,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Palette.neutral0.withValues(
-                                    alpha: 0.45,
-                                  ),
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                    Pressable(
+                      semanticLabel: 'Cancelar',
+                      onTap: () => Navigator.pop(context),
+                      child: Padding(
+                        padding: const EdgeInsets.all(Space.sm),
+                        child: Text(
+                          'Cancelar',
+                          style: T.body.copyWith(color: Palette.neutral300),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: Space.lg),
-                    Text(
-                      'Arraste e faça pinça para enquadrar seu rosto',
-                      style: T.small.copyWith(color: Palette.neutral400),
-                      textAlign: TextAlign.center,
+                    Expanded(
+                      child: Text(
+                        'Ajustar foto',
+                        textAlign: TextAlign.center,
+                        style: T.bodyStrong.copyWith(color: Palette.neutral0),
+                      ),
+                    ),
+                    Pressable(
+                      semanticLabel: 'Resetar zoom',
+                      onTap: () => _transform.value = Matrix4.identity(),
+                      child: const Padding(
+                        padding: EdgeInsets.all(Space.sm),
+                        child: Icon(
+                          LucideIcons.rotateCcw,
+                          size: 20,
+                          color: Palette.neutral300,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.gutter,
-                Space.sm,
-                Space.gutter,
-                Space.base,
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: cropSize,
+                        height: cropSize,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            ClipOval(
+                              child: RepaintBoundary(
+                                key: _captureKey,
+                                child: ColoredBox(
+                                  color: const Color(0xFF141416),
+                                  child: SizedBox(
+                                    width: cropSize,
+                                    height: cropSize,
+                                    child: InteractiveViewer(
+                                      transformationController: _transform,
+                                      minScale: 1.0,
+                                      maxScale: 4.5,
+                                      boundaryMargin: EdgeInsets.all(
+                                        cropSize * 0.45,
+                                      ),
+                                      child: Image.file(
+                                        widget.source,
+                                        width: cropSize,
+                                        height: cropSize,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IgnorePointer(
+                              child: Container(
+                                width: cropSize,
+                                height: cropSize,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Palette.neutral0.withValues(
+                                      alpha: 0.45,
+                                    ),
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: Space.lg),
+                      Text(
+                        'Arraste e faça pinça para enquadrar seu rosto',
+                        style: T.small.copyWith(color: Palette.neutral300),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              child: PillButton(
-                _saving ? 'Salvando…' : 'Usar foto',
-                icon: LucideIcons.check,
-                background: c.primary,
-                foreground: c.onPrimary,
-                onTap: _saving ? null : _saveCrop,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Space.gutter,
+                  Space.sm,
+                  Space.gutter,
+                  Space.base,
+                ),
+                child: PillButton(
+                  _saving ? 'Salvando…' : 'Usar foto',
+                  icon: LucideIcons.check,
+                  background: c.primary,
+                  foreground: c.onPrimary,
+                  onTap: _saving ? null : _saveCrop,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
