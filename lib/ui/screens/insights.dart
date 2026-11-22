@@ -144,7 +144,7 @@ class CategoriesScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    SpringBar(fraction: e.value / total, color: e.key.color, track: c.cardAlt, height: 6),
+                    SpringBar(fraction: e.value / total, color: c.tone(e.key.color), track: c.cardAlt, height: 6),
                   ],
                 ),
               ),

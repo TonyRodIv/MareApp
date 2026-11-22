@@ -11,6 +11,7 @@ import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
+import 'expense_sheet.dart';
 import 'shell.dart';
 
 class ExtratoFilter {
@@ -197,7 +198,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                                 flex: (topCats[k].value * 100 ~/ total).clamp(6, 100),
                                 child: Container(
                                   decoration: BoxDecoration(
-                                    color: categoryById(topCats[k].key).color,
+                                    color: c.tone(categoryById(topCats[k].key).color),
                                     borderRadius: BorderRadius.circular(5),
                                   ),
                                 ),
@@ -218,7 +219,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                                 Container(
                                   width: 8,
                                   height: 8,
-                                  decoration: BoxDecoration(color: categoryById(topCats[k].key).color, shape: BoxShape.circle),
+                                  decoration: BoxDecoration(color: c.tone(categoryById(topCats[k].key).color), shape: BoxShape.circle),
                                 ),
                                 const SizedBox(width: Space.xs),
                                 Text(
@@ -460,48 +461,3 @@ class ExpenseRow extends StatelessWidget {
   }
 }
 
-/// Detalhe rápido de um gasto com as ações possíveis.
-Future<void> showExpenseActions(BuildContext context, Expense e) async {
-  final s = context.storeRead;
-  final f = s.f;
-  final active = f.expenseActive(e, f.current);
-  final hidden = s.data.hideValues;
-  final a = await actionSheet<String>(
-    context,
-    title: '${e.name} · ${fmtMoney(e.cents, hidden: hidden)}',
-    message: e.isRecurring
-        ? 'Recorrente desde ${DateFormat("MMMM 'de' y", 'pt_BR').format(e.date)}${e.endDate != null ? ', até ${DateFormat('dd/MM/yyyy').format(e.endDate!)}' : ''}.'
-        : 'Gasto único em ${DateFormat('dd/MM/yyyy').format(e.date)}.',
-    actions: [
-      const SheetAction('Editar', 'edit', icon: LucideIcons.pencil),
-      const SheetAction('Duplicar para hoje', 'dup', icon: LucideIcons.copy),
-      if (e.isRecurring && active && (e.endDate == null || e.endDate!.isAfter(f.current.end)))
-        const SheetAction('Parar de repetir após este ciclo', 'end', icon: LucideIcons.repeat),
-      const SheetAction('Excluir', 'delete', destructive: true, icon: LucideIcons.trash2),
-    ],
-  );
-  if (!context.mounted) return;
-  switch (a) {
-    case 'edit':
-      openEditExpense(context, e);
-    case 'dup':
-      s.addExpense(Expense(name: e.name, cents: e.cents, categoryId: e.categoryId, cardId: e.cardId, date: DateTime.now()));
-      toast(context, 'Gasto duplicado');
-    case 'end':
-      s.endRecurring(e.id);
-      toast(context, 'Não vai repetir no próximo ciclo');
-    case 'delete':
-      final ok = await confirm(
-        context,
-        title: 'Excluir "${e.name}"?',
-        message: e.isRecurring
-            ? 'Some de todos os ciclos, inclusive os anteriores. Para manter o histórico, use "Parar de repetir".'
-            : null,
-        action: 'Excluir',
-      );
-      if (ok && context.mounted) {
-        s.deleteExpense(e.id);
-        toast(context, 'Gasto excluído', icon: LucideIcons.trash2);
-      }
-  }
-}

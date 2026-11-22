@@ -335,17 +335,23 @@ const boxIcons = <String, IconData>{
   'sparkles': LucideIcons.sparkles,
 };
 
+/// Cores de fundo das caixinhas: tom 900 de cada família do Figma, mais dois
+/// fundos neutros (grafite e tinta) para quem prefere algo sóbrio. Texto e
+/// ícones sobre elas vêm de AppColors.softOn, então o contraste é sempre ≥ 4.5.
 const boxColors = <Color>[
   Color(0xFF144A54), // teal
-  Color(0xFF25245A), // indigo
-  Color(0xFF00336B), // blue
   Color(0xFF154961), // cyan
-  Color(0xFF165425), // green
-  Color(0xFF6B5600), // yellow
-  Color(0xFF6B3F00), // orange
-  Color(0xFF6B1914), // red
-  Color(0xFF6B1428), // pink
+  Color(0xFF00336B), // blue
+  Color(0xFF25245A), // indigo
   Color(0xFF4A225D), // purple
+  Color(0xFF6B1428), // pink
+  Color(0xFF6B1914), // red
+  Color(0xFF6B3F00), // orange
+  Color(0xFF6B5600), // yellow
+  Color(0xFF165425), // green
+  Color(0xFF005450), // mint
+  Color(0xFF262626), // grafite
+  Color(0xFF0E2835), // tinta (azul da marca)
 ];
 
 class Caixinha {

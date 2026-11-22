@@ -173,9 +173,9 @@ class _BoxCard extends StatelessWidget {
               size: 52,
               stroke: 4,
               fraction: hasGoal ? pct : 0.35,
-              color: box.colorValue,
+              color: c.tone(box.colorValue),
               track: c.cardAlt,
-              child: Icon(box.iconData, size: 22, color: box.colorValue),
+              child: Icon(box.iconData, size: 22, color: c.tone(box.colorValue)),
             ),
             const SizedBox(width: Space.md),
             Expanded(
@@ -213,7 +213,7 @@ class _BoxCard extends StatelessWidget {
                     ),
                     child: Text(
                       '${(bal / goal * 100).clamp(0, 999).round()}%',
-                      style: T.smallStrong.copyWith(color: box.colorValue),
+                      style: T.smallStrong.copyWith(color: c.tone(box.colorValue, min: 4.5)),
                     ),
                   )
                 else
@@ -260,7 +260,7 @@ class BoxDetail extends StatelessWidget {
       backgroundColor: c.bg,
       child: Stack(
         children: [
-          GlowBackground(tint: box.colorValue, height: 460),
+          GlowBackground(tint: context.c.tone(box.colorValue, min: 2.5), height: 460),
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -304,7 +304,7 @@ class BoxDetail extends StatelessWidget {
                             size: 136,
                             stroke: 8,
                             fraction: v,
-                            color: box.colorValue,
+                            color: c.tone(box.colorValue),
                             track: c.cardAlt,
                             child: Container(
                               width: 100,
@@ -313,7 +313,7 @@ class BoxDetail extends StatelessWidget {
                                 color: box.colorValue.withValues(alpha: c.isDark ? 0.18 : 0.12),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(box.iconData, size: 42, color: box.colorValue),
+                              child: Icon(box.iconData, size: 42, color: c.tone(box.colorValue)),
                             ),
                           ),
                         ),

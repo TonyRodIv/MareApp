@@ -250,7 +250,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                     key: ValueKey(_category),
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(categoryById(_category).icon, size: 16, color: categoryById(_category).color),
+                      Icon(categoryById(_category).icon, size: 16, color: c.tone(categoryById(_category).color)),
                       const SizedBox(width: 6),
                       Text('Categoria sugerida: ${categoryById(_category).label}', style: T.small.copyWith(color: c.textSecondary)),
                     ],
@@ -300,7 +300,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(cat.icon, size: 56, color: Color.lerp(cat.color, c.textTertiary, d)),
+                                Icon(cat.icon, size: 56, color: Color.lerp(c.tone(cat.color), c.textTertiary, d)),
                                 const SizedBox(height: 16),
                                 Text(
                                   cat.label,
@@ -558,7 +558,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
                   const SizedBox(height: 18),
                   const FieldLabel('Categoria'),
                   SelectField(
-                    leading: Icon(cat.icon, color: cat.color, size: 20),
+                    leading: Icon(cat.icon, color: c.tone(cat.color), size: 20),
                     value: cat.label,
                     placeholder: 'não sei ainda',
                     onTap: () async {
@@ -675,7 +675,7 @@ Future<String?> pickCategory(BuildContext context, String current) {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(categories[i].icon, color: categories[i].color, size: 28),
+                      Icon(categories[i].icon, color: c.tone(categories[i].color), size: 28),
                       const SizedBox(height: 8),
                       Text(
                         categories[i].label,

@@ -123,7 +123,8 @@ class _OnboardingState extends State<Onboarding> {
       child: Stack(
         children: [
           AnimatedOpacity(
-            duration: const Duration(milliseconds: 300),
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeOutCubic,
             opacity: showGlow ? 1.0 : 0.0,
             child: const GlowBackground(height: 460),
           ),
@@ -155,7 +156,10 @@ class _OnboardingState extends State<Onboarding> {
                     const SizedBox(height: Space.sm),
                   Expanded(
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
+                      // Entra devagar e assenta (ease-out expo); a tela que sai some
+                      // mais rápido para não competir com a que chega.
+                      duration: const Duration(milliseconds: 480),
+                      reverseDuration: const Duration(milliseconds: 200),
                       switchInCurve: easeOutExpo,
                       switchOutCurve: Curves.easeInCubic,
                       transitionBuilder: (child, anim) {
@@ -167,10 +171,10 @@ class _OnboardingState extends State<Onboarding> {
                           builder: (_, ch) {
                             final t = anim.value;
                             return Opacity(
-                              opacity: clampOpacity(t * 1.2),
+                              opacity: clampOpacity(t * 1.4),
                               child: Transform.translate(
-                                offset: Offset(44.0 * dir * (1 - t), 0),
-                                child: Transform.scale(scale: 0.94 + 0.06 * t, child: ch),
+                                offset: Offset(64.0 * dir * (1 - t), 0),
+                                child: Transform.scale(scale: 0.96 + 0.04 * t, child: ch),
                               ),
                             );
                           },
@@ -180,8 +184,13 @@ class _OnboardingState extends State<Onboarding> {
                     ),
                   ),
                   AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
+                    duration: const Duration(milliseconds: 320),
+                    reverseDuration: const Duration(milliseconds: 140),
                     switchInCurve: easeOutExpo,
+                    transitionBuilder: (child, anim) => FadeTransition(
+                      opacity: anim,
+                      child: SlideTransition(position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(anim), child: child),
+                    ),
                     child: KeyedSubtree(
                       key: ValueKey('bar-$_step-${_avatarPath != null}'),
                       child: _bottomBar(context),

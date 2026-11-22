@@ -25,18 +25,27 @@ class FloatingNavBar extends StatelessWidget {
   final List<NavItem> items;
   final int index;
   final ValueChanged<int> onTap;
-  const FloatingNavBar({super.key, required this.items, required this.index, required this.onTap});
+  const FloatingNavBar({
+    super.key,
+    required this.items,
+    required this.index,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     final bottom = MediaQuery.of(context).padding.bottom;
-    final activeBg = c.isDark ? const Color(0xFF242427) : const Color(0xFFEBEBF0);
-    final activeFg = c.isDark ? Palette.neutral0 : Palette.brandInk;
-    final inactiveFg = c.isDark ? const Color(0xFF9A9AA2) : const Color(0xFF767680);
+    final activeFg = c.text;
+    final inactiveFg = c.textSecondary;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(Space.lg, 0, Space.lg, bottom > 0 ? bottom : Space.base),
+      padding: EdgeInsets.fromLTRB(
+        Space.lg,
+        0,
+        Space.lg,
+        bottom > 0 ? bottom : Space.base,
+      ),
       child: RepaintBoundary(
         child: Container(
           height: 66,
@@ -44,101 +53,110 @@ class FloatingNavBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(34),
             boxShadow: [
               BoxShadow(
-                color: Palette.neutral950.withValues(alpha: c.isDark ? 0.42 : 0.10),
+                color: Palette.neutral950.withValues(
+                  alpha: c.isDark ? 0.42 : 0.10,
+                ),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
             ],
           ),
-          // Vidro leve: desfoca o que passa por trás, tinge de leve, brilho
-          // suave no topo e borda de 1px que clareia no canto superior esquerdo.
+          // Estilo "X": corpo translúcido com blur forte e borda uniforme de 1px,
+          // sem brilho nem degradê na borda. O fundo continua legível por baixo.
           child: ClipRRect(
             borderRadius: BorderRadius.circular(34),
             child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-              child: CustomPaint(
-                foregroundPainter: _GlassEdgePainter(dark: c.isDark),
-                child: Container(
-                  padding: const EdgeInsets.all(Space.xs),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(34),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: c.isDark
-                          ? [const Color(0xFF1C1C1F).withValues(alpha: 0.74), const Color(0xFF121214).withValues(alpha: 0.84)]
-                          : [const Color(0xFFFFFFFF).withValues(alpha: 0.80), const Color(0xFFF1F4F7).withValues(alpha: 0.72)],
-                    ),
+              filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
+              child: Container(
+                padding: const EdgeInsets.all(Space.xs),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(34),
+                  color: c.isDark
+                      ? const Color(0xFF16161A).withValues(alpha: 0.56)
+                      : const Color(0xFFFFFFFF).withValues(alpha: 0.62),
+                  border: Border.all(
+                    color: c.isDark
+                        ? Palette.neutral0.withValues(alpha: 0.10)
+                        : Palette.neutral950.withValues(alpha: 0.08),
                   ),
-                  child: LayoutBuilder(
-            builder: (ctx, box) {
-              final w = box.maxWidth / items.length;
-              return Stack(
-                children: [
-                  SpringBuilder(
-                    value: index.toDouble(),
-                    spring: Springs.snappy,
-                    builder: (_, v, vel) {
-                      final stretch = (vel.abs() * 0.025).clamp(0.0, 0.16);
-                      return Positioned(
-                        left: v * w - (w * stretch / 2),
-                        top: 0,
-                        bottom: 0,
-                        width: w * (1 + stretch),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(30),
-                            color: activeBg.withValues(alpha: c.isDark ? 0.92 : 0.9),
-                            border: Border.all(color: Palette.neutral0.withValues(alpha: c.isDark ? 0.10 : 0.7)),
-                            boxShadow: [BoxShadow(color: Palette.neutral950.withValues(alpha: c.isDark ? 0.30 : 0.06), blurRadius: 8, offset: const Offset(0, 2))],
-                          ),
+                ),
+                child: LayoutBuilder(
+                  builder: (ctx, box) {
+                    final w = box.maxWidth / items.length;
+                    return Stack(
+                      children: [
+                        SpringBuilder(
+                          value: index.toDouble(),
+                          spring: Springs.snappy,
+                          builder: (_, v, vel) {
+                            final stretch = (vel.abs() * 0.025).clamp(
+                              0.0,
+                              0.16,
+                            );
+                            return Positioned(
+                              left: v * w - (w * stretch / 2),
+                              top: 0,
+                              bottom: 0,
+                              width: w * (1 + stretch),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(30),
+                                  color: c.navActive,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                  Row(
-                    children: [
-                      for (var i = 0; i < items.length; i++)
-                        Expanded(
-                          child: Pressable(
-                            semanticLabel: items[i].label,
-                            scale: 0.94,
-                            onTap: () => onTap(i),
-                            child: SizedBox.expand(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  if (items[i].custom != null)
-                                    items[i].custom!
-                                  else if (i == index && items[i].activeBuilder != null)
-                                    items[i].activeBuilder!(activeFg, 22)
-                                  else
-                                    Icon(
-                                      items[i].icon,
-                                      size: 22,
-                                      color: i == index ? activeFg : inactiveFg,
-                                    ),
-                                  const SizedBox(height: Space.xxs),
-                                  Text(
-                                    items[i].label,
-                                    maxLines: 1,
-                                    style: T.small.copyWith(
-                                      fontSize: 11,
-                                      color: i == index ? activeFg : inactiveFg,
-                                      fontWeight: i == index ? FontWeight.w600 : FontWeight.w500,
+                        Row(
+                          children: [
+                            for (var i = 0; i < items.length; i++)
+                              Expanded(
+                                child: Pressable(
+                                  semanticLabel: items[i].label,
+                                  scale: 0.94,
+                                  onTap: () => onTap(i),
+                                  child: SizedBox.expand(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        if (items[i].custom != null)
+                                          items[i].custom!
+                                        else if (i == index &&
+                                            items[i].activeBuilder != null)
+                                          items[i].activeBuilder!(activeFg, 22)
+                                        else
+                                          Icon(
+                                            items[i].icon,
+                                            size: 22,
+                                            color: i == index
+                                                ? activeFg
+                                                : inactiveFg,
+                                          ),
+                                        const SizedBox(height: Space.xxs),
+                                        Text(
+                                          items[i].label,
+                                          maxLines: 1,
+                                          style: T.small.copyWith(
+                                            fontSize: 11,
+                                            color: i == index
+                                                ? activeFg
+                                                : inactiveFg,
+                                            fontWeight: i == index
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
+                          ],
                         ),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -147,51 +165,6 @@ class FloatingNavBar extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Borda de vidro: 1px que clareia no canto superior esquerdo e quase some no
-/// inferior direito, mais um brilho muito leve no alto da pílula.
-class _GlassEdgePainter extends CustomPainter {
-  final bool dark;
-  _GlassEdgePainter({required this.dark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(34));
-    const base = Palette.neutral0;
-    canvas.drawRRect(
-      rrect.deflate(0.5),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            base.withValues(alpha: dark ? 0.26 : 0.95),
-            base.withValues(alpha: dark ? 0.04 : 0.30),
-            base.withValues(alpha: dark ? 0.12 : 0.60),
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ).createShader(Offset.zero & size),
-    );
-    // Brilho suave no topo (a "lente" do vidro).
-    canvas.save();
-    canvas.clipRRect(rrect);
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height * 0.5),
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [base.withValues(alpha: dark ? 0.07 : 0.35), base.withValues(alpha: 0)],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height * 0.5)),
-    );
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_GlassEdgePainter old) => old.dark != dark;
 }
 
 // ── Valor grande + teclado numérico (Figma 414:2887) ────────
@@ -217,7 +190,13 @@ class AmountDisplay extends StatelessWidget {
   final double size;
   final bool center;
   final Color? color;
-  const AmountDisplay({super.key, required this.cents, this.size = 64, this.center = true, this.color});
+  const AmountDisplay({
+    super.key,
+    required this.cents,
+    this.size = 64,
+    this.center = true,
+    this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +214,11 @@ class AmountDisplay extends StatelessWidget {
             fit: BoxFit.scaleDown,
             child: Text(
               'R\$ ${fmtNumber(cents)}',
-              style: T.display.copyWith(fontSize: size, color: fg, height: 1.05),
+              style: T.display.copyWith(
+                fontSize: size,
+                color: fg,
+                height: 1.05,
+              ),
               maxLines: 1,
             ),
           ),
@@ -248,7 +231,11 @@ class AmountDisplay extends StatelessWidget {
 class QuickAddChips extends StatelessWidget {
   final AmountController controller;
   final bool center;
-  const QuickAddChips({super.key, required this.controller, this.center = true});
+  const QuickAddChips({
+    super.key,
+    required this.controller,
+    this.center = true,
+  });
 
   @override
   Widget build(BuildContext context) => Wrap(
@@ -275,7 +262,12 @@ class Keypad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    Widget key(String label, VoidCallback onTap, {Widget? child, bool ghost = false}) => Expanded(
+    Widget key(
+      String label,
+      VoidCallback onTap, {
+      Widget? child,
+      bool ghost = false,
+    }) => Expanded(
       child: Padding(
         padding: const EdgeInsets.all(4),
         child: Pressable(
@@ -284,19 +276,27 @@ class Keypad extends StatelessWidget {
           onTap: onTap,
           child: Container(
             height: 62,
-            decoration: BoxDecoration(color: ghost ? null : c.card, borderRadius: BorderRadius.circular(22)),
+            decoration: BoxDecoration(
+              color: ghost ? null : c.card,
+              borderRadius: BorderRadius.circular(22),
+            ),
             alignment: Alignment.center,
             child:
                 child ??
                 Text(
                   label,
-                  style: T.headline.copyWith(fontWeight: FontWeight.w400, color: c.text),
+                  style: T.headline.copyWith(
+                    fontWeight: FontWeight.w400,
+                    color: c.text,
+                  ),
                 ),
           ),
         ),
       ),
     );
-    Widget row(List<int> ds) => Row(children: [for (final d in ds) key('$d', () => controller.digit(d))]);
+    Widget row(List<int> ds) => Row(
+      children: [for (final d in ds) key('$d', () => controller.digit(d))],
+    );
     return Column(
       children: [
         row([1, 2, 3]),
@@ -310,11 +310,19 @@ class Keypad extends StatelessWidget {
               ghost: true,
               child: Text(
                 'C',
-                style: T.headline.copyWith(fontWeight: FontWeight.w400, color: c.textSecondary),
+                style: T.headline.copyWith(
+                  fontWeight: FontWeight.w400,
+                  color: c.textSecondary,
+                ),
               ),
             ),
             key('0', () => controller.digit(0)),
-            key('Apagar', controller.backspace, ghost: true, child: Icon(LucideIcons.delete, color: c.text, size: 24)),
+            key(
+              'Apagar',
+              controller.backspace,
+              ghost: true,
+              child: Icon(LucideIcons.delete, color: c.text, size: 24),
+            ),
           ],
         ),
       ],

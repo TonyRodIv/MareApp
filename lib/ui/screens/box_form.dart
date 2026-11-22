@@ -318,7 +318,7 @@ class _BoxFormState extends State<BoxForm> {
 
       case 2:
         final color = Color(_color);
-        final light = Color.lerp(color, Palette.neutral0, 0.78)!;
+        final light = c.softOn(color);
         return SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(pad, Space.lg, pad, Space.base),
           child: Column(

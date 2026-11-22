@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import 'motion.dart' show easeOutExpo;
 
 // ── Toque com feedback (escala + háptico) ───────────────────
 
@@ -504,7 +505,7 @@ class IconBadge extends StatelessWidget {
       color: solid ? color : color.withValues(alpha: context.c.isDark ? 0.18 : 0.14),
       borderRadius: BorderRadius.circular(size * 0.32),
     ),
-    child: Icon(icon, size: size * 0.48, color: solid ? Palette.neutral0 : color),
+    child: Icon(icon, size: size * 0.48, color: solid ? Palette.neutral0 : context.c.tone(color)),
   );
 }
 
@@ -1043,10 +1044,10 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
   String? get barrierLabel => 'Fechar';
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 190);
+  Duration get transitionDuration => const Duration(milliseconds: 440);
 
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 130);
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 280);
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
@@ -1055,25 +1056,40 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
 
   @override
   Widget buildTransitions(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
-    final curve = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+    // Entrada em ease-out expo (rápida no início, assenta devagar); saída mais
+    // curta em ease-in. O blur do fundo acompanha o MESMO valor da animação: sai de
+    // 0 e volta a 0, em vez de ficar num sigma fixo só esmaecendo.
+    final curve = CurvedAnimation(parent: animation, curve: easeOutExpo, reverseCurve: Curves.easeInCubic);
     return Stack(
       children: [
         Positioned.fill(
-          child: FadeTransition(
-            opacity: curve,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-              child: BackdropFilter(
-                filter: ui.ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                child: const ColoredBox(color: Color(0x4D000000)),
-              ),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => Navigator.of(context).maybePop(),
+            child: AnimatedBuilder(
+              animation: curve,
+              builder: (_, _) {
+                final t = curve.value.clamp(0.0, 1.0);
+                final sigma = 7.0 * t;
+                final scrim = ColoredBox(color: const Color(0xFF000000).withValues(alpha: 0.34 * t));
+                if (sigma < 0.3) return scrim;
+                return BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp), child: scrim);
+              },
             ),
           ),
         ),
-        SlideTransition(
-          position: Tween(begin: const Offset(0, 0.14), end: Offset.zero).animate(curve),
-          child: child,
+        RepaintBoundary(
+          child: SlideTransition(
+            position: Tween(begin: const Offset(0, 0.32), end: Offset.zero).animate(curve),
+            child: FadeTransition(
+              opacity: CurvedAnimation(parent: animation, curve: const Interval(0, 0.45, curve: Curves.easeOut), reverseCurve: const Interval(0.35, 1, curve: Curves.easeIn)),
+              child: ScaleTransition(
+                scale: Tween(begin: 0.97, end: 1.0).animate(curve),
+                alignment: Alignment.bottomCenter,
+                child: child,
+              ),
+            ),
+          ),
         ),
       ],
     );
@@ -1298,7 +1314,7 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: c.isDark ? Palette.neutral700 : Palette.neutral800,
+                  color: c.isDark ? c.surfaceHigh : c.text,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 6))],
                 ),

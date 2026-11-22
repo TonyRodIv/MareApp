@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'color_engine.dart';
+
 /// Escala tonal completa (50–900) da paleta iOS com contraste WCAG verificado.
 class ColorScale {
   final String name;
@@ -22,6 +24,9 @@ class ColorScale {
 
 /// Paleta oficial (50–900) baseada no sistema iOS de alto contraste.
 class Palette {
+  // Extremos do preto e do branco, para variações além da escala do Figma.
+  static const neutral1000 = Color(0xFF000000);
+  static const neutral25 = Color(0xFFF9F9FB);
   static const neutral0 = Color(0xFFFFFFFF);
   static const neutral50 = Color(0xFFF2F2F7);
   static const neutral100 = Color(0xFFE5E5EA);
@@ -211,58 +216,30 @@ class Palette {
 /// Cores de destaque disponíveis para personalização (paleta completa de 10 famílias).
 final accentPresets = <(String, Color)>[for (final s in Palette.allScales) (s.name, s.s500)];
 
-double _hueDist(double a, double b) {
-  final d = (a - b).abs() % 360.0;
-  return d > 180.0 ? 360.0 - d : d;
-}
-
-/// Encontra a escala da paleta oficial mais próxima da cor [seed].
+/// Família do Figma mais próxima da cor [seed] (em OKLCH).
 ColorScale scaleFor(Color seed) {
   for (final s in Palette.allScales) {
     if (s.s500.toARGB32() == seed.toARGB32()) return s;
   }
-  final targetHue = HSLColor.fromColor(seed).hue;
-  ColorScale best = Palette.teal;
-  var bestDist = 999.0;
-  for (final s in Palette.allScales) {
-    final d = _hueDist(HSLColor.fromColor(s.s500).hue, targetHue);
-    if (d < bestDist) {
-      bestDist = d;
-      best = s;
-    }
-  }
-  return best;
+  return nearestFigmaScale(toOklch(seed).h);
 }
 
-/// Algoritmo de cor complementar: rotaciona o matiz em +180° (círculo cromático HSL)
-/// e seleciona a família complementar mais harmoniosa da paleta oficial.
-ColorScale complementaryScaleOf(ColorScale primary) {
-  // Ajuste de harmonia perceptual: azul/ciano/teal harmonizam com laranja quente.
-  if (primary == Palette.teal || primary == Palette.cyan || primary == Palette.blue) return Palette.orange;
-  final targetHue = (HSLColor.fromColor(primary.s500).hue + 180.0) % 360.0;
-  ColorScale best = Palette.orange;
-  var bestDist = 999.0;
-  for (final s in Palette.allScales) {
-    if (s == primary) continue;
-    final d = _hueDist(HSLColor.fromColor(s.s500).hue, targetHue);
-    if (d < bestDist) {
-      bestDist = d;
-      best = s;
-    }
-  }
-  return best;
-}
-
-/// Cor complementar principal (tom 500 da escala complementar escolhida).
-Color complementaryOf(Color seed) => complementaryScaleOf(scaleFor(seed)).s500;
+/// Cor companheira (tom 500) calculada pela harmonia escolhida — por padrão a
+/// complementar, medida em OKLCH e encaixada na paleta do Figma.
+Color complementaryOf(Color seed, {Harmony harmony = Harmony.complementary}) =>
+    PaletteSet.build(seed, harmony: harmony).companion[500];
 
 /// Tokens semânticos — resolvidos por tema (claro/escuro) e cor destaque.
 class AppColors {
   final Brightness brightness;
   final Color seed;
+  final Harmony harmony;
   final Color bg;
   final Color card;
   final Color cardAlt; // chips, inputs, segmentos
+  final Color surfaceLow; // mais fundo que o bg: poços, overlays, trilhos
+  final Color surfaceHigh; // acima do card: toasts, popovers, itens ativos
+  final Color borderStrong; // divisórias que precisam aparecer
   final Color border;
   final Color text;
   final Color textSecondary;
@@ -285,9 +262,13 @@ class AppColors {
   const AppColors({
     required this.brightness,
     required this.seed,
+    required this.harmony,
     required this.bg,
     required this.card,
     required this.cardAlt,
+    required this.surfaceLow,
+    required this.surfaceHigh,
+    required this.borderStrong,
     required this.border,
     required this.text,
     required this.textSecondary,
@@ -310,69 +291,72 @@ class AppColors {
 
   bool get isDark => brightness == Brightness.dark;
 
-  /// Monta o tema completo a partir da escala oficial da cor [seed] e de sua
-  /// escala complementar calculada automaticamente, com alto contraste em claro e escuro.
-  factory AppColors.fromSeed(Color seed, Brightness brightness) {
-    final p = scaleFor(seed);
-    final comp = complementaryScaleOf(p);
+  /// Adapta uma cor fixa (categoria, caixinha) ao tema: no escuro clareia, no
+  /// claro escurece, só o necessário para ter [min]:1 de contraste.
+  Color tone(Color base, {double min = 3.4}) => ensureContrast(base, [card, bg], min);
 
-    if (brightness == Brightness.dark) {
-      final primary = p.s500;
-      final onPrimary = primary.computeLuminance() > 0.42 ? Palette.neutral950 : Palette.neutral0;
-      return AppColors(
-        brightness: Brightness.dark,
-        seed: p.s500,
-        bg: Palette.neutral950,
-        card: Palette.neutral800,
-        cardAlt: Palette.neutral750,
-        border: Palette.neutral650,
-        text: Palette.neutral0,
-        textSecondary: Palette.neutral300,
-        textTertiary: Palette.neutral450,
-        primary: primary,
-        onPrimary: onPrimary,
-        primarySoft: p.s900,
-        secondary: comp.s900,
-        onSecondary: comp.s50,
-        accent: p.s400,
-        accentWarm: comp.s400,
-        positive: Palette.green.s400,
-        negative: Palette.red.s400,
-        positiveSoft: Palette.green.s900,
-        negativeSoft: Palette.red.s900,
-        emptyCell: Palette.neutral700,
-        navBg: const Color(0xD6131316),
-        navActive: p.s900,
-      );
-    }
+  /// Cor suave para ícone/texto sobre um fundo [fill] colorido (caixinhas).
+  Color softOn(Color fill) => ensureContrast(TonalScale.generate(fill)[200], [fill], 4.5);
 
-    // No modo claro, tons muito luminosos (ex. amarelo) usam s700/s600 para manter contraste AA.
-    final primary = p.s600.computeLuminance() > 0.45 ? p.s700 : p.s600;
-    final onPrimary = primary.computeLuminance() > 0.45 ? Palette.neutral950 : Palette.neutral0;
+  /// Monta o tema completo a partir de uma cor-semente, em três passos:
+  /// 1. [PaletteSet] cria as escalas da primária e da companheira (harmonia);
+  /// 2. neutros e superfícies saem do mesmo matiz, com croma quase nulo;
+  /// 3. cada par texto/fundo passa por [ensureContrast], então nenhuma combinação
+  ///    de semente × tema × harmonia fica abaixo do mínimo WCAG.
+  factory AppColors.fromSeed(Color seed, Brightness brightness, {Harmony harmony = Harmony.complementary}) {
+    final pal = PaletteSet.build(seed, harmony: harmony);
+    final dark = brightness == Brightness.dark;
+    final h = pal.hue;
+    Color tint(double l, [double c = 0.008]) => fromOklch(l, c, h);
+
+    final bg = dark ? tint(0.145) : tint(0.968, 0.006);
+    final card = dark ? tint(0.205) : const Color(0xFFFFFFFF);
+    final cardAlt = dark ? tint(0.245) : tint(0.945, 0.007);
+    final surfaces = [bg, card, cardAlt];
+
+    final text = ensureContrast(dark ? tint(0.985, 0.003) : tint(0.20, 0.012), surfaces, 12);
+    final textSecondary = ensureContrast(dark ? tint(0.76, 0.010) : tint(0.45, 0.012), surfaces, 7);
+    final textTertiary = ensureContrast(dark ? tint(0.64, 0.010) : tint(0.52, 0.012), surfaces, 4.5);
+
+    final primary = dark ? pal.primary[500] : ensureContrast(pal.primary[600], const [Color(0xFFFFFFFF)], 4.5);
+    final onPrimary = onColor(primary);
+    final secondary = dark ? pal.companion[900] : pal.companion[50];
+    final onSecondary = ensureContrast(dark ? pal.companion[50] : pal.companion[800], [secondary], 4.5);
+
+    final accent = ensureContrast(dark ? pal.primary[400] : pal.primary[600], surfaces, 4.5);
+    final accentWarm = ensureContrast(dark ? pal.companion[400] : pal.companion[600], surfaces, 3.0);
+
+    final positive = ensureContrast(harmonize(dark ? Palette.green.s400 : Palette.green.s600, h), surfaces, 4.5);
+    final negative = ensureContrast(harmonize(dark ? Palette.red.s400 : Palette.red.s600, h), surfaces, 4.5);
+
     return AppColors(
-      brightness: Brightness.light,
-      seed: p.s500,
-      bg: Palette.neutral50,
-      card: Palette.neutral0,
-      cardAlt: Palette.neutral100,
-      border: const Color(0xFFD6D6DE),
-      text: Palette.brandInk,
-      textSecondary: Palette.neutral400,
-      textTertiary: const Color(0xFF6E6E78),
+      brightness: brightness,
+      seed: seed,
+      harmony: harmony,
+      bg: bg,
+      card: card,
+      cardAlt: cardAlt,
+      surfaceLow: dark ? tint(0.105, 0.006) : tint(0.925, 0.008),
+      surfaceHigh: dark ? tint(0.30, 0.010) : const Color(0xFFFFFFFF),
+      borderStrong: dark ? tint(0.40, 0.012) : tint(0.80, 0.010),
+      border: dark ? tint(0.30, 0.010) : tint(0.885, 0.008),
+      text: text,
+      textSecondary: textSecondary,
+      textTertiary: textTertiary,
       primary: primary,
       onPrimary: onPrimary,
-      primarySoft: p.s50,
-      secondary: comp.s50,
-      onSecondary: comp.s800,
-      accent: p.s600,
-      accentWarm: comp.s500,
-      positive: Palette.green.s600,
-      negative: Palette.red.s600,
-      positiveSoft: Palette.green.s50,
-      negativeSoft: Palette.red.s50,
-      emptyCell: Palette.neutral100,
-      navBg: const Color(0xDCFFFFFF),
-      navActive: p.s50,
+      primarySoft: dark ? pal.primary[900] : pal.primary[50],
+      secondary: secondary,
+      onSecondary: onSecondary,
+      accent: accent,
+      accentWarm: accentWarm,
+      positive: positive,
+      negative: negative,
+      positiveSoft: dark ? TonalScale.generate(positive)[900] : TonalScale.generate(positive)[50],
+      negativeSoft: dark ? TonalScale.generate(negative)[900] : TonalScale.generate(negative)[50],
+      emptyCell: dark ? tint(0.27) : tint(0.915),
+      navBg: dark ? tint(0.20).withValues(alpha: 0.62) : const Color(0xFFFFFFFF).withValues(alpha: 0.70),
+      navActive: dark ? const Color(0xFFFFFFFF).withValues(alpha: 0.10) : tint(0.30).withValues(alpha: 0.07),
     );
   }
 
@@ -380,10 +364,10 @@ class AppColors {
   static final light = AppColors.fromSeed(Palette.teal.s500, Brightness.light);
 
   @override
-  bool operator ==(Object other) => other is AppColors && other.brightness == brightness && other.seed == seed;
+  bool operator ==(Object other) => other is AppColors && other.brightness == brightness && other.seed == seed && other.harmony == harmony;
 
   @override
-  int get hashCode => Object.hash(brightness, seed);
+  int get hashCode => Object.hash(brightness, seed, harmony);
 }
 
 class AppTheme extends InheritedWidget {
