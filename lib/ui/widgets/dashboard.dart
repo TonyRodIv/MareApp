@@ -1,8 +1,9 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme.dart';
+import 'kit.dart' show Pressable;
 import 'motion.dart';
 
 /// Um card da Carteira. [builder] recebe a largura interna real e o span
@@ -45,160 +46,125 @@ class DashboardGrid extends StatelessWidget {
       builder: (ctx, box) {
         final w = box.maxWidth;
         final cols = columnsFor(w);
-        final unit = (w - gap * (cols - 1)) / cols;
-        double widthOf(int span) => unit * span + gap * (span - 1);
 
-        // Alvenaria: cada card vai para a faixa de colunas mais baixa naquele
-        // momento, mantendo a ordem. Cada card tem a altura que o conteúdo pede,
-        // então nada estica nem sobra espaço vazio dentro dos cards.
-        final spanOf = [
-          for (final t in tiles)
-            (spans[t.id] ?? t.defaultSpan).clamp(1, 2).clamp(1, cols),
-        ];
-        return _Masonry(
-          columns: cols,
-          gap: gap,
-          spans: spanOf,
+        // Empacota em linhas na ordem escolhida. Só convivem na mesma linha cards
+        // da mesma "classe de altura" (compactos com compactos, altos com altos),
+        // e cada linha SEMPRE ocupa a largura toda: os cards dividem o espaço em
+        // proporção ao span, então nunca sobra buraco. Alturas iguais por linha.
+        int spanOf(DashTile t) =>
+            (spans[t.id] ?? t.defaultSpan).clamp(1, 2).clamp(1, cols);
+        final rows = <List<DashTile>>[];
+        var current = <DashTile>[];
+        var used = 0;
+        for (final t in tiles) {
+          final sp = spanOf(t);
+          final cls = _heightClass[t.id] ?? 2;
+          final compatible = current.every(
+            (x) => (_heightClass[x.id] ?? 2) == cls,
+          );
+          if (current.isNotEmpty && (used + sp > cols || !compatible)) {
+            rows.add(current);
+            current = [];
+            used = 0;
+          }
+          current.add(t);
+          used += sp;
+        }
+        if (current.isNotEmpty) rows.add(current);
+
+        return Column(
           children: [
-            for (var i = 0; i < tiles.length; i++)
-              RepaintBoundary(
-                key: ValueKey('tile-${tiles[i].id}'),
-                child: _Resizable(
-                  span: spanOf[i],
-                  onToggle: () =>
-                      onSpanChanged(tiles[i].id, spanOf[i] == 1 ? 2 : 1),
-                  child: tiles[i].builder(
-                    ctx,
-                    widthOf(spanOf[i]) - 32,
-                    spanOf[i],
-                  ),
+            for (final row in rows) ...[
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < row.length; i++) ...[
+                      if (i > 0) SizedBox(width: gap),
+                      Expanded(
+                        flex: row.length == 1 ? 1 : spanOf(row[i]),
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: _minHeight[row[i].id] ?? 128,
+                          ),
+                          child: RepaintBoundary(
+                            child: _Resizable(
+                              key: ValueKey(row[i].id),
+                              span: spanOf(row[i]),
+                              enabled: cols > 1,
+                              onToggle: () => onSpanChanged(
+                                row[i].id,
+                                spanOf(row[i]) == 1 ? 2 : 1,
+                              ),
+                              child: row[i].builder(
+                                ctx,
+                                _innerWidth(w, gap, row, i, spanOf),
+                                row.length == 1 ? 2 : spanOf(row[i]),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              SizedBox(height: gap),
+            ],
           ],
         );
       },
     );
   }
-}
 
-class _Masonry extends MultiChildRenderObjectWidget {
-  final int columns;
-  final double gap;
-  final List<int> spans;
-  const _Masonry({
-    required this.columns,
-    required this.gap,
-    required this.spans,
-    required super.children,
-  });
-
-  @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _RenderMasonry(columns, gap, spans);
-
-  @override
-  void updateRenderObject(BuildContext context, _RenderMasonry renderObject) {
-    renderObject
-      ..columns = columns
-      ..gap = gap
-      ..spans = spans;
+  static double _innerWidth(
+    double w,
+    double gap,
+    List<DashTile> row,
+    int i,
+    int Function(DashTile) spanOf,
+  ) {
+    final flexes = [for (final t in row) row.length == 1 ? 1 : spanOf(t)];
+    final total = flexes.fold<int>(0, (a, b) => a + b);
+    return (w - gap * (row.length - 1)) * flexes[i] / total - 32;
   }
 }
 
-class _MasonryParentData extends ContainerBoxParentData<RenderBox> {}
+/// Altura "natural" de cada card: só cards da mesma classe dividem uma linha.
+const _heightClass = <String, int>{
+  'gastos': 1,
+  'caixinhas': 1,
+  'projecao': 1,
+  'hoje': 2,
+  'fds': 2,
+  'sequencia': 2,
+  'categorias': 3,
+  'assinaturas': 3,
+  'historico': 3,
+};
 
-class _RenderMasonry extends RenderBox
-    with
-        ContainerRenderObjectMixin<RenderBox, _MasonryParentData>,
-        RenderBoxContainerDefaultsMixin<RenderBox, _MasonryParentData> {
-  _RenderMasonry(this._columns, this._gap, this._spans);
-
-  int _columns;
-  double _gap;
-  List<int> _spans;
-
-  set columns(int v) {
-    if (v == _columns) return;
-    _columns = v;
-    markNeedsLayout();
-  }
-
-  set gap(double v) {
-    if (v == _gap) return;
-    _gap = v;
-    markNeedsLayout();
-  }
-
-  set spans(List<int> v) {
-    _spans = v;
-    markNeedsLayout();
-  }
-
-  @override
-  void setupParentData(RenderBox child) {
-    if (child.parentData is! _MasonryParentData)
-      child.parentData = _MasonryParentData();
-  }
-
-  @override
-  void performLayout() {
-    final w = constraints.maxWidth;
-    final unit = (w - _gap * (_columns - 1)) / _columns;
-    final heights = List<double>.filled(_columns, 0);
-    var child = firstChild;
-    var i = 0;
-    while (child != null) {
-      final span = (i < _spans.length ? _spans[i] : 1).clamp(1, _columns);
-      var bestCol = 0;
-      var bestY = double.infinity;
-      for (var j = 0; j <= _columns - span; j++) {
-        var y = 0.0;
-        for (var k = j; k < j + span; k++) {
-          if (heights[k] > y) y = heights[k];
-        }
-        if (y < bestY - 0.5) {
-          bestY = y;
-          bestCol = j;
-        }
-      }
-      final cw = unit * span + _gap * (span - 1);
-      child.layout(BoxConstraints.tightFor(width: cw), parentUsesSize: true);
-      (child.parentData! as _MasonryParentData).offset = Offset(
-        bestCol * (unit + _gap),
-        bestY,
-      );
-      for (var k = bestCol; k < bestCol + span; k++) {
-        heights[k] = bestY + child.size.height + _gap;
-      }
-      child = childAfter(child);
-      i++;
-    }
-    var h = 0.0;
-    for (final x in heights) {
-      if (x > h) h = x;
-    }
-    size = constraints.constrain(Size(w, h > 0 ? h - _gap : 0));
-  }
-
-  @override
-  Size computeDryLayout(BoxConstraints constraints) =>
-      Size(constraints.maxWidth, 0);
-
-  @override
-  void paint(PaintingContext context, Offset offset) =>
-      defaultPaint(context, offset);
-
-  @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result, position: position);
-}
+/// Altura mínima por card (px).
+const _minHeight = <String, double>{
+  'gastos': 148,
+  'caixinhas': 148,
+  'projecao': 112,
+  'hoje': 220,
+  'fds': 220,
+  'sequencia': 150,
+  'categorias': 200,
+  'assinaturas': 168,
+  'historico': 220,
+};
 
 /// Envolve o card: segurar → háptico + "respiração" com mola ao trocar o tamanho.
 class _Resizable extends StatefulWidget {
   final int span;
+  final bool enabled;
   final VoidCallback onToggle;
   final Widget child;
   const _Resizable({
+    super.key,
+    required this.enabled,
     required this.span,
     required this.onToggle,
     required this.child,
@@ -217,19 +183,135 @@ class _ResizableState extends State<_Resizable> {
     if (old.span != widget.span) _pulse++;
   }
 
+  Future<void> _openResizeMenu() async {
+    if (!widget.enabled || !mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return;
+    final topLeft = box.localToGlobal(Offset.zero);
+    final rect = topLeft & box.size;
+    final screen = MediaQuery.sizeOf(context);
+    final pad = MediaQuery.paddingOf(context);
+    final expand = widget.span == 1;
+
+    HapticFeedback.mediumImpact();
+    setState(() => _holding = true);
+
+    const menuWidth = 176.0;
+    const menuHeight = 52.0;
+
+    // Posiciona ao lado do widget quando houver espaço; senão acima/abaixo alinhado à borda.
+    double left;
+    double top;
+    if (rect.right + 10 + menuWidth <= screen.width - 12) {
+      left = rect.right + 10;
+      top = (rect.center.dy - menuHeight / 2).clamp(
+        pad.top + 12,
+        screen.height - pad.bottom - menuHeight - 12,
+      );
+    } else if (rect.left - 10 - menuWidth >= 12) {
+      left = rect.left - 10 - menuWidth;
+      top = (rect.center.dy - menuHeight / 2).clamp(
+        pad.top + 12,
+        screen.height - pad.bottom - menuHeight - 12,
+      );
+    } else {
+      left = (rect.center.dx - menuWidth / 2).clamp(
+        12.0,
+        screen.width - menuWidth - 12.0,
+      );
+      top = rect.top - menuHeight - 10 >= pad.top + 12
+          ? rect.top - menuHeight - 10
+          : (rect.bottom + 10).clamp(
+              pad.top + 12,
+              screen.height - pad.bottom - menuHeight - 12,
+            );
+    }
+
+    final picked = await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Fechar menu',
+      barrierColor: const Color(0x38000000),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (ctx, _, _) {
+        final c = ctx.c;
+        return Stack(
+          children: [
+            Positioned(
+              left: left,
+              top: top,
+              child: Pressable(
+                scale: 0.96,
+                onTap: () => Navigator.of(ctx).pop(true),
+                child: Container(
+                  width: menuWidth,
+                  height: menuHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: Space.base),
+                  decoration: ShapeDecoration(
+                    color: c.card,
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(Space.radiusField),
+                      side: BorderSide(color: c.borderStrong),
+                    ),
+                    shadows: const [
+                      BoxShadow(
+                        color: Color(0x38000000),
+                        blurRadius: 24,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        expand ? LucideIcons.maximize2 : LucideIcons.minimize2,
+                        size: 18,
+                        color: c.primary,
+                      ),
+                      const SizedBox(width: Space.sm),
+                      Text(
+                        expand ? 'Expandir (2x)' : 'Recolher (1x)',
+                        style: T.labelStrong.copyWith(
+                          color: c.text,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+      transitionBuilder: (_, anim, _, child) {
+        final curve = CurvedAnimation(
+          parent: anim,
+          curve: easeOutExpo,
+          reverseCurve: Curves.easeInCubic,
+        );
+        return FadeTransition(
+          opacity: curve,
+          child: ScaleTransition(
+            scale: Tween(begin: 0.92, end: 1.0).animate(curve),
+            child: child,
+          ),
+        );
+      },
+    );
+
+    if (mounted) setState(() => _holding = false);
+    if (picked == true) widget.onToggle();
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     return Semantics(
-      onLongPressHint: widget.span == 1 ? 'Expandir card' : 'Diminuir card',
+      onLongPressHint: widget.span == 1 ? 'Expandir card' : 'Recolher card',
       child: GestureDetector(
-        onLongPressStart: (_) {
-          HapticFeedback.mediumImpact();
-          setState(() => _holding = true);
-          widget.onToggle();
-        },
-        onLongPressEnd: (_) => setState(() => _holding = false),
-        onLongPressCancel: () => setState(() => _holding = false),
+        onLongPress: _openResizeMenu,
         child: SpringBuilder(
           key: ValueKey(_pulse),
           value: 1,
@@ -245,9 +327,8 @@ class _ResizableState extends State<_Resizable> {
                   (1 - t) * 0.4, // estica na horizontal, como a gota do fluid
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(Space.radiusCard),
-                  boxShadow: _holding
+                decoration: ShapeDecoration(
+                  shadows: _holding
                       ? [
                           BoxShadow(
                             color: c.accent.withValues(alpha: 0.25),
@@ -256,6 +337,9 @@ class _ResizableState extends State<_Resizable> {
                           ),
                         ]
                       : null,
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(Space.radiusCard),
+                  ),
                 ),
                 child: widget.child,
               ),

@@ -11,9 +11,61 @@ import 'extrato.dart';
 import 'shell.dart';
 
 /// Linha "Contas +" da Carteira (aparece quando o usuário adiciona contas ou cartões).
-class CardsStrip extends StatelessWidget {
+/// O container rolável vai até a borda direita da tela; o fade esquerdo só aparece
+/// quando há conteúdo rolado para a esquerda, e o direito só quando há mais à direita.
+class CardsStrip extends StatefulWidget {
   final bool hidden;
-  const CardsStrip({super.key, required this.hidden});
+  final double leftPadding;
+  final double rightPadding;
+  const CardsStrip({
+    super.key,
+    required this.hidden,
+    this.leftPadding = 0,
+    this.rightPadding = Space.gutter,
+  });
+
+  @override
+  State<CardsStrip> createState() => _CardsStripState();
+}
+
+class _CardsStripState extends State<CardsStrip> {
+  final _scroll = ScrollController();
+  double _leftFade = 0;
+  double _rightFade = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_syncFade);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncFade());
+  }
+
+  @override
+  void didUpdateWidget(CardsStrip old) {
+    super.didUpdateWidget(old);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncFade());
+  }
+
+  void _syncFade() {
+    if (!mounted || !_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (!pos.hasContentDimensions) return;
+    final left = (pos.pixels / 16.0).clamp(0.0, 1.0);
+    final right = ((pos.maxScrollExtent - pos.pixels) / 16.0).clamp(0.0, 1.0);
+    if ((left - _leftFade).abs() > 0.02 || (right - _rightFade).abs() > 0.02) {
+      setState(() {
+        _leftFade = left;
+        _rightFade = right;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_syncFade);
+    _scroll.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +76,7 @@ class CardsStrip extends StatelessWidget {
       height: 48,
       child: Row(
         children: [
+          SizedBox(width: widget.leftPadding),
           Text('Contas', style: T.body.copyWith(color: c.text)),
           const SizedBox(width: Space.sm),
           RoundIconButton(
@@ -32,37 +85,48 @@ class CardsStrip extends StatelessWidget {
             label: 'Nova conta ou cartão',
             onTap: () => editCard(context),
           ),
-          const SizedBox(width: Space.sm),
+          const SizedBox(width: Space.md),
           Expanded(
             child: cards.isEmpty
-                ? Text(
-                    'Separe gastos por conta ou cartão',
-                    style: T.small.copyWith(color: c.textSecondary),
+                ? Padding(
+                    padding: EdgeInsets.only(right: widget.rightPadding),
+                    child: Text(
+                      'Separe gastos por conta ou cartão',
+                      style: T.small.copyWith(color: c.textSecondary),
+                    ),
                   )
-                : ShaderMask(
-                    shaderCallback: (r) => const LinearGradient(
-                      colors: [
-                        Color(0x00FFFFFF),
-                        Color(0xFFFFFFFF),
-                        Color(0xFFFFFFFF),
-                        Color(0x00FFFFFF),
-                      ],
-                      stops: [0.0, 0.08, 0.92, 1.0],
-                    ).createShader(r),
-                    blendMode: BlendMode.dstIn,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: Space.md),
-                      itemCount: cards.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(width: Space.sm),
-                      itemBuilder: (_, i) => Pressable(
-                        onTap: () => ShellScope.of(
-                          context,
-                        )?.goTo(1, filter: ExtratoFilter(cardId: cards[i].id)),
-                        onLongPress: () => editCard(context, card: cards[i]),
-                        child: CardChip(card: cards[i]),
+                : NotificationListener<ScrollMetricsNotification>(
+                    onNotification: (_) {
+                      _syncFade();
+                      return false;
+                    },
+                    child: ShaderMask(
+                      shaderCallback: (r) => LinearGradient(
+                        colors: [
+                          Color.fromRGBO(255, 255, 255, 1.0 - _leftFade),
+                          const Color(0xFFFFFFFF),
+                          const Color(0xFFFFFFFF),
+                          Color.fromRGBO(255, 255, 255, 1.0 - _rightFade),
+                        ],
+                        stops: const [0.0, 0.07, 0.90, 1.0],
+                      ).createShader(r),
+                      blendMode: BlendMode.dstIn,
+                      child: ListView.separated(
+                        controller: _scroll,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.only(right: widget.rightPadding),
+                        itemCount: cards.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(width: Space.sm),
+                        itemBuilder: (_, i) => Pressable(
+                          onTap: () => ShellScope.of(context)?.goTo(
+                            1,
+                            filter: ExtratoFilter(cardId: cards[i].id),
+                          ),
+                          onLongPress: () => editCard(context, card: cards[i]),
+                          child: CardChip(card: cards[i]),
+                        ),
                       ),
                     ),
                   ),
@@ -99,10 +163,9 @@ class CardChip extends StatelessWidget {
         children: [
           Text(
             card.name.isEmpty ? 'Conta' : card.name,
-            style: T.tiny.copyWith(
+            style: T.micro.copyWith(
               color: onColor,
               fontWeight: FontWeight.w600,
-              fontSize: 11,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -114,7 +177,6 @@ class CardChip extends StatelessWidget {
                   hasLast4 ? '•••${card.last4}' : 'Conta',
                   style: T.tiny.copyWith(
                     color: onColor.withValues(alpha: 0.85),
-                    fontSize: 10,
                   ),
                   maxLines: 1,
                 ),
@@ -143,9 +205,11 @@ class BrandBadge extends StatelessWidget {
     Widget box(Widget child) => Container(
       height: 14,
       padding: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: Palette.neutral0,
-        borderRadius: BorderRadius.circular(3),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(3),
+        ),
       ),
       alignment: Alignment.center,
       child: child,
@@ -217,9 +281,9 @@ class BrandBadge extends StatelessWidget {
   }
 }
 
-/// Sheet de criar/editar cartão.
+/// Sheet estilo iOS de criar/editar cartão.
 Future<void> editCard(BuildContext context, {PayCard? card}) {
-  return showSheet(context, builder: (ctx) => _CardForm(card: card));
+  return showIosSheet<void>(context, builder: (ctx) => _CardForm(card: card));
 }
 
 class _CardForm extends StatefulWidget {
@@ -274,19 +338,36 @@ class _CardFormState extends State<_CardForm> {
       color: _color,
       brand: _brand,
     );
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        Space.lg,
-        Space.md,
-        Space.lg,
-        Space.lg,
+    return SheetBody(
+      bottom: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PillButton('Salvar conta', onTap: _valid ? _save : null),
+          if (widget.card != null) ...[
+            const SizedBox(height: Space.sm),
+            PillButton('Excluir conta', kind: BtnKind.danger, onTap: _delete),
+          ],
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            widget.card == null ? 'Nova conta ou cartão' : 'Editar conta',
-            style: T.title.copyWith(color: c.text),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.card == null ? 'Nova conta ou cartão' : 'Editar conta',
+                  style: T.title.copyWith(color: c.text),
+                ),
+              ),
+              RoundIconButton(
+                LucideIcons.x,
+                size: 36,
+                bg: c.cardAlt,
+                label: 'Fechar',
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
           ),
           const SizedBox(height: Space.xs),
           Text(
@@ -379,12 +460,6 @@ class _CardFormState extends State<_CardForm> {
                 ),
             ],
           ),
-          const SizedBox(height: Space.lg),
-          PillButton('Salvar conta', onTap: _valid ? _save : null),
-          if (widget.card != null) ...[
-            const SizedBox(height: Space.sm),
-            PillButton('Excluir conta', kind: BtnKind.danger, onTap: _delete),
-          ],
         ],
       ),
     );

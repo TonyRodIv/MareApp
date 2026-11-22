@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
+import '../../core/color_engine.dart';
 import '../../core/theme.dart';
 import '../../data/finance.dart';
 import '../../data/store.dart';
@@ -61,10 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           name.isEmpty ? 'Olá,' : 'Olá $name,',
-                          style: T.headline.copyWith(
-                            color: c.text,
-                            fontSize: 20,
-                          ),
+                          style: T.headline.copyWith(color: c.text),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -98,33 +96,69 @@ class _HomeScreenState extends State<HomeScreen> {
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 sidePadding(context, maxWidth: 1200),
-                Space.lg,
+                36,
+                sidePadding(context, maxWidth: 1200),
+                Space.base,
+              ),
+              sliver: SliverToBoxAdapter(child: _hero(context, f, hidden)),
+            ),
+            // ── Cartões (vai até a borda direita da tela; oculto sem contas)
+            if (hasCards)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: Space.md),
+                  child: CardsStrip(
+                    hidden: hidden,
+                    leftPadding: sidePadding(context, maxWidth: 1200),
+                    rightPadding: sidePadding(context, maxWidth: 1200),
+                  ),
+                ),
+              ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(
+                sidePadding(context, maxWidth: 1200),
+                0,
                 sidePadding(context, maxWidth: 1200),
                 navClearance(context),
               ),
               sliver: SliverList.list(
                 children: [
-                  // ── Valor principal (toque alterna a visão)
-                  _hero(context, f, hidden),
-                  const SizedBox(height: Space.lg),
-
-                  // ── Cartões (oculto se o usuário não tiver nenhum)
-                  if (hasCards) ...[
-                    CardsStrip(hidden: hidden),
-                    const SizedBox(height: Space.base),
-                  ],
-
-                  // ── Ações rápidas: círculo com ícone e nome embaixo
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      CircleAction(icon: LucideIcons.plus, label: 'Gasto', primary: true, onTap: () => openAddExpense(context)),
-                      CircleAction(icon: LucideIcons.piggyBank, label: 'Caixinha', onTap: () => pushFluid(context, const BoxForm())),
-                      CircleAction(icon: LucideIcons.creditCard, label: 'Cartão', onTap: () => editCard(context)),
-                      CircleAction(icon: LucideIcons.ellipsis, label: 'Mais', onTap: () => _moreActions(context)),
-                    ],
+                  // ── Ações rápidas (cada botão usa uma cor do tema: fundo escuro
+                  //    dessaturado + ícone/texto claros dessaturados)
+                  Builder(
+                    builder: (_) {
+                      final (expBg, expFg) = _actionTone(
+                        c.palette.companion[500],
+                      );
+                      final (boxBg, boxFg) = _actionTone(
+                        c.palette.primary[500],
+                      );
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: PillButton(
+                              'Gastos',
+                              icon: LucideIcons.receipt,
+                              background: expBg,
+                              foreground: expFg,
+                              onTap: () => openAddExpense(context),
+                            ),
+                          ),
+                          const SizedBox(width: Space.md),
+                          Expanded(
+                            child: PillButton(
+                              'Caixinhas',
+                              icon: LucideIcons.piggyBank,
+                              background: boxBg,
+                              foreground: boxFg,
+                              onTap: () => pushFluid(context, const BoxForm()),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: Space.lg),
+                  const SizedBox(height: Space.md),
 
                   if (noSalary) ...[
                     AppCard(
@@ -196,6 +230,22 @@ class _HomeScreenState extends State<HomeScreen> {
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
   };
 
+  /// Por padrão, a tela inicial mostra apenas os 5 widgets essenciais.
+  /// Os demais podem ser ativados a qualquer momento em "Editar grade".
+  static const _defaultHidden = <String>{
+    'projecao',
+    'sequencia',
+    'assinaturas',
+    'historico',
+  };
+
+  Set<String> _effectiveHidden(Store s) {
+    if (s.data.widgetOrder.isEmpty && s.data.hiddenWidgets.isEmpty) {
+      return {..._defaultHidden};
+    }
+    return s.data.hiddenWidgets.toSet();
+  }
+
   List<String> _allIds(List<String> savedOrder) {
     final defaults = _widgetMeta.keys.toList();
     final ordered = [
@@ -216,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
   ) {
     final s = context.store;
     final cy = f.current;
-    final hiddenSet = s.data.hiddenWidgets.toSet();
+    final hiddenSet = _effectiveHidden(s);
     final order = _allIds(s.data.widgetOrder);
     final tiles = <DashTile>[];
 
@@ -226,16 +276,19 @@ class _HomeScreenState extends State<HomeScreen> {
           (id == 'hoje' ||
               id == 'fds' ||
               id == 'sequencia' ||
-              id == 'projecao'))
+              id == 'projecao')) {
         continue;
+      }
       if (id == 'categorias' &&
           f.byCategory(cy).isEmpty &&
-          !s.data.widgetOrder.contains('categorias'))
+          !s.data.widgetOrder.contains('categorias')) {
         continue;
+      }
       if (id == 'assinaturas' &&
           !hasSubs &&
-          !s.data.widgetOrder.contains('assinaturas'))
+          !s.data.widgetOrder.contains('assinaturas')) {
         continue;
+      }
 
       switch (id) {
         case 'gastos':
@@ -281,7 +334,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 badge: boxes.isEmpty
                     ? null
                     : '${boxes.length} ${boxes.length == 1 ? 'ativa' : 'ativas'}',
-                onTap: () => ShellScope.of(context)?.goTo(2),
+                onTap: () => s.data.boxes.isEmpty
+                    ? pushFluid(context, const BoxForm())
+                    : ShellScope.of(context)?.goTo(2),
               ),
             ),
           );
@@ -394,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 44,
             decoration: BoxDecoration(
               color: positive ? c.positiveSoft : c.negativeSoft,
-              borderRadius: BorderRadius.circular(Space.radiusMd),
+              shape: BoxShape.circle,
             ),
             child: Icon(
               positive ? LucideIcons.trendingUp : LucideIcons.trendingDown,
@@ -410,9 +465,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _editGrid(BuildContext context, bool noSalary) {
     final s = context.storeRead;
     var order = _allIds(s.data.widgetOrder);
-    var hidden = s.data.hiddenWidgets.toSet();
+    var hidden = _effectiveHidden(s);
 
-    return showSheet(
+    return showIosSheet<void>(
       context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) {
@@ -426,15 +481,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       id == 'projecao')))
                 id,
           ];
-          return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              Space.lg,
-              Space.md,
-              Space.lg,
-              Space.lg,
-            ),
+          return SheetBody(
+            bottom: PillButton('Concluir', onTap: () => Navigator.pop(ctx)),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -442,16 +491,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     Expanded(
                       child: Text(
                         'Editar grade',
-                        style: T.headline.copyWith(color: c.text),
+                        style: T.title.copyWith(color: c.text),
                       ),
                     ),
                     CupertinoButton(
-                      padding: EdgeInsets.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
                       onPressed: () {
                         s.resetDashboardLayout();
                         set(() {
                           order = _widgetMeta.keys.toList();
-                          hidden = {};
+                          hidden = {..._defaultHidden};
                         });
                       },
                       child: Text(
@@ -462,6 +511,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
+                    RoundIconButton(
+                      LucideIcons.x,
+                      size: 36,
+                      bg: c.cardAlt,
+                      label: 'Fechar',
+                      onTap: () => Navigator.pop(ctx),
+                    ),
                   ],
                 ),
                 const SizedBox(height: Space.xs),
@@ -470,161 +526,158 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
                 const SizedBox(height: Space.base),
-                for (var idx = 0; idx < available.length; idx++) ...[
-                  Builder(
-                    builder: (_) {
-                      final id = available[idx];
-                      final meta = _widgetMeta[id]!;
-                      final visible = !hidden.contains(id);
-                      final span = s.data.cardSpans[id] ?? meta.$3;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: Space.sm),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Space.md,
-                          vertical: Space.sm,
-                        ),
-                        decoration: BoxDecoration(
-                          color: c.card,
-                          borderRadius: BorderRadius.circular(
-                            Space.radiusField,
-                          ),
-                          border: Border.all(
-                            color: c.border.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              meta.$2,
-                              size: 18,
-                              color: visible ? c.accent : c.textTertiary,
-                            ),
-                            const SizedBox(width: Space.md),
-                            Expanded(
-                              child: Text(
-                                meta.$1,
-                                style: T.label.copyWith(
+                ListGroup(
+                  gap: 16,
+                  children: [
+                    for (var idx = 0; idx < available.length; idx++)
+                      Builder(
+                        builder: (_) {
+                          final id = available[idx];
+                          final meta = _widgetMeta[id]!;
+                          final visible = !hidden.contains(id);
+                          final span = s.data.cardSpans[id] ?? meta.$3;
+                          return ListRow(
+                            leading: SizedBox(
+                              width: 32,
+                              height: 32,
+                              child: Center(
+                                child: Icon(
+                                  meta.$2,
+                                  size: 20,
                                   color: visible ? c.text : c.textTertiary,
-                                  fontWeight: FontWeight.w500,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Pressable(
-                              semanticLabel: 'Largura ${span}x',
-                              onTap: () {
-                                s.setCardSpan(id, span == 1 ? 2 : 1);
-                                set(() {});
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: Space.sm,
-                                  vertical: Space.xs,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: c.primarySoft,
-                                  borderRadius: BorderRadius.circular(
-                                    Space.radiusSm,
+                            title: meta.$1,
+                            titleColor: visible ? c.text : c.textTertiary,
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Pressable(
+                                  semanticLabel: 'Largura ${span}x',
+                                  onTap: () {
+                                    s.setCardSpan(id, span == 1 ? 2 : 1);
+                                    set(() {});
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: Space.sm,
+                                      vertical: Space.xs,
+                                    ),
+                                    decoration: ShapeDecoration(
+                                      color: c.primarySoft,
+                                      shape: RoundedSuperellipseBorder(
+                                        borderRadius: BorderRadius.circular(
+                                          Space.radiusSm,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${span}x',
+                                      style: T.smallStrong.copyWith(
+                                        color: c.primary,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                child: Text(
-                                  '${span}x',
-                                  style: T.smallStrong.copyWith(
-                                    color: c.primary,
+                                const SizedBox(width: Space.xs),
+                                Pressable(
+                                  semanticLabel: 'Mover para cima',
+                                  onTap: idx == 0
+                                      ? null
+                                      : () {
+                                          final prevId = available[idx - 1];
+                                          final a = order.indexOf(id);
+                                          final b = order.indexOf(prevId);
+                                          set(() {
+                                            order[a] = prevId;
+                                            order[b] = id;
+                                          });
+                                          s.setDashboardLayout(
+                                            order: order,
+                                            hidden: hidden.toList(),
+                                          );
+                                        },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(Space.xs),
+                                    child: Icon(
+                                      LucideIcons.chevronUp,
+                                      size: 18,
+                                      color: idx == 0
+                                          ? c.textTertiary
+                                          : c.textSecondary,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: Space.xs),
-                            Pressable(
-                              semanticLabel: 'Mover para cima',
-                              onTap: idx == 0
-                                  ? null
-                                  : () {
-                                      final prevId = available[idx - 1];
-                                      final a = order.indexOf(id);
-                                      final b = order.indexOf(prevId);
-                                      set(() {
-                                        order[a] = prevId;
-                                        order[b] = id;
-                                      });
-                                      s.setDashboardLayout(
-                                        order: order,
-                                        hidden: hidden.toList(),
-                                      );
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.all(Space.xs),
-                                child: Icon(
-                                  LucideIcons.chevronUp,
-                                  size: 18,
-                                  color: idx == 0
-                                      ? c.textTertiary
-                                      : c.textSecondary,
+                                Pressable(
+                                  semanticLabel: 'Mover para baixo',
+                                  onTap: idx == available.length - 1
+                                      ? null
+                                      : () {
+                                          final nextId = available[idx + 1];
+                                          final a = order.indexOf(id);
+                                          final b = order.indexOf(nextId);
+                                          set(() {
+                                            order[a] = nextId;
+                                            order[b] = id;
+                                          });
+                                          s.setDashboardLayout(
+                                            order: order,
+                                            hidden: hidden.toList(),
+                                          );
+                                        },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(Space.xs),
+                                    child: Icon(
+                                      LucideIcons.chevronDown,
+                                      size: 18,
+                                      color: idx == available.length - 1
+                                          ? c.textTertiary
+                                          : c.textSecondary,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            Pressable(
-                              semanticLabel: 'Mover para baixo',
-                              onTap: idx == available.length - 1
-                                  ? null
-                                  : () {
-                                      final nextId = available[idx + 1];
-                                      final a = order.indexOf(id);
-                                      final b = order.indexOf(nextId);
-                                      set(() {
-                                        order[a] = nextId;
-                                        order[b] = id;
-                                      });
-                                      s.setDashboardLayout(
-                                        order: order,
-                                        hidden: hidden.toList(),
-                                      );
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.all(Space.xs),
-                                child: Icon(
-                                  LucideIcons.chevronDown,
-                                  size: 18,
-                                  color: idx == available.length - 1
-                                      ? c.textTertiary
-                                      : c.textSecondary,
+                                const SizedBox(width: Space.xs),
+                                SpringSwitch(
+                                  value: visible,
+                                  label: meta.$1,
+                                  onChanged: (v) {
+                                    set(() {
+                                      if (v) {
+                                        hidden.remove(id);
+                                      } else {
+                                        hidden.add(id);
+                                      }
+                                    });
+                                    s.setDashboardLayout(
+                                      order: order,
+                                      hidden: hidden.toList(),
+                                    );
+                                  },
                                 ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(width: Space.xs),
-                            SpringSwitch(
-                              value: visible,
-                              label: meta.$1,
-                              onChanged: (v) {
-                                set(() {
-                                  if (v) {
-                                    hidden.remove(id);
-                                  } else {
-                                    hidden.add(id);
-                                  }
-                                });
-                                s.setDashboardLayout(
-                                  order: order,
-                                  hidden: hidden.toList(),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ],
-                const SizedBox(height: Space.md),
-                PillButton('Concluir', onTap: () => Navigator.pop(ctx)),
+                          );
+                        },
+                      ),
+                  ],
+                ),
               ],
             ),
           );
         },
       ),
     );
+  }
+
+  /// Gera par (fundo escuro suave sem força, texto/ícone claro dessaturado)
+  /// a partir de um matiz do tema em OKLCH.
+  (Color, Color) _actionTone(Color seed) {
+    final o = toOklch(seed);
+    final bg = fromOklch(0.32, (o.c * 0.48).clamp(0.038, 0.082), o.h);
+    final rawFg = fromOklch(0.93, (o.c * 0.16).clamp(0.012, 0.028), o.h);
+    final fg = ensureContrast(rawFg, [bg], 7.0);
+    return (bg, fg);
   }
 
   String _greeting() {
@@ -677,14 +730,9 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (v) => MoneyText(
               v,
               hidden: hidden,
-              style: T.display.copyWith(fontSize: 36),
+              style: T.hero,
               color: value < 0 ? c.negative : null,
             ),
-          ),
-          const SizedBox(height: Space.xs),
-          Text(
-            '${cy.label()} · ${cy.start.day}/${cy.start.month} a ${cy.end.subtract(const Duration(days: 1)).day}/${cy.end.subtract(const Duration(days: 1)).month}',
-            style: T.label.copyWith(color: c.textSecondary),
           ),
         ],
       ),
@@ -704,6 +752,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final c = context.c;
     return AppCard(
+      expandChild: true,
       title: title,
       onTap: onTap,
       child: Column(
@@ -721,7 +770,8 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: Space.xs),
             Tag(badge, bg: c.primarySoft, fg: c.accent),
           ],
-          const SizedBox(height: Space.lg),
+          const Spacer(),
+          const SizedBox(height: Space.base),
           CountingMoney(
             cents: v,
             builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
@@ -747,10 +797,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final data = f.byCategory(f.current);
     final total = data.fold<int>(0, (s, e) => s + e.value);
-    final shades = categoryShades(c);
+    final topCount = data.length > 3 ? 3 : data.length;
+    final mono = categoryMonochromeColors(c, topCount);
     final rows = <(String, Cents, Color)>[];
-    for (var k = 0; k < data.length && k < 3; k++) {
-      rows.add((data[k].key.label, data[k].value, shades[k]));
+    for (var k = 0; k < topCount; k++) {
+      rows.add((data[k].key.label, data[k].value, mono[k]));
     }
     if (data.length > 3) {
       rows.add((
@@ -776,6 +827,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 CategoryWaffle(
                   data: data,
+                  maxCategories: 3,
                   width: w < 280 ? w : (w * 0.36).clamp(100.0, 200.0),
                 ),
                 const SizedBox(width: 16, height: 14),
@@ -791,9 +843,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 width: 10,
                                 height: 10,
-                                decoration: BoxDecoration(
+                                decoration: ShapeDecoration(
                                   color: r.$3,
-                                  borderRadius: BorderRadius.circular(3),
+                                  shape: RoundedSuperellipseBorder(
+                                    borderRadius: BorderRadius.circular(3),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -835,13 +889,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final v = f.todayAllowance;
     return AppCard(
+      expandChild: true,
       title: 'Para hoje',
       onTap: () => push(context, const RhythmScreen()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CycleGrid(f: f, width: w, columns: _gridCols(w)),
-          const SizedBox(height: Space.lg),
+          const Spacer(),
+          const SizedBox(height: Space.base),
           CountingMoney(
             cents: v < 0 ? 0 : v,
             builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
@@ -867,6 +923,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final days = f.upcomingWeekend;
     final v = f.weekendAllowance;
     return AppCard(
+      expandChild: true,
       title: 'Fim de semana',
       onTap: () => push(context, const RhythmScreen()),
       child: Column(
@@ -878,7 +935,8 @@ class _HomeScreenState extends State<HomeScreen> {
             width: w,
             columns: _gridCols(w),
           ),
-          const SizedBox(height: Space.lg),
+          const Spacer(),
+          const SizedBox(height: Space.base),
           if (days.isEmpty) ...[
             Text('—', style: T.cardValue.copyWith(color: c.textSecondary)),
             const SizedBox(height: Space.xxs),
@@ -926,9 +984,8 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   n == 1 ? '1 dia de sequência' : '$n dias de sequência',
-                  style: T.headline.copyWith(
+                  style: (w < 240 ? T.bodyStrong : T.headline).copyWith(
                     color: c.text,
-                    fontSize: w < 240 ? 16 : 20,
                   ),
                 ),
                 if (w >= 240)
@@ -951,6 +1008,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final subs = f.subscriptions(f.current);
     final total = subs.fold<int>(0, (s, e) => s + e.cents);
+    final summary = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CountingMoney(
+          cents: total,
+          builder: (v) => MoneyText(v, hidden: hidden, style: T.cardValue),
+        ),
+        const SizedBox(height: Space.xxs),
+        Text(
+          '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'} · ${fmtMoney(total * 12, hidden: hidden)}/ano',
+          style: T.small.copyWith(color: c.textSecondary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
     return AppCard(
       title: 'Assinaturas',
       onTap: () => push(context, const SubscriptionsScreen()),
@@ -959,64 +1033,33 @@ class _HomeScreenState extends State<HomeScreen> {
               'Cadastre gastos na categoria Assinaturas (Netflix, Spotify…) para acompanhar aqui.',
               style: T.label.copyWith(color: c.textSecondary),
             )
-          : w < 280
+          : w < 290
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                MoneyText(total, hidden: hidden, style: T.cardValue),
-                Text(
-                  'Por mês em ${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}',
-                  style: T.small.copyWith(color: c.textSecondary),
-                ),
-                const SizedBox(height: 8),
-                SubscriptionBubbles(subs: subs, hidden: hidden, width: w),
-              ],
-            )
-          : Row(
-              children: [
-                SizedBox(
-                  width: w * 0.45,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      MoneyText(total, hidden: hidden, style: T.cardValue),
-                      Text(
-                        'Por mês em ${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}',
-                        style: T.small.copyWith(color: c.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
+                summary,
+                const SizedBox(height: Space.md),
                 SubscriptionBubbles(
                   subs: subs,
                   hidden: hidden,
-                  width: w * 0.55,
+                  width: w,
+                  height: 132,
+                ),
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: summary),
+                const SizedBox(width: Space.sm),
+                SubscriptionBubbles(
+                  subs: subs,
+                  hidden: hidden,
+                  width: (w * 0.56 - Space.sm).clamp(110.0, 420.0),
+                  height: 136,
                 ),
               ],
             ),
     );
-  }
-
-  Future<void> _moreActions(BuildContext context) async {
-    final a = await actionSheet<String>(
-      context,
-      actions: const [
-        SheetAction('Atualizar salário', 'salary', icon: LucideIcons.banknote),
-        SheetAction('Nova conta ou cartão', 'card', icon: LucideIcons.landmark),
-        SheetAction('Ritmo do ciclo', 'rhythm', icon: LucideIcons.calendarDays),
-        SheetAction('Histórico', 'history', icon: LucideIcons.chartColumn),
-      ],
-    );
-    if (!context.mounted) return;
-    switch (a) {
-      case 'salary':
-        editSalary(context);
-      case 'card':
-        editCard(context);
-      case 'rhythm':
-        push(context, const RhythmScreen());
-      case 'history':
-        push(context, const HistoryScreen());
-    }
   }
 }

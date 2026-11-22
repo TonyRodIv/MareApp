@@ -6,6 +6,7 @@ import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
+import 'box_form.dart';
 import 'caixinhas.dart';
 import 'extrato.dart';
 import 'home.dart';
@@ -57,6 +58,10 @@ class _ShellState extends State<Shell> {
 
   void _goTo(int tab, {ExtratoFilter? filter}) {
     if (filter != null) _extratoFilter.value = filter;
+    if (tab == 2 && context.storeRead.data.boxes.isEmpty) {
+      pushFluid(context, const BoxForm());
+      return;
+    }
     setState(() => _tab = tab);
   }
 
@@ -64,79 +69,95 @@ class _ShellState extends State<Shell> {
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.store;
+    final hasBoxes = s.data.boxes.isNotEmpty;
+    final effectiveTab = (!hasBoxes && _tab == 2) ? 0 : _tab;
+    if (effectiveTab != _tab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _tab == 2 && context.storeRead.data.boxes.isEmpty) {
+          setState(() => _tab = 0);
+        }
+      });
+    }
     final pages = [
       const HomeScreen(),
       ExtratoScreen(filter: _extratoFilter),
       const CaixinhasScreen(),
       const ProfileScreen(),
     ];
+    final logicalTabs = hasBoxes ? const [0, 1, 2, 3] : const [0, 1, 3];
+    final navIndex = logicalTabs
+        .indexOf(effectiveTab)
+        .clamp(0, logicalTabs.length - 1);
     final bottom = MediaQuery.paddingOf(context).bottom;
     return ShellScope(
       goTo: _goTo,
-      child: CupertinoPageScaffold(
-        backgroundColor: c.bg,
-        child: Stack(
-          children: [
-            RepaintBoundary(
-              child: IndexedStack(index: _tab, children: pages),
-            ),
-            // Progressive blur contido logo atrás da barra inferior flutuante
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: 126 + bottom,
-              child: ProgressiveBlur(
-                direction: AxisDirection.up,
-                maxSigma: 10,
-                tint: c.isDark ? const Color(0xFF0A0A0A) : null,
-                tintOpacity: c.isDark ? 0.80 : 0.82,
+      child: SheetScaler(
+        child: CupertinoPageScaffold(
+          backgroundColor: c.bg,
+          child: Stack(
+            children: [
+              RepaintBoundary(
+                child: IndexedStack(index: effectiveTab, children: pages),
               ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: FloatingNavBar(
-                    index: _tab,
-                    onTap: (i) => setState(() => _tab = i),
-                    items: [
-                      NavItem(
-                        'Carteira',
-                        LucideIcons.wallet,
-                        activeBuilder: (col, sz) =>
-                            _FilledNavIcon(kind: 0, color: col, size: sz),
-                      ),
-                      NavItem(
-                        'Extrato',
-                        LucideIcons.receipt,
-                        activeBuilder: (col, sz) =>
-                            _FilledNavIcon(kind: 1, color: col, size: sz),
-                      ),
-                      NavItem(
-                        'Caixinhas',
-                        LucideIcons.piggyBank,
-                        activeBuilder: (col, sz) =>
-                            _FilledNavIcon(kind: 2, color: col, size: sz),
-                      ),
-                      NavItem(
-                        'Seu Perfil',
-                        LucideIcons.user,
-                        custom: Avatar(
-                          path: s.data.avatarPath,
-                          name: s.data.userName,
-                          size: 24,
+              // Progressive blur contido logo atrás da barra inferior flutuante
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 126 + bottom,
+                child: ProgressiveBlur(
+                  direction: AxisDirection.up,
+                  maxSigma: 10,
+                  tint: c.isDark ? const Color(0xFF0A0A0A) : null,
+                  tintOpacity: c.isDark ? 0.80 : 0.82,
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: FloatingNavBar(
+                      index: navIndex,
+                      onTap: (i) => setState(() => _tab = logicalTabs[i]),
+                      items: [
+                        NavItem(
+                          'Carteira',
+                          LucideIcons.wallet,
+                          activeBuilder: (col, sz) =>
+                              _FilledNavIcon(kind: 0, color: col, size: sz),
                         ),
-                      ),
-                    ],
+                        NavItem(
+                          'Extrato',
+                          LucideIcons.receiptText,
+                          activeBuilder: (col, sz) =>
+                              _FilledNavIcon(kind: 1, color: col, size: sz),
+                        ),
+                        if (hasBoxes)
+                          NavItem(
+                            'Caixinhas',
+                            LucideIcons.piggyBank,
+                            activeBuilder: (col, sz) =>
+                                _FilledNavIcon(kind: 2, color: col, size: sz),
+                          ),
+                        NavItem(
+                          'Seu Perfil',
+                          LucideIcons.user,
+                          custom: Avatar(
+                            path: s.data.avatarPath,
+                            name: s.data.userName,
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -178,116 +199,148 @@ class _FilledNavPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size s) {
-    final fill = Paint()..color = color;
-    final cut = Paint()..color = cutout;
-    final w = s.width;
-    final h = s.height;
+    // Todas as coordenadas seguem exatamente o viewBox 24x24 oficial do Lucide
+    // (wallet, receipt-text, piggy-bank) para que ativo vs. inativo tenham a
+    // mesma silhueta, mudando apenas de contorno para preenchido.
+    canvas.save();
+    canvas.scale(s.width / 24, s.height / 24);
+
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final cutFill = Paint()
+      ..color = cutout
+      ..style = PaintingStyle.fill;
+    final cutStroke = Paint()
+      ..color = cutout
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.9
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     if (kind == 0) {
-      // Carteira preenchida (estilo Lucide wallet sólido)
+      // Lucide `wallet` (viewBox 24x24) preenchido
+      // Aba superior (y=3..7, x=3..19)
+      final topFlap = Path()
+        ..moveTo(5, 3)
+        ..lineTo(18, 3)
+        ..arcToPoint(const Offset(19, 4), radius: const Radius.circular(1))
+        ..lineTo(19, 7)
+        ..lineTo(5, 7)
+        ..arcToPoint(const Offset(5, 3), radius: const Radius.circular(2))
+        ..close();
+      canvas.drawPath(topFlap, fill);
+      // Corpo principal (x=3..21, y=7..21)
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(w * 0.12, h * 0.18, w * 0.72, h * 0.64),
-          Radius.circular(w * 0.14),
+        RRect.fromLTRBAndCorners(
+          3,
+          6.5,
+          21,
+          21,
+          topRight: const Radius.circular(1.5),
+          bottomLeft: const Radius.circular(2.5),
+          bottomRight: const Radius.circular(1.5),
         ),
         fill,
       );
-      // Aba lateral do fecho
+      // Linha divisória sutil da aba superior
+      canvas.drawLine(const Offset(5.2, 6.8), const Offset(19.2, 6.8), cutStroke);
+      // Fecho lateral direito (x=16..22, y=12..16) com recorte
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(w * 0.50, h * 0.36, w * 0.38, h * 0.28),
-          Radius.circular(w * 0.10),
+        RRect.fromLTRBAndCorners(
+          15.5,
+          11.2,
+          22.2,
+          16.8,
+          topLeft: const Radius.circular(2.8),
+          bottomLeft: const Radius.circular(2.8),
+          topRight: const Radius.circular(1.2),
+          bottomRight: const Radius.circular(1.2),
         ),
-        cut,
+        cutFill,
       );
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(w * 0.56, h * 0.41, w * 0.30, h * 0.18),
-          Radius.circular(w * 0.08),
+        RRect.fromLTRBAndCorners(
+          16.8,
+          12.3,
+          22.0,
+          15.7,
+          topLeft: const Radius.circular(1.7),
+          bottomLeft: const Radius.circular(1.7),
+          topRight: const Radius.circular(1.0),
+          bottomRight: const Radius.circular(1.0),
         ),
         fill,
       );
-      canvas.drawCircle(Offset(w * 0.68, h * 0.50), w * 0.055, cut);
+      canvas.drawCircle(const Offset(18.5, 14.0), 0.9, cutFill);
     } else if (kind == 1) {
-      // Extrato / recibo preenchido
+      // Lucide `receipt-text` (viewBox 24x24) preenchido
       final p = Path()
-        ..moveTo(w * 0.18, h * 0.12)
-        ..lineTo(w * 0.82, h * 0.12)
-        ..lineTo(w * 0.82, h * 0.88)
-        ..lineTo(w * 0.70, h * 0.80)
-        ..lineTo(w * 0.58, h * 0.88)
-        ..lineTo(w * 0.50, h * 0.80)
-        ..lineTo(w * 0.42, h * 0.88)
-        ..lineTo(w * 0.30, h * 0.80)
-        ..lineTo(w * 0.18, h * 0.88)
+        ..moveTo(4, 2)
+        ..lineTo(4, 22)
+        ..lineTo(6, 21)
+        ..lineTo(8, 22)
+        ..lineTo(10, 21)
+        ..lineTo(12, 22)
+        ..lineTo(14, 21)
+        ..lineTo(16, 22)
+        ..lineTo(18, 21)
+        ..lineTo(20, 22)
+        ..lineTo(20, 2)
+        ..lineTo(18, 3)
+        ..lineTo(16, 2)
+        ..lineTo(14, 3)
+        ..lineTo(12, 2)
+        ..lineTo(10, 3)
+        ..lineTo(8, 2)
+        ..lineTo(6, 3)
         ..close();
       canvas.drawPath(p, fill);
-      final line = Paint()
-        ..color = cutout
-        ..strokeWidth = w * 0.08
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(w * 0.32, h * 0.34),
-        Offset(w * 0.68, h * 0.34),
-        line,
-      );
-      canvas.drawLine(
-        Offset(w * 0.32, h * 0.50),
-        Offset(w * 0.68, h * 0.50),
-        line,
-      );
-      canvas.drawLine(
-        Offset(w * 0.32, h * 0.66),
-        Offset(w * 0.54, h * 0.66),
-        line,
-      );
+      // 3 linhas exatas do `receipt-text`
+      canvas.drawLine(const Offset(8, 8), const Offset(16, 8), cutStroke);
+      canvas.drawLine(const Offset(8, 12), const Offset(16, 12), cutStroke);
+      canvas.drawLine(const Offset(8, 16), const Offset(13, 16), cutStroke);
     } else {
-      // Cofrinho (piggy bank) preenchido
-      canvas.drawOval(
-        Rect.fromLTWH(w * 0.14, h * 0.24, w * 0.64, h * 0.50),
-        fill,
-      );
-      // Focinho
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(w * 0.72, h * 0.42, w * 0.16, h * 0.18),
-          Radius.circular(w * 0.06),
-        ),
-        fill,
-      );
-      // Orelha
-      canvas.drawOval(
-        Rect.fromLTWH(w * 0.52, h * 0.14, w * 0.16, h * 0.18),
-        fill,
-      );
-      // Perninhas
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(w * 0.26, h * 0.66, w * 0.13, h * 0.18),
-          Radius.circular(w * 0.05),
-        ),
-        fill,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(w * 0.54, h * 0.66, w * 0.13, h * 0.18),
-          Radius.circular(w * 0.05),
-        ),
-        fill,
-      );
-      // Fenda da moeda
-      final slot = Paint()
-        ..color = cutout
-        ..strokeWidth = w * 0.075
-        ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(w * 0.36, h * 0.36),
-        Offset(w * 0.54, h * 0.36),
-        slot,
-      );
-      // Olho
-      canvas.drawCircle(Offset(w * 0.64, h * 0.44), w * 0.045, cut);
+      // Lucide `piggy-bank` (viewBox 24x24) preenchido
+      final body = Path()
+        ..moveTo(19, 5)
+        ..cubicTo(17.5, 5, 16.2, 6.4, 16, 7)
+        ..cubicTo(12.5, 5.5, 5, 6.7, 5, 12)
+        ..cubicTo(5, 13.8, 5, 15, 7, 16.5)
+        ..lineTo(7, 20)
+        ..lineTo(11, 20)
+        ..lineTo(11, 18)
+        ..lineTo(14, 18)
+        ..lineTo(14, 20)
+        ..lineTo(18, 20)
+        ..lineTo(18, 16)
+        ..cubicTo(19, 15.5, 19.7, 15, 20, 14)
+        ..lineTo(22, 14)
+        ..lineTo(22, 10)
+        ..lineTo(20, 10)
+        ..cubicTo(20, 9, 19.5, 8.5, 19, 8)
+        ..lineTo(19, 5)
+        ..close();
+      canvas.drawPath(body, fill);
+      // Rabinho (M2 9v1c0 1.1.9 2 2 2h1)
+      final tail = Path()
+        ..moveTo(2, 9)
+        ..lineTo(2, 10)
+        ..cubicTo(2, 11.1, 2.9, 12, 4, 12)
+        ..lineTo(5.5, 12);
+      canvas.drawPath(tail, stroke);
+      // Olhinho exato do Lucide piggy-bank (16, 11) + fenda da moeda (9..13, 9.5)
+      canvas.drawCircle(const Offset(16, 10.8), 1.0, cutFill);
+      canvas.drawLine(const Offset(9.5, 9.5), const Offset(13.2, 9.5), cutStroke);
     }
+
+    canvas.restore();
   }
 
   @override
