@@ -751,26 +751,44 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
 
     final shader = _shader;
     if (shader == null || !ui.ImageFilter.isShaderFilterSupported) {
+      // Fallback (web / Skia): sem shader, simula o blur progressivo com faixas
+      // de BackdropFilter cujo sigma cai até 0 na borda interna. Assim o desfoque
+      // chega a sumir de verdade, em vez de ficar num sigma fixo com só o tint
+      // esmaecendo.
+      const strips = 16;
       return IgnorePointer(
         child: RepaintBoundary(
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: begin,
-                    end: end,
-                    colors: [
-                      baseColor.withValues(alpha: (widget.tintOpacity + 0.16).clamp(0.0, 0.94)),
-                      baseColor.withValues(alpha: widget.tintOpacity * 0.65),
-                      baseColor.withValues(alpha: 0),
-                    ],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
-                ),
-              ),
-            ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              LayoutBuilder(builder: (context, box) {
+                final h = box.maxHeight;
+                final stripH = h / strips;
+                return Stack(children: [
+                  for (var i = 0; i < strips; i++)
+                    () {
+                      // t = 1 na borda externa, 0 na interna
+                      final centre = (i + 0.5) / strips;
+                      final t = fromTop ? 1 - centre : centre;
+                      final sigma = widget.maxSigma * 0.8 * t * t * t;
+                      if (sigma < 0.4) return const SizedBox.shrink();
+                      return Positioned(
+                        left: 0,
+                        right: 0,
+                        top: i * stripH,
+                        height: stripH + 0.5,
+                        child: ClipRect(
+                          child: BackdropFilter(
+                            filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      );
+                    }(),
+                ]);
+              }),
+              scrim,
+            ],
           ),
         ),
       );

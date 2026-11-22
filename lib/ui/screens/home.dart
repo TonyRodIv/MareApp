@@ -713,7 +713,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: Space.xxs),
             Text(
-              'Para seu fim de semana',
+              'No fim de semana',
               style: T.small.copyWith(color: c.textSecondary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
