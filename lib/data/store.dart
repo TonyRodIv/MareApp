@@ -1,0 +1,321 @@
+import 'dart:convert';
+
+import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../core/cycle.dart';
+import '../core/money.dart';
+import 'finance.dart';
+import 'models.dart';
+
+/// Estado do app + persistência local. Toda alteração passa por aqui, salva
+/// e notifica a UI.
+class Store extends ChangeNotifier {
+  static const _key = 'mare_v1';
+  final SharedPreferences _prefs;
+  AppData data;
+
+  Store._(this._prefs, this.data);
+
+  static Future<Store> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    AppData d;
+    try {
+      final raw = prefs.getString(_key);
+      d = raw == null ? AppData() : AppData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } catch (_) {
+      // Nunca travar o app por causa de dado corrompido: guarda uma cópia e recomeça.
+      final raw = prefs.getString(_key);
+      if (raw != null) await prefs.setString('${_key}_corrupt_${DateTime.now().millisecondsSinceEpoch}', raw);
+      d = AppData();
+    }
+    return Store._(prefs, d);
+  }
+
+  /// Cria um Finance "agora" — barato, sem cache para nunca ficar defasado.
+  Finance get f => Finance(data);
+  Cycle get cycle => f.current;
+  int _keyOf(DateTime d) => Cycle.of(d, data.cycleStartDay).key;
+
+  void _commit() {
+    _prefs.setString(_key, jsonEncode(data.toJson()));
+    notifyListeners();
+  }
+
+  // ── Perfil / preferências ─────────────────────────────────
+
+  void setProfile({String? name, String? avatarPath, bool clearAvatar = false}) {
+    if (name != null) data.userName = name.trim();
+    if (clearAvatar) data.avatarPath = null;
+    if (avatarPath != null) data.avatarPath = avatarPath;
+    _commit();
+  }
+
+  void setTheme(ThemePref t) {
+    data.theme = t;
+    _commit();
+  }
+
+  void setAccentColor(int color) {
+    data.accentColor = color;
+    _commit();
+  }
+
+  void toggleHideValues() {
+    data.hideValues = !data.hideValues;
+    _commit();
+  }
+
+  void setCardSpan(String id, int span) {
+    data.cardSpans[id] = span.clamp(1, 2);
+    _commit();
+  }
+
+  void setDashboardLayout({List<String>? order, List<String>? hidden}) {
+    if (order != null) data.widgetOrder = List<String>.from(order);
+    if (hidden != null) data.hiddenWidgets = List<String>.from(hidden);
+    _commit();
+  }
+
+  void resetDashboardLayout() {
+    data.widgetOrder = [];
+    data.hiddenWidgets = [];
+    data.cardSpans = {};
+    _commit();
+  }
+
+  void setCycleStartDay(int day) {
+    data.cycleStartDay = day.clamp(1, 31);
+    _commit();
+  }
+
+  /// O salário vale a partir do ciclo atual; ciclos anteriores mantêm o valor antigo.
+  void setSalary(Cents cents) {
+    final k = cycle.key;
+    data.salaries
+      ..removeWhere((s) => s.fromKey >= k)
+      ..add(SalaryEntry(k, cents))
+      ..sort((a, b) => a.fromKey.compareTo(b.fromKey));
+    _commit();
+  }
+
+  void finishOnboarding({required String name, required Cents salary, required int startDay, String? avatarPath}) {
+    data
+      ..userName = name.trim()
+      ..avatarPath = avatarPath ?? data.avatarPath
+      ..cycleStartDay = startDay.clamp(1, 31)
+      ..onboardingDone = true;
+    if (salary > 0) {
+      data.salaries = [SalaryEntry(cycle.key, salary)];
+    }
+    _commit();
+  }
+
+  // ── Gastos ────────────────────────────────────────────────
+
+  void addExpense(Expense e) {
+    data.expenses.add(e);
+    _commit();
+  }
+
+  /// Edita um gasto. Se for recorrente, já tiver vigorado em ciclos anteriores
+  /// e o valor mudou, o histórico é preservado: o antigo encerra no ciclo
+  /// anterior e o novo passa a valer a partir de agora.
+  void updateExpense(Expense edited) {
+    final i = data.expenses.indexWhere((e) => e.id == edited.id);
+    if (i < 0) return;
+    final old = data.expenses[i];
+    final cur = cycle;
+    final startedBefore = Cycle.of(old.date, data.cycleStartDay).key < cur.key;
+    if (old.isRecurring && edited.isRecurring && startedBefore && old.cents != edited.cents) {
+      old.endDate = cur.start.subtract(const Duration(days: 1));
+      data.expenses.add(
+        Expense(
+          name: edited.name,
+          cents: edited.cents,
+          categoryId: edited.categoryId,
+          cardId: edited.cardId,
+          date: cur.start,
+          recurrence: Recurrence.monthly,
+          endDate: edited.endDate,
+        ),
+      );
+    } else {
+      data.expenses[i] = edited;
+    }
+    _commit();
+  }
+
+  /// Para de cobrar um recorrente: continua valendo neste ciclo e some do próximo.
+  void endRecurring(String id) {
+    final e = data.expenses.where((e) => e.id == id).firstOrNull;
+    if (e == null) return;
+    e.endDate = cycle.end.subtract(const Duration(days: 1));
+    _commit();
+  }
+
+  void deleteExpense(String id) {
+    data.expenses.removeWhere((e) => e.id == id);
+    _commit();
+  }
+
+  /// Nomes já usados, mais recentes primeiro, com a última categoria escolhida.
+  List<MapEntry<String, String>> recentNames({int limit = 8}) {
+    final seen = <String>{};
+    final out = <MapEntry<String, String>>[];
+    final sorted = [...data.expenses]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    for (final e in sorted) {
+      final k = e.name.trim().toLowerCase();
+      if (k.isEmpty || !seen.add(k)) continue;
+      out.add(MapEntry(e.name.trim(), e.categoryId));
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
+
+  // ── Caixinhas ─────────────────────────────────────────────
+
+  Caixinha? box(String id) => data.boxes.where((b) => b.id == id).firstOrNull;
+
+  void addBox({required String name, required String icon, required int color, required PlanMode mode, required int amount, Cents? goal}) {
+    final k = cycle.key;
+    data.boxes.add(
+      Caixinha(name: name.trim(), icon: icon, color: color, goalCents: goal, createdKey: k, plans: [ContributionPlan(k, mode, amount)]),
+    );
+    _commit();
+  }
+
+  /// Mudar o aporte só afeta deste ciclo em diante.
+  void updateBox(
+    String id, {
+    required String name,
+    required String icon,
+    required int color,
+    required PlanMode mode,
+    required int amount,
+    Cents? goal,
+  }) {
+    final b = box(id);
+    if (b == null) return;
+    b
+      ..name = name.trim()
+      ..icon = icon
+      ..color = color
+      ..goalCents = goal;
+    final k = cycle.key;
+    final cur = b.currentPlan;
+    if (cur.mode != mode || cur.amount != amount) {
+      b.plans
+        ..removeWhere((p) => p.fromKey >= k)
+        ..add(ContributionPlan(k, mode, amount));
+    }
+    _commit();
+  }
+
+  /// Apaga a caixinha e todo o histórico dela (como se nunca tivesse existido).
+  void deleteBox(String id) {
+    data.boxes.removeWhere((b) => b.id == id);
+    _commit();
+  }
+
+  /// Encerra a caixinha devolvendo o saldo ao ciclo atual. O histórico fica.
+  void closeBox(String id) {
+    final b = box(id);
+    if (b == null) return;
+    final bal = f.boxBalance(b);
+    if (bal > 0) {
+      b.movements.add(Movement(name: 'Resgate ao encerrar', cents: bal, type: MovementType.redeem, date: DateTime.now()));
+    }
+    b.closedKey = cycle.key;
+    _commit();
+  }
+
+  void addMovement(String boxId, Movement m) {
+    box(boxId)?.movements.add(m);
+    _commit();
+  }
+
+  void updateMovement(String boxId, Movement m) {
+    final b = box(boxId);
+    if (b == null) return;
+    final i = b.movements.indexWhere((x) => x.id == m.id);
+    if (i >= 0) b.movements[i] = m;
+    _commit();
+  }
+
+  void deleteMovement(String boxId, String movementId) {
+    box(boxId)?.movements.removeWhere((m) => m.id == movementId);
+    _commit();
+  }
+
+  void endMovement(String boxId, String movementId) {
+    final m = box(boxId)?.movements.where((m) => m.id == movementId).firstOrNull;
+    if (m == null) return;
+    m.endDate = cycle.end.subtract(const Duration(days: 1));
+    _commit();
+  }
+
+  // ── Cartões ───────────────────────────────────────────────
+
+  PayCard? card(String? id) => id == null ? null : data.cards.where((c) => c.id == id).firstOrNull;
+
+  void saveCard(PayCard c) {
+    final i = data.cards.indexWhere((x) => x.id == c.id);
+    if (i >= 0) {
+      data.cards[i] = c;
+    } else {
+      data.cards.add(c);
+    }
+    _commit();
+  }
+
+  void deleteCard(String id) {
+    data.cards.removeWhere((c) => c.id == id);
+    for (final e in data.expenses) {
+      if (e.cardId == id) e.cardId = null;
+    }
+    _commit();
+  }
+
+  // ── Backup ────────────────────────────────────────────────
+
+  String exportJson() => const JsonEncoder.withIndent('  ').convert(data.toJson());
+
+  /// Aceita backup do maré ou do app web antigo (finapp). Retorna mensagem de erro ou null.
+  String? importJson(String raw) {
+    try {
+      final j = jsonDecode(raw.trim());
+      if (j is! Map) return 'O conteúdo não é um backup válido.';
+      final map = Map<String, dynamic>.from(j);
+      if (map.containsKey('mareVersion')) {
+        data = AppData.fromJson(map);
+      } else if (map.containsKey('finappBackupVersion') || map.containsKey('expenses') || map.containsKey('caixinhas')) {
+        data = AppData.fromLegacy(map, keyOf: _keyOf);
+      } else {
+        return 'Não reconheci esse formato de backup.';
+      }
+      data.onboardingDone = true;
+      _commit();
+      return null;
+    } catch (_) {
+      return 'Não consegui ler esse texto. Confira se copiou o backup inteiro.';
+    }
+  }
+
+  void resetAll() {
+    data = AppData();
+    _commit();
+  }
+}
+
+class StoreScope extends InheritedNotifier<Store> {
+  const StoreScope({super.key, required Store store, required super.child}) : super(notifier: store);
+
+  static Store of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<StoreScope>()!.notifier!;
+  static Store read(BuildContext context) => context.getInheritedWidgetOfExactType<StoreScope>()!.notifier!;
+}
+
+extension StoreX on BuildContext {
+  Store get store => StoreScope.of(this);
+  Store get storeRead => StoreScope.read(this);
+}
