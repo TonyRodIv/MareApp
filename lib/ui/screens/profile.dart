@@ -22,7 +22,8 @@ import 'insights.dart';
 import 'shell.dart';
 import 'sync.dart';
 
-/// Perfil (Figma 376:6832) + configurações.
+/// Perfil redesenhado: cabeçalho com status de sincronização no Drive, botões
+/// lado a lado (Editar Perfil / Configurações) e grade bento de Finanças.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -33,9 +34,28 @@ class ProfileScreen extends StatelessWidget {
     final sync = context.sync;
     final d = s.data;
     final f = s.f;
+    final hidden = d.hideValues;
     final pad = sidePadding(context, maxWidth: 640);
     final cy = f.current;
-    final currentSeed = d.accentColor ?? accentPresets.first.$2.toARGB32();
+    final lastDay = cy.end.subtract(const Duration(days: 1));
+    final subs = f.subscriptions(cy);
+    final subsTotal = subs.fold<int>(0, (t, e) => t + e.cents);
+    final byCat = f.byCategory(cy);
+    final catTotal = byCat.fold<int>(0, (t, e) => t + e.value);
+    final topCat = byCat.isEmpty ? null : byCat.first;
+    final activeCycles = [
+      for (final item in f.lastCycles(12))
+        if (f.salaryFor(item) > 0 || f.expensesTotal(item) > 0) item,
+    ].length;
+
+    final syncLabel = !sync.isConnected
+        ? 'Salvo só neste celular · Conectar Drive'
+        : sync.isSyncing
+        ? 'Sincronizando com o Drive…'
+        : sync.pendingConflict != null
+        ? 'Conflito no Drive · Resolver'
+        : 'Sincronizado com o Drive';
+    final syncIcon = sync.isConnected ? LucideIcons.cloud : LucideIcons.cloudOff;
 
     return Stack(
       children: [
@@ -59,6 +79,7 @@ class ProfileScreen extends StatelessWidget {
               ),
               sliver: SliverList.list(
                 children: [
+                  // ── Cabeçalho do perfil
                   Center(
                     child: Pressable(
                       semanticLabel: 'Editar perfil',
@@ -77,21 +98,69 @@ class ProfileScreen extends StatelessWidget {
                     style: T.title.copyWith(color: c.text),
                   ),
                   const SizedBox(height: Space.xs),
-                  Text(
-                    'Desde ${d.userSince} · dados salvos neste celular',
-                    textAlign: TextAlign.center,
-                    style: T.small.copyWith(color: c.textSecondary),
-                  ),
-                  const SizedBox(height: Space.base),
                   Center(
-                    child: PillButton(
-                      'Editar perfil',
-                      kind: BtnKind.ghost,
-                      expand: false,
-                      height: 44,
-                      onTap: () => editProfile(context),
+                    child: Pressable(
+                      semanticLabel: 'Abrir sincronização',
+                      onTap: () => push(context, const SyncScreen()),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.sm,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              syncIcon,
+                              size: 15,
+                              color: sync.pendingConflict != null
+                                  ? c.accentWarm
+                                  : c.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                syncLabel,
+                                style: T.small.copyWith(
+                                  color: sync.pendingConflict != null
+                                      ? c.accentWarm
+                                      : c.textSecondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: Space.base),
+
+                  // ── Botões lado a lado: Editar Perfil e Configurações
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PillButton(
+                          'Editar Perfil',
+                          kind: BtnKind.ghost,
+                          height: 46,
+                          onTap: () => editProfile(context),
+                        ),
+                      ),
+                      const SizedBox(width: Space.md),
+                      Expanded(
+                        child: PillButton(
+                          'Configurações',
+                          kind: BtnKind.ghost,
+                          height: 46,
+                          onTap: () => push(context, const SettingsScreen()),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // ── Sugestão de primeira caixinha (some após criar uma)
                   if (d.boxes.isEmpty) ...[
                     const SectionHeader('Sugestão'),
                     AppCard(
@@ -128,109 +197,217 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ),
                   ],
+
+                  // ── Finanças em grade bento (agrupando informações-chave)
                   const SectionHeader('Finanças'),
-                  _Group(
-                    children: [
-                      _Row(
-                        icon: LucideIcons.banknote,
-                        title: 'Salário',
-                        value: f.salary > 0
-                            ? fmtMoney(f.salary, hidden: d.hideValues)
-                            : 'Não informado',
-                        onTap: () => editSalary(context),
-                      ),
-                      _Row(
-                        icon: LucideIcons.calendarSync,
-                        title: 'Virada do ciclo',
-                        value: 'Dia ${d.cycleStartDay}',
-                        subtitle:
-                            'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${cy.end.subtract(const Duration(days: 1)).day}/${cy.end.subtract(const Duration(days: 1)).month}',
-                        onTap: () => editCycleDay(context),
-                      ),
-                      _Row(
-                        icon: LucideIcons.landmark,
-                        title: 'Contas e cartões',
-                        subtitle: 'Separe gastos por banco ou cartão',
-                        value: d.cards.isEmpty
-                            ? 'Nenhuma'
-                            : '${d.cards.length}',
-                        onTap: () => manageCards(context),
-                      ),
-                      _Row(
-                        icon: LucideIcons.tv,
-                        title: 'Assinaturas',
-                        onTap: () => push(context, const SubscriptionsScreen()),
-                      ),
-                      _Row(
-                        icon: LucideIcons.chartColumn,
-                        title: 'Histórico de ciclos',
-                        onTap: () => push(context, const HistoryScreen()),
-                      ),
-                    ],
+                  // Linha 1 (largura cheia): Salário + Virada do ciclo agrupados
+                  _FinanceTile(
+                    icon: LucideIcons.banknote,
+                    title: 'Salário e ciclo',
+                    onTap: () => editSalaryAndCycle(context),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Expanded(
+                              child: f.salary > 0
+                                  ? MoneyText(
+                                      f.salary,
+                                      hidden: hidden,
+                                      style: T.title,
+                                    )
+                                  : Text(
+                                      'Informar salário',
+                                      style: T.headline.copyWith(
+                                        color: c.primary,
+                                      ),
+                                    ),
+                            ),
+                            Tag(
+                              'Dia ${d.cycleStartDay}',
+                              icon: LucideIcons.calendarSync,
+                              bg: c.cardAlt,
+                              fg: c.textSecondary,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${lastDay.day}/${lastDay.month}',
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SectionHeader('Aparência'),
-                  _Group(
-                    children: [
-                      _Row(
-                        icon: LucideIcons.sunMoon,
-                        title: 'Tema',
-                        value: switch (d.theme) {
-                          ThemePref.auto => 'Automático',
-                          ThemePref.light => 'Claro',
-                          ThemePref.dark => 'Escuro',
-                        },
-                        onTap: () => _pickTheme(context),
-                      ),
-                      _Row(
-                        icon: LucideIcons.palette,
-                        title: 'Cor de destaque',
-                        subtitle: 'A cor secundária se ajusta ao tema',
-                        trailing: Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            color: Color(currentSeed),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: c.borderStrong),
+                  const SizedBox(height: Space.md),
+
+                  // Linha 2 (2 colunas): Contas e cartões + Assinaturas
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _FinanceTile(
+                            icon: LucideIcons.landmark,
+                            title: 'Contas',
+                            expandChild: true,
+                            onTap: () => manageCards(context),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  d.cards.isEmpty
+                                      ? 'Nenhuma'
+                                      : '${d.cards.length} ${d.cards.length == 1 ? 'conta' : 'contas'}',
+                                  style: T.cardValue.copyWith(color: c.text),
+                                ),
+                                const SizedBox(height: 6),
+                                if (d.cards.isEmpty)
+                                  Text(
+                                    'Toque para adicionar',
+                                    style: T.small.copyWith(
+                                      color: c.textSecondary,
+                                    ),
+                                  )
+                                else
+                                  Row(
+                                    children: [
+                                      for (final k in d.cards.take(5))
+                                        Container(
+                                          width: 10,
+                                          height: 10,
+                                          margin: const EdgeInsets.only(
+                                            right: 5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Color(k.color),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      if (d.cards.length > 5)
+                                        Text(
+                                          '+${d.cards.length - 5}',
+                                          style: T.tiny.copyWith(
+                                            color: c.textSecondary,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                        onTap: () => _pickAccent(context),
-                      ),
-                    ],
+                        const SizedBox(width: Space.md),
+                        Expanded(
+                          child: _FinanceTile(
+                            icon: LucideIcons.tv,
+                            title: 'Assinaturas',
+                            expandChild: true,
+                            onTap: () =>
+                                push(context, const SubscriptionsScreen()),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                subs.isEmpty
+                                    ? Text(
+                                        'Nenhuma',
+                                        style: T.cardValue.copyWith(
+                                          color: c.text,
+                                        ),
+                                      )
+                                    : MoneyText(
+                                        subsTotal,
+                                        hidden: hidden,
+                                        style: T.cardValue,
+                                      ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  subs.isEmpty
+                                      ? 'Serviços recorrentes'
+                                      : '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}/mês',
+                                  style: T.small.copyWith(
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SectionHeader('Seus dados'),
-                  _Group(
-                    children: [
-                      _Row(
-                        icon: LucideIcons.cloud,
-                        title: 'Sincronização',
-                        subtitle: syncSummaryLabel(sync),
-                        value: sync.isConnected
-                            ? (sync.pendingConflict != null
-                                  ? 'Conflito'
-                                  : 'Ativa')
-                            : 'Desconectada',
-                        onTap: () => push(context, const SyncScreen()),
-                      ),
-                      _Row(
-                        icon: LucideIcons.download,
-                        title: 'Exportar backup',
-                        subtitle: 'Salvar cópia em JSON',
-                        onTap: () => exportBackupFlow(context),
-                      ),
-                      _Row(
-                        icon: LucideIcons.upload,
-                        title: 'Importar backup',
-                        subtitle: 'Restaurar cópia do maré ou FinApp',
-                        onTap: () => importBackupFlow(context),
-                      ),
-                      _Row(
-                        icon: LucideIcons.trash2,
-                        title: 'Apagar dados do aparelho',
-                        danger: true,
-                        onTap: () => _resetAll(context),
-                      ),
-                    ],
+                  const SizedBox(height: Space.md),
+
+                  // Linha 3 (2 colunas): Histórico + Categorias
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: _FinanceTile(
+                            icon: LucideIcons.chartColumn,
+                            title: 'Histórico',
+                            expandChild: true,
+                            onTap: () => push(context, const HistoryScreen()),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '$activeCycles ${activeCycles == 1 ? 'ciclo' : 'ciclos'}',
+                                  style: T.cardValue.copyWith(color: c.text),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Livre: ${fmtMoney(f.freeBalance(cy), hidden: hidden)}',
+                                  style: T.small.copyWith(
+                                    color: c.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: Space.md),
+                        Expanded(
+                          child: _FinanceTile(
+                            icon: LucideIcons.chartPie,
+                            title: 'Categorias',
+                            expandChild: true,
+                            onTap: () =>
+                                push(context, const CategoriesScreen()),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  topCat?.key.label ?? 'Sem gastos',
+                                  style: T.cardValue.copyWith(color: c.text),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  topCat == null || catTotal == 0
+                                      ? 'Divisão do ciclo'
+                                      : '${(topCat.value / catTotal * 100).round()}% no topo',
+                                  style: T.small.copyWith(
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -238,6 +415,175 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Card do grid bento de Finanças no Perfil: ícone + título + seta ↗ no topo e
+/// a principal métrica logo abaixo.
+class _FinanceTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final VoidCallback onTap;
+  final bool expandChild;
+  const _FinanceTile({
+    required this.icon,
+    required this.title,
+    required this.child,
+    required this.onTap,
+    this.expandChild = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return AppCard(
+      onTap: onTap,
+      expandChild: expandChild,
+      titleWidget: Row(
+        children: [
+          Icon(icon, size: 17, color: c.textSecondary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              title,
+              style: T.label.copyWith(
+                color: c.text,
+                fontWeight: FontWeight.w500,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Tela de Configurações (Aparência + Seus dados / Sincronização / Backup).
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final s = context.store;
+    final sync = context.sync;
+    final d = s.data;
+    final pad = sidePadding(context, maxWidth: 640);
+    final currentSeed = d.accentColor ?? accentPresets.first.$2.toARGB32();
+
+    return SheetScaler(
+      child: CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: Stack(
+          children: [
+            const GlowBackground(height: 440),
+            CollapsingTitleScope(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  PinnedCupertinoBar(
+                    height: 60,
+                    maxWidth: 640,
+                    builder: (ctx, progress) => Row(
+                      children: [
+                        const BackChevron(),
+                        Expanded(
+                          child: BarTitle('Configurações', progress: progress),
+                        ),
+                        const SizedBox(width: 44),
+                      ],
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
+                    sliver: SliverList.list(
+                      children: [
+                        LargeTitle('Configurações', style: T.pageTitle),
+                        const SizedBox(height: Space.xs),
+                        Text(
+                          'Aparência, sincronização e backup dos seus dados',
+                          style: T.label.copyWith(color: c.textSecondary),
+                        ),
+                        const SectionHeader('Aparência'),
+                        _Group(
+                          children: [
+                            _Row(
+                              icon: LucideIcons.sunMoon,
+                              title: 'Tema',
+                              value: switch (d.theme) {
+                                ThemePref.auto => 'Automático',
+                                ThemePref.light => 'Claro',
+                                ThemePref.dark => 'Escuro',
+                              },
+                              onTap: () => _pickTheme(context),
+                            ),
+                            _Row(
+                              icon: LucideIcons.palette,
+                              title: 'Cor de destaque',
+                              subtitle: 'A cor secundária se ajusta ao tema',
+                              trailing: Container(
+                                width: 22,
+                                height: 22,
+                                decoration: BoxDecoration(
+                                  color: Color(currentSeed),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: c.borderStrong),
+                                ),
+                              ),
+                              onTap: () => _pickAccent(context),
+                            ),
+                          ],
+                        ),
+                        const SectionHeader('Seus dados'),
+                        _Group(
+                          children: [
+                            _Row(
+                              icon: LucideIcons.cloud,
+                              title: 'Sincronização',
+                              subtitle: syncSummaryLabel(sync),
+                              value: sync.isConnected
+                                  ? (sync.pendingConflict != null
+                                        ? 'Conflito'
+                                        : 'Ativa')
+                                  : 'Desconectada',
+                              onTap: () => push(context, const SyncScreen()),
+                            ),
+                            _Row(
+                              icon: LucideIcons.download,
+                              title: 'Exportar backup',
+                              subtitle: 'Salvar cópia em JSON',
+                              onTap: () => exportBackupFlow(context),
+                            ),
+                            _Row(
+                              icon: LucideIcons.upload,
+                              title: 'Importar backup',
+                              subtitle: 'Restaurar cópia do maré ou FinApp',
+                              onTap: () => importBackupFlow(context),
+                            ),
+                            _Row(
+                              icon: LucideIcons.trash2,
+                              title: 'Apagar dados do aparelho',
+                              danger: true,
+                              onTap: () => _resetAll(context),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -391,8 +737,6 @@ class _AccentSwatch extends StatelessWidget {
   }
 }
 
-/// Grupo de opções espaçado (estilo Material Expressive com cores iOS):
-/// cada item tem seu próprio container suave com cantos externos 22 e internos 6.
 class _Group extends StatelessWidget {
   final List<Widget> children;
   const _Group({required this.children});
@@ -422,7 +766,6 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     return ListRow(
-      // Sem fundo no ícone, como no Figma: 40px de área, glifo de 24.
       leading: SizedBox(
         width: 40,
         height: 40,
@@ -443,16 +786,29 @@ class _Row extends StatelessWidget {
 // ── Sheets ──────────────────────────────────────────────────
 
 Future<void> editSalary(BuildContext context) =>
-    showIosSheet<void>(context, builder: (_) => const _SalarySheet());
+    editSalaryAndCycle(context, initialTab: 0);
 
-class _SalarySheet extends StatefulWidget {
-  const _SalarySheet();
+Future<void> editCycleDay(BuildContext context) =>
+    editSalaryAndCycle(context, initialTab: 1);
+
+/// Sheet unificado de Salário + Virada do ciclo (agrupados no Perfil).
+Future<void> editSalaryAndCycle(BuildContext context, {int initialTab = 0}) =>
+    showIosSheet<void>(
+      context,
+      builder: (_) => _SalaryCycleSheet(initialTab: initialTab),
+    );
+
+class _SalaryCycleSheet extends StatefulWidget {
+  final int initialTab;
+  const _SalaryCycleSheet({this.initialTab = 0});
   @override
-  State<_SalarySheet> createState() => _SalarySheetState();
+  State<_SalaryCycleSheet> createState() => _SalaryCycleSheetState();
 }
 
-class _SalarySheetState extends State<_SalarySheet> {
+class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
+  late int _tab = widget.initialTab;
   late final _ctl = AmountController(context.storeRead.f.salary);
+  late int _day = context.storeRead.data.cycleStartDay;
 
   @override
   void initState() {
@@ -473,13 +829,20 @@ class _SalarySheetState extends State<_SalarySheet> {
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.storeRead;
+    final cy = Cycle.of(DateTime.now(), _day);
+    final last = cy.end.subtract(const Duration(days: 1));
     return SheetBody(
       bottom: PillButton(
-        'Salvar salário',
+        'Salvar',
         onTap: () {
-          s.setSalary(_ctl.value);
+          final err = s.setSalary(_ctl.value);
+          if (err != null) {
+            toast(context, err, icon: LucideIcons.triangleAlert);
+            return;
+          }
+          s.setCycleStartDay(_day);
           Navigator.pop(context);
-          toast(context, 'Salário atualizado');
+          toast(context, 'Salário e ciclo atualizados');
         },
       ),
       child: Column(
@@ -489,7 +852,7 @@ class _SalarySheetState extends State<_SalarySheet> {
             children: [
               Expanded(
                 child: Text(
-                  'Salário',
+                  'Salário e ciclo',
                   style: T.title.copyWith(color: c.text),
                 ),
               ),
@@ -502,99 +865,70 @@ class _SalarySheetState extends State<_SalarySheet> {
               ),
             ],
           ),
-          const SizedBox(height: Space.xs),
-          Text(
-            'Valor líquido que entra por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
-            style: T.small.copyWith(color: c.textSecondary),
+          const SizedBox(height: Space.md),
+          Segmented<int>(
+            value: _tab,
+            options: const {0: 'Salário', 1: 'Virada do ciclo'},
+            onChanged: (v) => setState(() => _tab = v),
           ),
-          const SizedBox(height: 24),
-          Center(child: AmountDisplay(cents: _ctl.value, size: 48)),
-          const SizedBox(height: 20),
-          Keypad(controller: _ctl),
+          const SizedBox(height: Space.base),
+          if (_tab == 0) ...[
+            Text(
+              'Valor líquido que entra por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
+              style: T.small.copyWith(color: c.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            Center(child: AmountDisplay(cents: _ctl.value, size: 46)),
+            const SizedBox(height: 18),
+            Keypad(controller: _ctl),
+          ] else ...[
+            Text(
+              'Use o dia em que o salário cai. Em meses mais curtos, a virada acontece no último dia.',
+              style: T.small.copyWith(color: c.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 200,
+              child: CupertinoPicker(
+                scrollController: FixedExtentScrollController(
+                  initialItem: _day - 1,
+                ),
+                itemExtent: 46,
+                onSelectedItemChanged: (i) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _day = i + 1);
+                },
+                children: [
+                  for (var d = 1; d <= 31; d++)
+                    Center(
+                      child: Text(
+                        'Dia $d',
+                        style: T.headline.copyWith(
+                          color: d == _day ? c.primary : c.text,
+                          fontWeight:
+                              d == _day ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: BlurSwitcher(
+                alignment: Alignment.center,
+                child: Text(
+                  'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${last.day}/${last.month}',
+                  key: ValueKey(_day),
+                  style: T.label.copyWith(color: c.textSecondary),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
-}
-
-Future<void> editCycleDay(BuildContext context) {
-  final s = context.storeRead;
-  var day = s.data.cycleStartDay;
-  return showSheet(
-    context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, set) {
-        final c = ctx.c;
-        final cy = Cycle.of(DateTime.now(), day);
-        final last = cy.end.subtract(const Duration(days: 1));
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.gutter,
-            12,
-            Space.gutter,
-            16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Virada do ciclo',
-                style: T.title.copyWith(color: c.text),
-              ),
-              Text(
-                'Use o dia em que o salário cai. Em meses mais curtos, a virada acontece no último dia.',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-              SizedBox(
-                height: 180,
-                child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(
-                    initialItem: day - 1,
-                  ),
-                  itemExtent: 44,
-                  onSelectedItemChanged: (i) {
-                    HapticFeedback.selectionClick();
-                    set(() => day = i + 1);
-                  },
-                  children: [
-                    for (var d = 1; d <= 31; d++)
-                      Center(
-                        child: Text(
-                          'Dia $d',
-                          style: T.headline.copyWith(
-                            color: c.text,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Center(
-                child: BlurSwitcher(
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${last.day}/${last.month}',
-                    key: ValueKey(day),
-                    style: T.label.copyWith(color: c.textSecondary),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              PillButton(
-                'Salvar',
-                onTap: () {
-                  s.setCycleStartDay(day);
-                  Navigator.pop(ctx);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    ),
-  );
 }
 
 Future<void> manageCards(BuildContext context) {
@@ -694,7 +1028,6 @@ class _ProfileFormState extends State<_ProfileForm> {
         imageQuality: 82,
       );
       if (x == null) return;
-      // Copia para a pasta do app: o arquivo temporário do picker pode sumir.
       final dir = await getApplicationDocumentsDirectory();
       final dest = File(
         '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
@@ -718,6 +1051,10 @@ class _ProfileFormState extends State<_ProfileForm> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final sync = context.sync;
+    final googlePhoto = sync.accountPhotoUrl;
+    final hasGooglePhoto = googlePhoto != null && googlePhoto.isNotEmpty;
+
     return SheetBody(
       bottom: PillButton(
         'Salvar',
@@ -757,6 +1094,12 @@ class _ProfileFormState extends State<_ProfileForm> {
                 final a = await actionSheet<String>(
                   context,
                   actions: [
+                    if (hasGooglePhoto)
+                      const SheetAction(
+                        'Usar foto da conta Google',
+                        'google',
+                        icon: LucideIcons.cloud,
+                      ),
                     const SheetAction(
                       'Escolher da galeria',
                       'gallery',
@@ -776,6 +1119,12 @@ class _ProfileFormState extends State<_ProfileForm> {
                       ),
                   ],
                 );
+                if (a == 'google' && hasGooglePhoto) {
+                  setState(() {
+                    _avatar = googlePhoto;
+                    _removed = false;
+                  });
+                }
                 if (a == 'gallery') _pick(ImageSource.gallery);
                 if (a == 'camera') _pick(ImageSource.camera);
                 if (a == 'remove') {
@@ -810,6 +1159,19 @@ class _ProfileFormState extends State<_ProfileForm> {
               ),
             ),
           ),
+          if (hasGooglePhoto && _avatar != googlePhoto) ...[
+            const SizedBox(height: Space.md),
+            Center(
+              child: ChipButton(
+                'Usar foto da conta Google',
+                icon: LucideIcons.cloud,
+                onTap: () => setState(() {
+                  _avatar = googlePhoto;
+                  _removed = false;
+                }),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           const FieldLabel('Nome'),
           AppField(
