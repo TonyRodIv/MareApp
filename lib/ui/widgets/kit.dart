@@ -115,15 +115,8 @@ class PillButton extends StatelessWidget {
         c.primary,
         Border.all(color: c.primary.withValues(alpha: 0.4), width: 1.5),
       ),
-      // Suave: fundo avermelhado contido com texto vermelho nítido,
-      // sem chamar atenção demais.
-      BtnKind.danger => (
-        c.negativeSoft,
-        c.negative,
-        Border.all(
-          color: c.negative.withValues(alpha: c.isDark ? 0.24 : 0.18),
-        ),
-      ),
+      // Suave: fundo avermelhado contido sem borda, com texto vermelho nítido.
+      BtnKind.danger => (c.negativeSoft, c.negative, null),
     };
     final bg = background ?? bg0;
     final fg = foreground ?? fg0;
@@ -1153,17 +1146,24 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
     }
 
     // Uniformes após u_size (injetado pelo Impeller nos índices 0 e 1):
-    // índice 2 = u_max_radius, índice 3 = u_direction (0 = top->bottom, 1 = bottom->top).
-    shader.setFloat(2, widget.maxSigma);
-    shader.setFloat(3, fromTop ? 0.0 : 1.0);
-
+    // índice 2 = u_max_radius, índice 3 = u_direction (0 = top->bottom, 1 = bottom->top),
+    // índice 4 = u_band_px (altura da faixa em pixels físicos).
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     return IgnorePointer(
       child: RepaintBoundary(
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ui.ImageFilter.shader(shader),
-            child: scrim,
-          ),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            final bandPx = (box.maxHeight.isFinite ? box.maxHeight : 140.0) * dpr;
+            shader.setFloat(2, widget.maxSigma);
+            shader.setFloat(3, fromTop ? 0.0 : 1.0);
+            shader.setFloat(4, bandPx);
+            return ClipRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.shader(shader),
+                child: scrim,
+              ),
+            );
+          },
         ),
       ),
     );
@@ -2101,25 +2101,33 @@ class ListRow extends StatelessWidget {
 }
 
 /// Ação rápida: círculo com o ícone dentro e o nome embaixo. A principal vem
-/// preenchida (cor de destaque); as demais em cinza neutro.
+/// preenchida (cor de destaque); as demais em cinza neutro; destrutiva em vermelho suave.
 class CircleAction extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final bool primary;
+  final bool danger;
+  final double size;
   const CircleAction({
     super.key,
     required this.icon,
     required this.label,
     required this.onTap,
     this.primary = false,
+    this.danger = false,
+    this.size = 64,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final fill = primary ? c.primary : c.cardAlt;
-    final fg = primary ? c.onPrimary : c.text;
+    final fill = danger
+        ? c.negativeSoft
+        : (primary ? c.primary : c.cardAlt);
+    final fg = danger
+        ? c.negative
+        : (primary ? c.onPrimary : c.text);
     return Pressable(
       onTap: onTap,
       semanticLabel: label,
@@ -2128,15 +2136,17 @@ class CircleAction extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64,
-            height: 64,
+            width: size,
+            height: size,
             decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
-            child: Icon(icon, size: 26, color: fg),
+            child: Icon(icon, size: size * 0.40, color: fg),
           ),
           const SizedBox(height: 8),
           Text(
             label,
-            style: T.small.copyWith(color: c.textSecondary),
+            style: T.small.copyWith(
+              color: danger ? c.negative : c.textSecondary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

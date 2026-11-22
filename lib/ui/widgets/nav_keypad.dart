@@ -267,6 +267,11 @@ class Keypad extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    const digitMetrics = TextHeightBehavior(
+      applyHeightToFirstAscent: false,
+      applyHeightToLastDescent: false,
+      leadingDistribution: TextLeadingDistribution.even,
+    );
     Widget key(
       String label,
       VoidCallback onTap, {
@@ -290,11 +295,17 @@ class Keypad extends StatelessWidget {
             alignment: Alignment.center,
             child:
                 child ??
-                Text(
-                  label,
-                  style: T.headline.copyWith(
-                    fontWeight: FontWeight.w400,
-                    color: c.text,
+                Padding(
+                  padding: const EdgeInsets.only(top: 1.5),
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    textHeightBehavior: digitMetrics,
+                    style: T.headline.copyWith(
+                      fontWeight: FontWeight.w500,
+                      height: 1.0,
+                      color: c.text,
+                    ),
                   ),
                 ),
           ),
@@ -315,11 +326,17 @@ class Keypad extends StatelessWidget {
               'Limpar',
               controller.clear,
               ghost: true,
-              child: Text(
-                'C',
-                style: T.headline.copyWith(
-                  fontWeight: FontWeight.w400,
-                  color: c.textSecondary,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 1.5),
+                child: Text(
+                  'C',
+                  textAlign: TextAlign.center,
+                  textHeightBehavior: digitMetrics,
+                  style: T.headline.copyWith(
+                    fontWeight: FontWeight.w500,
+                    height: 1.0,
+                    color: c.textSecondary,
+                  ),
                 ),
               ),
             ),
