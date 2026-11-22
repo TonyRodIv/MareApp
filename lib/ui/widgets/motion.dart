@@ -248,30 +248,33 @@ class SpringSwitch extends StatelessWidget {
           height: 44, // alvo de toque ≥ 44
           child: Center(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
               width: 52,
               height: 32,
-              decoration: BoxDecoration(
+              decoration: ShapeDecoration(
                 color: value ? c.primary : c.cardAlt,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: c.border),
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: BorderSide(color: c.border),
+                ),
               ),
               child: SpringBuilder(
                 value: value ? 1 : 0,
-                spring: Springs.snappy,
+                spring: Springs.settle,
                 builder: (_, t, v) {
                   final stretch = math.min(
-                    0.45,
-                    (v * travel).abs() * 0.0016 * 10,
+                    0.10,
+                    (v * travel).abs() * 0.002,
                   );
                   return Stack(
                     children: [
                       Positioned(
-                        left: 3 + travel * t,
+                        left: 3 + travel * t.clamp(0.0, 1.0),
                         top: 2,
                         child: Transform.scale(
                           scaleX: 1 + stretch,
-                          scaleY: 1 - stretch * 0.4,
+                          scaleY: 1 - stretch * 0.25,
                           child: Container(
                             width: 26,
                             height: 26,
@@ -327,18 +330,12 @@ class SpringBar extends StatelessWidget {
     spring: Springs.settle,
     builder: (_, v, _) => Container(
       height: height,
-      decoration: BoxDecoration(
-        color: track,
-        borderRadius: BorderRadius.circular(height),
-      ),
+      decoration: ShapeDecoration(color: track, shape: const StadiumBorder()),
       alignment: Alignment.centerLeft,
       child: FractionallySizedBox(
         widthFactor: v.clamp(0.0, 1.0),
         child: Container(
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(height),
-          ),
+          decoration: ShapeDecoration(color: color, shape: const StadiumBorder()),
         ),
       ),
     ),

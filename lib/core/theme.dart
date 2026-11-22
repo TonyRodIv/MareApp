@@ -316,6 +316,9 @@ class AppColors {
 
   bool get isDark => brightness == Brightness.dark;
 
+  /// Escalas geradas (primária e companheira) a partir da semente e da harmonia.
+  PaletteSet get palette => PaletteSet.build(seed, harmony: harmony);
+
   /// Adapta uma cor fixa (categoria, caixinha) ao tema: no escuro clareia, no
   /// claro escurece, só o necessário para ter [min]:1 de contraste.
   Color tone(Color base, {double min = 3.4}) =>
@@ -465,30 +468,94 @@ extension AppThemeX on BuildContext {
   AppColors get c => AppTheme.of(this);
 }
 
-/// Tipografia padronizada: Poppins em escala limpa de números pares.
+/// Tipografia padronizada: Poppins em escala semântica única.
+/// Evite sobrescrever `fontSize` nas telas; escolha o token correspondente ao papel.
 class T {
   static TextStyle _p(
     double size,
     FontWeight w, {
     double? height,
     double? ls,
+    List<FontFeature>? features,
   }) => GoogleFonts.poppins(
     fontSize: size,
     fontWeight: w,
     height: height,
     letterSpacing: ls,
+    fontFeatures: features,
   );
 
-  static TextStyle display = _p(36, FontWeight.w600, height: 1.15, ls: -0.5);
-  static TextStyle title = _p(24, FontWeight.w600, height: 1.25);
-  static TextStyle headline = _p(20, FontWeight.w600, height: 1.25);
-  static TextStyle cardValue = _p(22, FontWeight.w600, height: 1.15);
-  static TextStyle body = _p(16, FontWeight.w400, height: 1.4);
-  static TextStyle bodyStrong = _p(16, FontWeight.w600, height: 1.4);
+  /// Saldo principal da Carteira (encolhe automaticamente via FittedBox).
+  static TextStyle hero = _p(
+    56,
+    FontWeight.w600,
+    height: 1.05,
+    ls: -1.0,
+    features: const [FontFeature.tabularFigures()],
+  );
+
+  /// Valor hero em telas secundárias (Extrato, Caixinhas, Assinaturas, ExpenseSheet).
+  static TextStyle displayLg = _p(
+    40,
+    FontWeight.w600,
+    height: 1.10,
+    ls: -0.6,
+    features: const [FontFeature.tabularFigures()],
+  );
+
+  /// Destaque numérico médio e títulos heroicos de formulário.
+  static TextStyle display = _p(
+    32,
+    FontWeight.w600,
+    height: 1.15,
+    ls: -0.4,
+    features: const [FontFeature.tabularFigures()],
+  );
+
+  /// Título principal de tela (topo de abas, páginas de detalhe, perguntas do onboarding).
+  static TextStyle pageTitle = _p(28, FontWeight.w600, height: 1.20, ls: -0.3);
+
+  /// Título de sheets, modais e seções destacadas.
+  static TextStyle title = _p(24, FontWeight.w600, height: 1.25, ls: -0.2);
+
+  /// Valor principal dentro de cards e KPIs do dashboard.
+  static TextStyle cardValue = _p(
+    22,
+    FontWeight.w600,
+    height: 1.15,
+    ls: -0.2,
+    features: const [FontFeature.tabularFigures()],
+  );
+
+  /// Subtítulos fortes, saudação, cabeçalho interno de sheets e cards especiais.
+  static TextStyle headline = _p(18, FontWeight.w600, height: 1.25, ls: -0.1);
+
+  /// Texto padrão de corpo, linhas de lista e campos.
+  static TextStyle body = _p(16, FontWeight.w400, height: 1.38);
+
+  /// Linhas de lista sem ícone, valores em linhas e botões principais.
+  static TextStyle bodyMedium = _p(16, FontWeight.w500, height: 1.38);
+
+  /// Ênfase de corpo, totais e título compacto na barra fixa.
+  static TextStyle bodyStrong = _p(16, FontWeight.w600, height: 1.38);
+
+  /// Títulos de cards, rótulos de campo e subtítulos de tela.
   static TextStyle label = _p(14, FontWeight.w400, height: 1.35);
+
+  /// Abas segmentadas, chips selecionados e ações secundárias.
+  static TextStyle labelStrong = _p(14, FontWeight.w600, height: 1.35);
+
+  /// Subtítulos de linha, metadados, datas e legendas.
   static TextStyle small = _p(12, FontWeight.w400, height: 1.35);
+
+  /// Badges, percentuais, totais de seção e valores em bolhas.
   static TextStyle smallStrong = _p(12, FontWeight.w600, height: 1.35);
-  static TextStyle tiny = _p(12, FontWeight.w400, height: 1.25);
+
+  /// Rótulos compactos (navbar flutuante, micro-cartões, bolhas pequenas).
+  static TextStyle micro = _p(11, FontWeight.w500, height: 1.20);
+
+  /// Eixos de gráfico e anotações mínimas.
+  static TextStyle tiny = _p(11, FontWeight.w400, height: 1.20);
 }
 
 /// Escala de espaçamentos no grid de 8pt (com passos pares 2, 4, 8, 12, 16, 20, 24, 32, 40, 48).

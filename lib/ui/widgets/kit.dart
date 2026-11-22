@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show ValueListenable, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -10,7 +11,7 @@ import '../../core/money.dart';
 import '../../data/brands.dart';
 import '../../core/color_engine.dart';
 import '../../core/theme.dart';
-import 'motion.dart' show easeOutExpo;
+import 'motion.dart' show BlurSwitcher, SpringBuilder, Springs, easeOutExpo;
 
 // ── Toque com feedback (escala + háptico) ───────────────────
 
@@ -87,6 +88,8 @@ class PillButton extends StatelessWidget {
   final BtnKind kind;
   final bool expand;
   final double height;
+  final Color? background;
+  final Color? foreground;
   const PillButton(
     this.label, {
     super.key,
@@ -96,12 +99,14 @@ class PillButton extends StatelessWidget {
     this.kind = BtnKind.primary,
     this.expand = true,
     this.height = 56,
+    this.background,
+    this.foreground,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final (bg, fg, border) = switch (kind) {
+    final (bg0, fg0, border) = switch (kind) {
       BtnKind.primary => (c.primary, c.onPrimary, null),
       BtnKind.secondary => (c.secondary, c.onSecondary, null),
       BtnKind.ghost => (c.card, c.text, null),
@@ -110,9 +115,18 @@ class PillButton extends StatelessWidget {
         c.primary,
         Border.all(color: c.primary.withValues(alpha: 0.4), width: 1.5),
       ),
-      // Invertido: fundo saturado, texto dessaturado (vermelho 50).
-      BtnKind.danger => (dangerFill(), Palette.red.s50, null),
+      // Suave: fundo avermelhado contido com texto vermelho nítido,
+      // sem chamar atenção demais.
+      BtnKind.danger => (
+        c.negativeSoft,
+        c.negative,
+        Border.all(
+          color: c.negative.withValues(alpha: c.isDark ? 0.24 : 0.18),
+        ),
+      ),
     };
+    final bg = background ?? bg0;
+    final fg = foreground ?? fg0;
     final content = Row(
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -121,18 +135,16 @@ class PillButton extends StatelessWidget {
           Icon(
             icon,
             size: 18,
-            color: kind == BtnKind.secondary ? c.accentWarm : fg,
+            color: kind == BtnKind.secondary && foreground == null
+                ? c.accentWarm
+                : fg,
           ),
           const SizedBox(width: Space.sm),
         ],
         Flexible(
           child: Text(
             label,
-            style: T.label.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: fg,
-            ),
+            style: T.bodyStrong.copyWith(color: fg),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -186,7 +198,24 @@ class RoundIconButton extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(color: bg ?? c.card, shape: BoxShape.circle),
-        child: Icon(icon, size: size * 0.46, color: fg ?? c.text),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 320),
+          switchInCurve: Curves.easeOutBack,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: RotationTransition(
+              turns: Tween(begin: -0.16, end: 0.0).animate(anim),
+              child: ScaleTransition(scale: anim, child: child),
+            ),
+          ),
+          child: Icon(
+            icon,
+            key: ValueKey(icon.codePoint),
+            size: size * 0.46,
+            color: fg ?? c.text,
+          ),
+        ),
       ),
     );
   }
@@ -234,9 +263,11 @@ class ChipButton extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: selected ? c.primary : c.card,
-          borderRadius: BorderRadius.circular(20),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -280,9 +311,11 @@ class Tag extends StatelessWidget {
     final color = fg ?? c.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: bg ?? c.cardAlt,
-        borderRadius: BorderRadius.circular(8),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -330,13 +363,9 @@ class AppCard extends StatelessWidget {
     final body = Container(
       width: double.infinity,
       padding: padding,
-      decoration: BoxDecoration(
+      decoration: ShapeDecoration(
         color: color ?? c.card,
-        borderRadius: BorderRadius.circular(Space.radiusCard),
-        border: Border.all(
-          color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
-        ),
-        boxShadow: c.isDark
+        shadows: c.isDark
             ? null
             : const [
                 BoxShadow(
@@ -345,6 +374,12 @@ class AppCard extends StatelessWidget {
                   offset: Offset(0, 2),
                 ),
               ],
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Space.radiusCard),
+          side: BorderSide(
+            color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
+          ),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,13 +448,16 @@ class MoneyText extends StatelessWidget {
       child: FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
-        child: Text(
-          formatted,
-          style: style.copyWith(
-            color: col,
-            fontFeatures: const [ui.FontFeature.tabularFigures()],
+        child: BlurSwitcher(
+          child: Text(
+            formatted,
+            key: ValueKey(hidden),
+            style: style.copyWith(
+              color: col,
+              fontFeatures: const [ui.FontFeature.tabularFigures()],
+            ),
+            maxLines: 1,
           ),
-          maxLines: 1,
         ),
       ),
     );
@@ -439,35 +477,90 @@ class Segmented<V extends Object> extends StatelessWidget {
     required this.onChanged,
   });
 
+  /// Barra de abas em formato pílula (altura 40px igual aos chips de filtro,
+  /// com 4px de respiro interno e indicador deslizante suave).
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return SizedBox(
+    final keys = options.keys.toList();
+    final index = keys.indexOf(value).clamp(0, keys.length - 1);
+    final track = c.isDark ? c.card : c.surfaceLow;
+    final thumb = c.isDark ? c.surfaceHigh : c.card;
+    return Container(
+      height: 40,
       width: double.infinity,
-      child: CupertinoSlidingSegmentedControl<V>(
-        groupValue: value,
-        backgroundColor: c.card,
-        thumbColor: c.primary,
-        padding: const EdgeInsets.all(4),
-        onValueChanged: (v) {
-          if (v == null) return;
-          HapticFeedback.selectionClick();
-          onChanged(v);
-        },
-        children: {
-          for (final e in options.entries)
-            e.key: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              child: Text(
-                e.value,
-                style: T.label.copyWith(
-                  color: e.key == value ? c.onPrimary : c.textSecondary,
-                  fontWeight: e.key == value
-                      ? FontWeight.w600
-                      : FontWeight.w400,
+      padding: const EdgeInsets.all(4),
+      decoration: ShapeDecoration(
+        color: track,
+        shape: const StadiumBorder(),
+      ),
+      child: LayoutBuilder(
+        builder: (ctx, box) {
+          final w = box.maxWidth / keys.length;
+          return Stack(
+            children: [
+              SpringBuilder(
+                value: index.toDouble(),
+                spring: Springs.settle,
+                builder: (_, v, _) => Positioned(
+                  left: v * w,
+                  top: 0,
+                  bottom: 0,
+                  width: w,
+                  child: DecoratedBox(
+                    decoration: ShapeDecoration(
+                      color: thumb,
+                      shadows: c.isDark
+                          ? null
+                          : const [
+                              BoxShadow(
+                                color: Color(0x1A0A0D12),
+                                blurRadius: 3,
+                                offset: Offset(0, 1),
+                              ),
+                              BoxShadow(
+                                color: Color(0x0F0A0D12),
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
+                      shape: const StadiumBorder(),
+                    ),
+                  ),
                 ),
               ),
-            ),
+              Row(
+                children: [
+                  for (final k in keys)
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          if (k == value) return;
+                          HapticFeedback.selectionClick();
+                          onChanged(k);
+                        },
+                        child: Center(
+                          child: AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 180),
+                            style: (k == value ? T.labelStrong : T.label)
+                                .copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: k == value ? c.text : c.textSecondary,
+                                ),
+                            child: Text(
+                              options[k]!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
         },
       ),
     );
@@ -500,6 +593,7 @@ class AppField extends StatelessWidget {
   final FocusNode? focusNode;
   final List<TextInputFormatter>? formatters;
   final TextCapitalization capitalization;
+  final bool pill;
   const AppField({
     super.key,
     this.controller,
@@ -515,12 +609,13 @@ class AppField extends StatelessWidget {
     this.focusNode,
     this.formatters,
     this.capitalization = TextCapitalization.sentences,
+    this.pill = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return CupertinoTextField(
+    final field = CupertinoTextField(
       controller: controller,
       focusNode: focusNode,
       placeholder: placeholder,
@@ -534,16 +629,18 @@ class AppField extends StatelessWidget {
       textCapitalization: capitalization,
       keyboardAppearance: c.brightness,
       cursorColor: c.accent,
-      style: T.body.copyWith(color: c.text),
-      placeholderStyle: T.body.copyWith(color: c.textTertiary),
-      padding: const EdgeInsets.symmetric(
-        horizontal: Space.base,
-        vertical: Space.base,
+      style: (pill ? T.label : T.body).copyWith(color: c.text),
+      placeholderStyle: (pill ? T.label : T.body).copyWith(
+        color: c.textSecondary,
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: pill ? Space.md : Space.base,
+        vertical: pill ? 14 : Space.base,
       ),
       prefix: prefix == null
           ? null
           : Padding(
-              padding: const EdgeInsets.only(left: Space.base),
+              padding: EdgeInsets.only(left: pill ? Space.base : Space.base),
               child: prefix,
             ),
       suffix: suffix == null
@@ -552,13 +649,23 @@ class AppField extends StatelessWidget {
               padding: const EdgeInsets.only(right: Space.md),
               child: suffix,
             ),
-      decoration: BoxDecoration(
+      decoration: pill
+          ? const BoxDecoration(color: Color(0x00000000))
+          : BoxDecoration(
+              color: c.card,
+              border: Border.all(
+                color: c.border.withValues(alpha: c.isDark ? 0.55 : 0.75),
+              ),
+              borderRadius: BorderRadius.circular(Space.radiusField),
+            ),
+    );
+    if (!pill) return field;
+    return Container(
+      decoration: ShapeDecoration(
         color: c.card,
-        borderRadius: BorderRadius.circular(Space.radiusField),
-        border: Border.all(
-          color: c.border.withValues(alpha: c.isDark ? 0.55 : 0.75),
-        ),
+        shape: const StadiumBorder(),
       ),
+      child: field,
     );
   }
 }
@@ -586,9 +693,11 @@ class SelectField extends StatelessWidget {
       child: Container(
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: c.card,
-          borderRadius: BorderRadius.circular(Space.radiusField),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(Space.radiusField),
+          ),
         ),
         child: Row(
           children: [
@@ -646,8 +755,9 @@ class IconBadge extends StatelessWidget {
   }
 }
 
-/// Logo da marca (quando o nome do gasto cita uma conhecida) num círculo claro;
-/// senão, o ícone saturado da categoria. Também cai no ícone se estiver sem rede.
+/// Logo da marca (quando o nome do gasto cita uma conhecida) num círculo limpo;
+/// senão, escolhe automaticamente um ícone inteligente do Lucide pelo nome ou
+/// cai no ícone da categoria. Também usa o fallback quando estiver sem rede.
 class BrandLogo extends StatelessWidget {
   final String name;
   final IconData icon;
@@ -663,31 +773,36 @@ class BrandLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = IconBadge(icon, color, size: size);
-    final domain = brandDomainFor(name);
-    if (domain == null) return fallback;
+    final resolvedIcon = smartIconFor(name) ?? icon;
+    final fallback = IconBadge(resolvedIcon, color, size: size);
+    final spec = brandSpecFor(name);
+    if (spec == null) return fallback;
     return SizedBox(
       width: size,
       height: size,
-      child: Container(
-        padding: EdgeInsets.all(size * 0.2),
-        decoration: const BoxDecoration(
-          color: Color(0xFFFFFFFF),
-          shape: BoxShape.circle,
-        ),
-        child: Image.network(
-          brandLogoUrl(domain),
-          fit: BoxFit.contain,
-          gaplessPlayback: true,
-          errorBuilder: (_, _, _) => fallback,
-          frameBuilder: (ctx, child, frame, sync) => frame == null && !sync
-              ? fallback
-              : AnimatedOpacity(
-                  opacity: 1,
-                  duration: const Duration(milliseconds: 200),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          fallback,
+          // O logo só entra no círculo quando termina de carregar; sem rede ou
+          // em erro permanece o ícone inteligente/categoria sem flicker.
+          Image.network(
+            brandLogoUrl(spec.domain),
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            frameBuilder: (ctx, child, frame, sync) {
+              if (frame == null && !sync) return const SizedBox.shrink();
+              return ClipOval(
+                child: Container(
+                  padding: EdgeInsets.all(size * spec.paddingRatio),
+                  color: spec.bg,
                   child: child,
                 ),
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1139,8 +1254,124 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(_PinnedBarDelegate old) =>
-      old.top != top || old.height != height || old.maxWidth != maxWidth;
+  bool shouldRebuild(_PinnedBarDelegate old) => true;
+}
+
+/// Coordena o título grande do corpo com o título compacto da `PinnedCupertinoBar`:
+/// conforme a tela rola, o título grande desaparece antes de encostar na barra
+/// superior e o título da top bar surge no lugar, sem sobreposição.
+class CollapsingTitleScope extends StatefulWidget {
+  final Widget child;
+  const CollapsingTitleScope({super.key, required this.child});
+
+  static ValueListenable<double>? of(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_CollapsingTitleInherited>()
+      ?.offset;
+
+  @override
+  State<CollapsingTitleScope> createState() => _CollapsingTitleScopeState();
+}
+
+class _CollapsingTitleScopeState extends State<CollapsingTitleScope> {
+  final _offset = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _offset.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _CollapsingTitleInherited(
+      offset: _offset,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (n) {
+          if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+            final px = n.metrics.pixels;
+            if ((px - _offset.value).abs() > 0.25) {
+              _offset.value = px;
+            }
+          }
+          return false;
+        },
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class _CollapsingTitleInherited extends InheritedWidget {
+  final ValueListenable<double> offset;
+  const _CollapsingTitleInherited({
+    required this.offset,
+    required super.child,
+  });
+  @override
+  bool updateShouldNotify(_CollapsingTitleInherited old) =>
+      old.offset != offset;
+}
+
+/// Título compacto na `PinnedCupertinoBar` que só aparece quando o `LargeTitle`
+/// já sumiu da tela.
+class BarTitle extends StatelessWidget {
+  final String text;
+  final double? progress;
+  const BarTitle(this.text, {super.key, this.progress});
+
+  static const double threshold = 20.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final listenable = CollapsingTitleScope.of(context);
+    Widget content(bool visible) => AnimatedOpacity(
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      opacity: visible ? 1.0 : 0.0,
+      child: Text(
+        text,
+        style: T.bodyStrong.copyWith(color: c.text),
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+    if (listenable == null) {
+      return content((progress ?? 0) > 0.35);
+    }
+    return ValueListenableBuilder<double>(
+      valueListenable: listenable,
+      builder: (_, offset, _) => content(offset >= threshold),
+    );
+  }
+}
+
+/// Título grande no topo do corpo que desaparece suavemente ao rolar antes
+/// de cruzar com a `PinnedCupertinoBar`.
+class LargeTitle extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
+  const LargeTitle(this.text, {super.key, this.style});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final resolved = (style ?? T.pageTitle).copyWith(color: c.text);
+    final listenable = CollapsingTitleScope.of(context);
+    if (listenable == null) {
+      return Text(text, style: resolved);
+    }
+    return ValueListenableBuilder<double>(
+      valueListenable: listenable,
+      builder: (_, offset, child) {
+        final fade = (1.0 - ((offset - 2.0) / (BarTitle.threshold - 2.0)))
+            .clamp(0.0, 1.0);
+        return Opacity(opacity: fade, child: child);
+      },
+      child: Text(text, style: resolved),
+    );
+  }
 }
 
 // ── Estado vazio ────────────────────────────────────────────
@@ -1165,15 +1396,14 @@ class EmptyState extends StatelessWidget {
     final c = context.c;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        vertical: Space.xl,
-        horizontal: Space.lg,
-      ),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.all(Space.base),
+      decoration: ShapeDecoration(
         color: c.card,
-        borderRadius: BorderRadius.circular(Space.radiusCard),
-        border: Border.all(
-          color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7),
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Space.radiusCard),
+          side: BorderSide(
+            color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7),
+          ),
         ),
       ),
       child: Column(
@@ -1221,102 +1451,57 @@ Future<bool> confirm(
   required String action,
   bool destructive = true,
 }) async {
-  final r = await _showFloatingModal<bool>(
+  final r = await _showEdgeSheet<bool>(
     context,
+    maxWidth: 520,
     builder: (ctx) {
       final c = ctx.c;
-      final bottom = MediaQuery.paddingOf(ctx).bottom;
       return Padding(
-        padding: EdgeInsets.fromLTRB(
-          Space.md,
-          0,
-          Space.md,
-          (bottom > 0 ? bottom : Space.md) + Space.xs,
-        ),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                Space.lg,
-                Space.md,
-                Space.lg,
-                Space.lg,
-              ),
-              decoration: BoxDecoration(
-                color: c.card,
-                borderRadius: BorderRadius.circular(32),
-                border: c.isDark
-                    ? Border.all(color: c.border.withValues(alpha: 0.6))
-                    : null,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x28000000),
-                    blurRadius: 32,
-                    offset: Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: c.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: Space.lg),
-                  Text(
-                    title,
-                    style: T.headline.copyWith(
-                      color: c.text,
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  if (message != null) ...[
-                    const SizedBox(height: Space.sm),
-                    Text(
-                      message,
-                      style: T.label.copyWith(
-                        color: c.textSecondary,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: Space.lg),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PillButton(
-                          'Cancelar',
-                          kind: BtnKind.ghost,
-                          height: 52,
-                          onTap: () => Navigator.pop(ctx, false),
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      Expanded(
-                        child: PillButton(
-                          action,
-                          kind: destructive ? BtnKind.danger : BtnKind.primary,
-                          height: 52,
-                          onTap: () => Navigator.pop(ctx, true),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: T.headline.copyWith(
+                color: c.text,
+                decoration: TextDecoration.none,
               ),
             ),
-          ),
+            if (message != null) ...[
+              const SizedBox(height: Space.sm),
+              Text(
+                message,
+                style: T.label.copyWith(
+                  color: c.textSecondary,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
+            const SizedBox(height: Space.lg),
+            Row(
+              children: [
+                Expanded(
+                  child: PillButton(
+                    'Cancelar',
+                    kind: BtnKind.ghost,
+                    height: 52,
+                    onTap: () => Navigator.pop(ctx, false),
+                  ),
+                ),
+                const SizedBox(width: Space.md),
+                Expanded(
+                  child: PillButton(
+                    action,
+                    kind: destructive ? BtnKind.danger : BtnKind.primary,
+                    height: 52,
+                    onTap: () => Navigator.pop(ctx, true),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       );
     },
@@ -1337,21 +1522,81 @@ class SheetAction<V> {
   });
 }
 
-/// Rota modal flutuante com blur progressivo rápido na entrada (220ms) e saída (150ms),
-/// garantindo que o blur do fundo desapareça imediatamente junto com o sheet.
-Future<V?> _showFloatingModal<V>(
+/// Modal compacto colado nas bordas laterais e na base (cantos arredondados só em cima).
+Future<V?> _showEdgeSheet<V>(
   BuildContext context, {
   required WidgetBuilder builder,
+  double maxWidth = 640,
+  Color? color,
 }) {
   return Navigator.of(
     context,
     rootNavigator: true,
-  ).push<V>(_FloatingModalRoute<V>(builder: builder));
+  ).push<V>(
+    _EdgeSheetRoute<V>(
+      builder: (ctx) {
+        final c = ctx.c;
+        final mq = MediaQuery.of(ctx);
+        return Align(
+          alignment: Alignment.bottomCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: maxWidth,
+              maxHeight: mq.size.height * 0.92,
+            ),
+            child: ClipRSuperellipse(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(28),
+              ),
+              child: ColoredBox(
+                color: color ?? c.card,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: mq.viewInsets.bottom + mq.padding.bottom,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragEnd: (d) {
+                          if ((d.primaryVelocity ?? 0) > 360) {
+                            Navigator.of(ctx).maybePop();
+                          }
+                        },
+                        child: SizedBox(
+                          height: 28,
+                          width: double.infinity,
+                          child: Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              decoration: ShapeDecoration(
+                                color: c.borderStrong,
+                                shape: RoundedSuperellipseBorder(
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Flexible(child: builder(ctx)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
-class _FloatingModalRoute<V> extends PopupRoute<V> {
+class _EdgeSheetRoute<V> extends PopupRoute<V> {
   final WidgetBuilder builder;
-  _FloatingModalRoute({required this.builder});
+  _EdgeSheetRoute({required this.builder});
 
   @override
   Color? get barrierColor => null;
@@ -1363,10 +1608,10 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
   String? get barrierLabel => 'Fechar';
 
   @override
-  Duration get transitionDuration => const Duration(milliseconds: 440);
+  Duration get transitionDuration => const Duration(milliseconds: 380);
 
   @override
-  Duration get reverseTransitionDuration => const Duration(milliseconds: 280);
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 260);
 
   @override
   Widget buildPage(
@@ -1374,7 +1619,7 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    return Align(alignment: Alignment.bottomCenter, child: builder(context));
+    return builder(context);
   }
 
   @override
@@ -1384,9 +1629,6 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    // Entrada em ease-out expo (rápida no início, assenta devagar); saída mais
-    // curta em ease-in. O blur do fundo acompanha o MESMO valor da animação: sai de
-    // 0 e volta a 0, em vez de ficar num sigma fixo só esmaecendo.
     final curve = CurvedAnimation(
       parent: animation,
       curve: easeOutExpo,
@@ -1402,10 +1644,13 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
               animation: curve,
               builder: (_, _) {
                 final t = curve.value.clamp(0.0, 1.0);
-                final sigma = 7.0 * t;
                 final scrim = ColoredBox(
-                  color: const Color(0xFF000000).withValues(alpha: 0.34 * t),
+                  color: const Color(0xFF000000).withValues(alpha: 0.48 * t),
                 );
+                // Na web, animar sigma do BackdropFilter recompila o shader a cada
+                // frame e causa engasgo; o véu escuro mantém 60fps constantes.
+                if (kIsWeb) return scrim;
+                final sigma = 6.0 * t;
                 if (sigma < 0.3) return scrim;
                 return BackdropFilter(
                   filter: ui.ImageFilter.blur(
@@ -1422,21 +1667,10 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
         RepaintBoundary(
           child: SlideTransition(
             position: Tween(
-              begin: const Offset(0, 0.32),
+              begin: const Offset(0, 1),
               end: Offset.zero,
             ).animate(curve),
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: const Interval(0, 0.45, curve: Curves.easeOut),
-                reverseCurve: const Interval(0.35, 1, curve: Curves.easeIn),
-              ),
-              child: ScaleTransition(
-                scale: Tween(begin: 0.97, end: 1.0).animate(curve),
-                alignment: Alignment.bottomCenter,
-                child: child,
-              ),
-            ),
+            child: child,
           ),
         ),
       ],
@@ -1444,117 +1678,73 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
   }
 }
 
-/// Bottom sheet flutuante e arredondado (com blur progressivo no fundo, opções limpas sem linhas e botão pill na base).
+/// Action sheet compacto colado nas bordas laterais e na base.
 Future<V?> actionSheet<V>(
   BuildContext context, {
   String? title,
   String? message,
   required List<SheetAction<V>> actions,
 }) {
-  return _showFloatingModal<V>(
+  return _showEdgeSheet<V>(
     context,
+    maxWidth: 520,
     builder: (ctx) {
       final c = ctx.c;
-      final bottom = MediaQuery.paddingOf(ctx).bottom;
-      return Padding(
-        padding: EdgeInsets.fromLTRB(
-          Space.md,
-          0,
-          Space.md,
-          (bottom > 0 ? bottom : Space.md) + Space.xs,
-        ),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(
-                Space.lg,
-                Space.md,
-                Space.lg,
-                Space.lg,
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (title != null || message != null) ...[
+              if (title != null)
+                Text(
+                  title,
+                  style: T.headline.copyWith(
+                    color: c.text,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              if (message != null) ...[
+                const SizedBox(height: Space.xs),
+                Text(
+                  message,
+                  style: T.label.copyWith(
+                    color: c.textSecondary,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
+              const SizedBox(height: Space.md),
+            ],
+            for (final a in actions)
+              _FloatingSheetRow(
+                action: a,
+                onTap: () => Navigator.pop(ctx, a.value),
               ),
-              decoration: BoxDecoration(
-                color: c.card,
-                borderRadius: BorderRadius.circular(32),
-                border: c.isDark
-                    ? Border.all(color: c.border.withValues(alpha: 0.6))
-                    : null,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x26000000),
-                    blurRadius: 32,
-                    offset: Offset(0, 12),
+            const SizedBox(height: Space.base),
+            Pressable(
+              onTap: () => Navigator.pop(ctx),
+              child: Container(
+                height: 52,
+                width: double.infinity,
+                alignment: Alignment.center,
+                decoration: ShapeDecoration(
+                  color: c.isDark ? c.cardAlt : c.text,
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(26),
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: c.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+                ),
+                child: Text(
+                  'Fechar',
+                  style: T.bodyStrong.copyWith(
+                    color: c.isDark ? c.text : Palette.neutral0,
+                    decoration: TextDecoration.none,
                   ),
-                  if (title != null || message != null) ...[
-                    const SizedBox(height: Space.base),
-                    if (title != null)
-                      Text(
-                        title,
-                        style: T.headline.copyWith(
-                          color: c.text,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    if (message != null) ...[
-                      const SizedBox(height: Space.xs),
-                      Text(
-                        message,
-                        style: T.label.copyWith(
-                          color: c.textSecondary,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: Space.md),
-                  ] else
-                    const SizedBox(height: Space.base),
-                  for (final a in actions)
-                    _FloatingSheetRow(
-                      action: a,
-                      onTap: () => Navigator.pop(ctx, a.value),
-                    ),
-                  const SizedBox(height: Space.base),
-                  Pressable(
-                    onTap: () => Navigator.pop(ctx),
-                    child: Container(
-                      height: 52,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: c.isDark ? c.cardAlt : c.text,
-                        borderRadius: BorderRadius.circular(26),
-                      ),
-                      child: Text(
-                        'Fechar',
-                        style: T.bodyStrong.copyWith(
-                          color: c.isDark ? c.text : Palette.neutral0,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+          ],
         ),
       );
     },
@@ -1599,120 +1789,18 @@ class _FloatingSheetRow<V> extends StatelessWidget {
   }
 }
 
-/// Bottom sheet flutuante e arredondado para formulários e seletores.
+/// Modal compacto colado nas bordas laterais e na base para seletores curtos.
 Future<V?> showSheet<V>(
   BuildContext context, {
   required Widget Function(BuildContext) builder,
-  bool edgeToEdge = false,
+  bool edgeToEdge = true,
   Color? color,
 }) {
-  if (edgeToEdge) {
-    // Colado nas laterais e na base: só os cantos de cima são arredondados.
-    return _showFloatingModal<V>(
-      context,
-      builder: (ctx) {
-        final c = ctx.c;
-        final mq = MediaQuery.of(ctx);
-        return Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 640,
-              maxHeight: mq.size.height * 0.92,
-            ),
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.only(
-                bottom: mq.viewInsets.bottom + mq.padding.bottom,
-              ),
-              decoration: BoxDecoration(
-                color: color ?? c.bg,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(32),
-                ),
-                border: Border(
-                  top: BorderSide(color: c.border.withValues(alpha: 0.6)),
-                ),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: Space.md),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: c.borderStrong,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Flexible(child: builder(ctx)),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  return _showFloatingModal<V>(
+  return _showEdgeSheet<V>(
     context,
-    builder: (ctx) {
-      final c = ctx.c;
-      final mq = MediaQuery.of(ctx);
-      final bottom = mq.padding.bottom;
-      return Padding(
-        padding: EdgeInsets.fromLTRB(
-          Space.md,
-          Space.xl,
-          Space.md,
-          mq.viewInsets.bottom + (bottom > 0 ? bottom : Space.md),
-        ),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: 480,
-              maxHeight: mq.size.height * 0.86,
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                color: color ?? c.bg,
-                borderRadius: BorderRadius.circular(32),
-                border: c.isDark
-                    ? Border.all(color: c.border.withValues(alpha: 0.6))
-                    : null,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x26000000),
-                    blurRadius: 32,
-                    offset: Offset(0, 12),
-                  ),
-                ],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: Space.md),
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: c.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  Flexible(child: builder(ctx)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
+    maxWidth: edgeToEdge ? 640 : 520,
+    color: color,
+    builder: builder,
   );
 }
 
@@ -1795,16 +1883,18 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                decoration: BoxDecoration(
+                decoration: ShapeDecoration(
                   color: c.isDark ? c.surfaceHigh : c.text,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [
+                  shadows: const [
                     BoxShadow(
                       color: Color(0x33000000),
                       blurRadius: 16,
                       offset: Offset(0, 6),
                     ),
                   ],
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1850,11 +1940,7 @@ class SectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: T.bodyStrong.copyWith(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: context.c.textSecondary,
-            ),
+            style: T.bodyMedium.copyWith(color: context.c.textSecondary),
           ),
         ),
         ?trailing,
@@ -1889,11 +1975,13 @@ class ListGroup extends StatelessWidget {
   final String? title;
   final Widget? trailing;
   final List<Widget> children;
+  final double gap;
   const ListGroup({
     super.key,
     this.title,
     this.trailing,
     required this.children,
+    this.gap = 20,
   });
 
   @override
@@ -1906,14 +1994,16 @@ class ListGroup extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
+          decoration: ShapeDecoration(
             color: c.card,
-            borderRadius: BorderRadius.circular(28),
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(28),
+            ),
           ),
           child: Column(
             children: [
               for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) const SizedBox(height: 20),
+                if (i > 0) SizedBox(height: gap),
                 children[i],
               ],
             ],
@@ -1925,52 +2015,65 @@ class ListGroup extends StatelessWidget {
 }
 
 class ListRow extends StatelessWidget {
-  final Widget leading;
+  final Widget? leading;
   final String title;
   final String? subtitle;
   final String? value;
+  final Color? titleColor;
   final Color? valueColor;
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool arrow;
+  final bool strong;
   const ListRow({
     super.key,
-    required this.leading,
+    this.leading,
     required this.title,
     this.subtitle,
     this.value,
+    this.titleColor,
     this.valueColor,
     this.trailing,
     this.onTap,
     this.arrow = false,
+    this.strong = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final row = SizedBox(
-      width: double.infinity,
+    final iconless = leading == null;
+    final row = ConstrainedBox(
+      constraints: const BoxConstraints(
+        minHeight: 40,
+        minWidth: double.infinity,
+      ),
       child: Row(
         children: [
-          leading,
-          const SizedBox(width: 10),
+          if (leading != null) ...[leading!, const SizedBox(width: 10)],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   title,
-                  style: T.body.copyWith(fontSize: 15, color: c.text),
+                  style: (strong
+                          ? T.bodyStrong
+                          : (iconless ? T.bodyMedium : T.body))
+                      .copyWith(color: titleColor ?? c.text),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (subtitle != null)
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
                   Text(
                     subtitle!,
                     style: T.small.copyWith(color: c.textSecondary),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
+                ],
               ],
             ),
           ),
@@ -1978,9 +2081,7 @@ class ListRow extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               value!,
-              style: T.bodyStrong.copyWith(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+              style: (strong ? T.bodyStrong : T.bodyMedium).copyWith(
                 color: valueColor ?? c.text,
               ),
             ),
@@ -1999,7 +2100,6 @@ class ListRow extends StatelessWidget {
   }
 }
 
-
 /// Ação rápida: círculo com o ícone dentro e o nome embaixo. A principal vem
 /// preenchida (cor de destaque); as demais em cinza neutro.
 class CircleAction extends StatelessWidget {
@@ -2007,7 +2107,13 @@ class CircleAction extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool primary;
-  const CircleAction({super.key, required this.icon, required this.label, required this.onTap, this.primary = false});
+  const CircleAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.primary = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2028,9 +2134,450 @@ class CircleAction extends StatelessWidget {
             child: Icon(icon, size: 26, color: fg),
           ),
           const SizedBox(height: 8),
-          Text(label, style: T.small.copyWith(color: c.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            label,
+            style: T.small.copyWith(color: c.textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
+    );
+  }
+}
+
+// ── Sheet estilo iOS: a página de trás recua, encolhe e escurece ─────
+
+/// Progresso (0–1) do sheet aberto; a página de trás reage a ele.
+final sheetProgress = ValueNotifier<double>(0);
+final List<_IosSheetRoute<dynamic>> _iosSheetStack = [];
+
+void _syncIosSheetProgress() {
+  var maxP = 0.0;
+  for (final r in _iosSheetStack) {
+    final v = (r.animation?.value ?? 0.0) * (1.0 - r._dragFraction);
+    if (v > maxP) maxP = v;
+  }
+  sheetProgress.value = Curves.easeOutCubic.transform(maxP.clamp(0.0, 1.0));
+}
+
+/// Envolve a página que fica por trás dos sheets. No iOS a página vira um
+/// cartão menor e escuro atrás do sheet; aqui ela encolhe até 93% (ancorada no
+/// topo), ganha cantos arredondados e é coberta por um véu preto.
+///
+/// Otimização (Web/CanvasKit e Mobile):
+/// - Mantém a árvore de widgets sempre com a mesma estrutura (nunca desmonta
+///   nem remonta [child] quando `p` sai de 0).
+/// - Envolve [child] num [RepaintBoundary] fixo para transformar uma textura
+///   já rasterizada na GPU.
+/// - Usa raio de recorte fixo (20px) ativado apenas quando `p > 0.001`,
+///   evitando recompilar o path do clip em todos os frames.
+class SheetScaler extends StatelessWidget {
+  final Widget child;
+  const SheetScaler({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    final cachedChild = RepaintBoundary(child: child);
+    final top = MediaQuery.paddingOf(context).top;
+    return ColoredBox(
+      color: const Color(0xFF000000),
+      child: ValueListenableBuilder<double>(
+        valueListenable: sheetProgress,
+        child: cachedChild,
+        builder: (ctx, p, ch) {
+          final active = p > 0.001;
+          final scale = 1.0 - 0.065 * p;
+          final dy = (top * 0.3 + 8) * p;
+          final matrix = Matrix4.identity()
+            ..setTranslationRaw(0.0, dy, 0.0)
+            ..scaleByDouble(scale, scale, 1.0, 1.0);
+          return Transform(
+            transform: matrix,
+            alignment: Alignment.topCenter,
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(20)),
+              clipBehavior: active ? Clip.antiAlias : Clip.none,
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  ch!,
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: active
+                          ? ColoredBox(
+                              color: const Color(
+                                0xFF000000,
+                              ).withValues(alpha: 0.52 * p),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Sheet quase em tela cheia (começa logo abaixo da barra de status). Os botões
+/// de ação ficam fixos no rodapé quando o conteúdo usa [SheetBody].
+Future<R?> showIosSheet<R>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) {
+  return Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push<R>(_IosSheetRoute<R>(builder));
+}
+
+class _IosSheetRoute<R> extends PopupRoute<R> {
+  _IosSheetRoute(this.builder);
+  final WidgetBuilder builder;
+  double _dragFraction = 0.0;
+
+  void _setDragFraction(double f) {
+    final clamped = f.clamp(0.0, 1.0);
+    if (clamped == _dragFraction) return;
+    _dragFraction = clamped;
+    _syncIosSheetProgress();
+  }
+
+  void _completeDismissFromDrag() {
+    // Zera o controller antes do pop para não tocar outra transição por cima
+    // do sheet que já terminou de descer com o dedo.
+    controller?.value = 0.0;
+    navigator?.pop();
+  }
+
+  @override
+  Color? get barrierColor => const Color(0x01000000);
+  @override
+  bool get barrierDismissible => true;
+  @override
+  String? get barrierLabel => 'Fechar';
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 440);
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 300);
+
+  @override
+  void install() {
+    super.install();
+    _iosSheetStack.add(this);
+    animation!.addListener(_syncIosSheetProgress);
+  }
+
+  @override
+  void dispose() {
+    animation?.removeListener(_syncIosSheetProgress);
+    _iosSheetStack.remove(this);
+    _syncIosSheetProgress();
+    super.dispose();
+  }
+
+  @override
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
+    final mq = MediaQuery.of(context);
+    final top = mq.padding.top + 14;
+    final sheetHeight = math.max(240.0, mq.size.height - top);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 640),
+        child: _IosSheetFrame(
+          height: sheetHeight,
+          viewInsetBottom: mq.viewInsets.bottom,
+          onDragFraction: _setDragFraction,
+          onDismissed: _completeDismissFromDrag,
+          child: builder(context),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    final curve = CurvedAnimation(
+      parent: animation,
+      curve: easeOutExpo,
+      reverseCurve: Curves.easeInCubic,
+    );
+    return RepaintBoundary(
+      child: SlideTransition(
+        position: Tween(
+          begin: const Offset(0, 1),
+          end: Offset.zero,
+        ).animate(curve),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _IosSheetDragScope extends InheritedWidget {
+  final void Function(double deltaY) onDragUpdate;
+  final void Function(double velocityY) onDragEnd;
+  final bool Function() isDragging;
+  const _IosSheetDragScope({
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.isDragging,
+    required super.child,
+  });
+
+  static _IosSheetDragScope? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_IosSheetDragScope>();
+
+  @override
+  bool updateShouldNotify(_IosSheetDragScope old) => false;
+}
+
+class _IosSheetFrame extends StatefulWidget {
+  final double height;
+  final double viewInsetBottom;
+  final ValueChanged<double> onDragFraction;
+  final VoidCallback onDismissed;
+  final Widget child;
+  const _IosSheetFrame({
+    required this.height,
+    required this.viewInsetBottom,
+    required this.onDragFraction,
+    required this.onDismissed,
+    required this.child,
+  });
+
+  @override
+  State<_IosSheetFrame> createState() => _IosSheetFrameState();
+}
+
+class _IosSheetFrameState extends State<_IosSheetFrame>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _snap = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  );
+  double _offset = 0;
+  double _snapFrom = 0;
+  double _snapTo = 0;
+  bool _dragging = false;
+  bool _dismissing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _snap.addListener(() {
+      final t = Curves.easeOutCubic.transform(_snap.value);
+      final next = _snapFrom + (_snapTo - _snapFrom) * t;
+      setState(() => _offset = next);
+      widget.onDragFraction(next / widget.height);
+    });
+  }
+
+  @override
+  void dispose() {
+    _snap.dispose();
+    super.dispose();
+  }
+
+  void _updateDrag(double dy) {
+    if (_dismissing) return;
+    if (_snap.isAnimating) _snap.stop();
+    _dragging = true;
+    final next = (_offset + dy).clamp(0.0, widget.height);
+    if (next == _offset) return;
+    setState(() => _offset = next);
+    widget.onDragFraction(next / widget.height);
+  }
+
+  void _endDrag(double velocityY) {
+    if (_dismissing || !_dragging) return;
+    _dragging = false;
+    final shouldClose = _offset > widget.height * 0.24 || velocityY > 520;
+    _snapFrom = _offset;
+    if (shouldClose) {
+      _dismissing = true;
+      _snapTo = widget.height;
+      final remaining = ((widget.height - _offset) / widget.height).clamp(
+        0.15,
+        1.0,
+      );
+      _snap.duration = Duration(milliseconds: (220 * remaining).round());
+      _snap.forward(from: 0).then((_) {
+        if (mounted) widget.onDismissed();
+      });
+    } else {
+      _snapTo = 0;
+      _snap.duration = const Duration(milliseconds: 260);
+      _snap.forward(from: 0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Transform.translate(
+      offset: Offset(0, _offset),
+      child: SizedBox(
+        width: double.infinity,
+        height: widget.height,
+        child: ClipRSuperellipse(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: ColoredBox(
+            color: c.card,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: widget.viewInsetBottom),
+              child: _IosSheetDragScope(
+                onDragUpdate: _updateDrag,
+                onDragEnd: _endDrag,
+                isDragging: () => _dragging,
+                child: Column(
+                  children: [
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: (d) => _updateDrag(d.delta.dy),
+                      onVerticalDragEnd: (d) =>
+                          _endDrag(d.primaryVelocity ?? 0),
+                      onVerticalDragCancel: () => _endDrag(0),
+                      child: SizedBox(
+                        height: 28,
+                        width: double.infinity,
+                        child: Center(
+                          child: Container(
+                            width: 40,
+                            height: 4,
+                            decoration: ShapeDecoration(
+                              color: c.borderStrong,
+                              shape: RoundedSuperellipseBorder(
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: widget.child),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Corpo de sheet: conteúdo rolável + rodapé fixo para os botões de ação.
+/// Quando o scroll está no topo (ou não há o que rolar), arrastar para baixo
+/// puxa o próprio sheet interativamente para fechar (estilo iOS nativo).
+class SheetBody extends StatefulWidget {
+  final Widget child;
+  final Widget? bottom;
+  const SheetBody({super.key, required this.child, this.bottom});
+
+  @override
+  State<SheetBody> createState() => _SheetBodyState();
+}
+
+class _SheetBodyState extends State<SheetBody> {
+  final _scroll = ScrollController();
+  bool _capturing = false;
+  double _lastVelocity = 0;
+  Duration? _lastMoveTime;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final drag = _IosSheetDragScope.of(context);
+    return Column(
+      children: [
+        Expanded(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
+              _capturing = false;
+              _lastVelocity = 0;
+              _lastMoveTime = null;
+            },
+            onPointerMove: (e) {
+              if (drag == null) return;
+              final dy = e.delta.dy;
+              final atTop = !_scroll.hasClients || _scroll.offset <= 0.5;
+              if (!_capturing) {
+                if (atTop && dy > 0 && dy.abs() > e.delta.dx.abs()) {
+                  _capturing = true;
+                } else {
+                  return;
+                }
+              }
+              if (_scroll.hasClients && _scroll.offset != 0) {
+                _scroll.jumpTo(0);
+              }
+              final dtMs = _lastMoveTime == null
+                  ? 16
+                  : math.max(1, (e.timeStamp - _lastMoveTime!).inMilliseconds);
+              _lastVelocity = dy / (dtMs / 1000.0);
+              _lastMoveTime = e.timeStamp;
+              drag.onDragUpdate(dy);
+            },
+            onPointerUp: (_) {
+              if (_capturing && drag != null) {
+                _capturing = false;
+                drag.onDragEnd(_lastVelocity);
+              }
+            },
+            onPointerCancel: (_) {
+              if (_capturing && drag != null) {
+                _capturing = false;
+                drag.onDragEnd(0);
+              }
+            },
+            child: SingleChildScrollView(
+              controller: _scroll,
+              physics: const ClampingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(
+                Space.gutter,
+                8,
+                Space.gutter,
+                24,
+              ),
+              child: widget.child,
+            ),
+          ),
+        ),
+        if (widget.bottom != null)
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Space.gutter,
+                8,
+                Space.gutter,
+                16,
+              ),
+              child: widget.bottom,
+            ),
+          ),
+      ],
     );
   }
 }

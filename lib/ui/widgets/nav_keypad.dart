@@ -49,9 +49,8 @@ class FloatingNavBar extends StatelessWidget {
       child: RepaintBoundary(
         child: Container(
           height: 66,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(34),
-            boxShadow: [
+          decoration: ShapeDecoration(
+            shadows: [
               BoxShadow(
                 color: Palette.neutral950.withValues(
                   alpha: c.isDark ? 0.42 : 0.10,
@@ -60,24 +59,29 @@ class FloatingNavBar extends StatelessWidget {
                 offset: const Offset(0, 8),
               ),
             ],
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(34),
+            ),
           ),
           // Estilo "X": corpo translúcido com blur forte e borda uniforme de 1px,
           // sem brilho nem degradê na borda. O fundo continua legível por baixo.
-          child: ClipRRect(
+          child: ClipRSuperellipse(
             borderRadius: BorderRadius.circular(34),
             child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
               child: Container(
                 padding: const EdgeInsets.all(Space.xs),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(34),
+                decoration: ShapeDecoration(
                   color: c.isDark
                       ? const Color(0xFF16161A).withValues(alpha: 0.56)
                       : const Color(0xFFFFFFFF).withValues(alpha: 0.62),
-                  border: Border.all(
-                    color: c.isDark
-                        ? Palette.neutral0.withValues(alpha: 0.10)
-                        : Palette.neutral950.withValues(alpha: 0.08),
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(34),
+                    side: BorderSide(
+                      color: c.isDark
+                          ? Palette.neutral0.withValues(alpha: 0.10)
+                          : Palette.neutral950.withValues(alpha: 0.08),
+                    ),
                   ),
                 ),
                 child: LayoutBuilder(
@@ -99,9 +103,11 @@ class FloatingNavBar extends StatelessWidget {
                               bottom: 0,
                               width: w * (1 + stretch),
                               child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(30),
+                                decoration: ShapeDecoration(
                                   color: c.navActive,
+                                  shape: RoundedSuperellipseBorder(
+                                    borderRadius: BorderRadius.circular(30),
+                                  ),
                                 ),
                               ),
                             );
@@ -137,8 +143,7 @@ class FloatingNavBar extends StatelessWidget {
                                         Text(
                                           items[i].label,
                                           maxLines: 1,
-                                          style: T.small.copyWith(
-                                            fontSize: 11,
+                                          style: T.micro.copyWith(
                                             color: i == index
                                                 ? activeFg
                                                 : inactiveFg,
@@ -276,9 +281,11 @@ class Keypad extends StatelessWidget {
           onTap: onTap,
           child: Container(
             height: 62,
-            decoration: BoxDecoration(
+            decoration: ShapeDecoration(
               color: ghost ? null : c.card,
-              borderRadius: BorderRadius.circular(22),
+              shape: RoundedSuperellipseBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
             ),
             alignment: Alignment.center,
             child:
