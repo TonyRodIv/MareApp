@@ -13,8 +13,10 @@ import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
 import 'shell.dart';
 
-Future<void> openAddExpense(BuildContext context) => pushFluid(context, const AddExpenseFlow());
-Future<void> openEditExpense(BuildContext context, Expense e) => push(context, ExpenseForm(expense: e));
+Future<void> openAddExpense(BuildContext context) =>
+    pushFluid(context, const AddExpenseFlow());
+Future<void> openEditExpense(BuildContext context, Expense e) =>
+    push(context, ExpenseForm(expense: e));
 
 /// Fluxo rápido em passos (Figma 414:2887 → 414:3248 → 431:2342):
 /// valor no teclado → nome com sugestões → categoria em carrossel → detalhes.
@@ -52,7 +54,9 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           .recentNames(limit: 50)
           .where((e) => e.key.toLowerCase() == _name.text.trim().toLowerCase())
           .firstOrNull;
-      final g = remembered != null ? categoryById(remembered.value) : guessCategory(_name.text);
+      final g = remembered != null
+          ? categoryById(remembered.value)
+          : guessCategory(_name.text);
       _category = g?.id ?? 'outros';
     }
     setState(() {});
@@ -86,7 +90,11 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
       _forward = d > 0;
       _step = next;
     });
-    if (next == 1) Future.delayed(const Duration(milliseconds: 160), () => mounted ? _nameFocus.requestFocus() : null);
+    if (next == 1)
+      Future.delayed(
+        const Duration(milliseconds: 160),
+        () => mounted ? _nameFocus.requestFocus() : null,
+      );
     if (next == 2) {
       final idx = categories.indexWhere((c) => c.id == _category);
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,7 +121,12 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
     toast(context, 'Gasto salvo');
   }
 
-  static const _titles = ['Quanto você gastou?', 'Em que você gastou?', 'Qual categoria?', 'Quase lá'];
+  static const _titles = [
+    'Quanto você gastou?',
+    'Em que você gastou?',
+    'Qual categoria?',
+    'Quase lá',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +161,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
               child: Text(
                 _titles[_step],
                 key: ValueKey(_step),
-                style: T.headline.copyWith(color: c.textSecondary, fontWeight: FontWeight.w400),
+                style: T.headline.copyWith(
+                  color: c.textSecondary,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
             Expanded(
@@ -162,17 +178,31 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                   return FadeTransition(
                     opacity: anim,
                     child: SlideTransition(
-                      position: Tween(begin: Offset(0.08 * dir, 0), end: Offset.zero).animate(anim),
+                      position: Tween(
+                        begin: Offset(0.08 * dir, 0),
+                        end: Offset.zero,
+                      ).animate(anim),
                       child: child,
                     ),
                   );
                 },
-                child: KeyedSubtree(key: ValueKey(_step), child: _body(context)),
+                child: KeyedSubtree(
+                  key: ValueKey(_step),
+                  child: _body(context),
+                ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 12),
-              child: PillButton(_step == 3 ? 'Salvar gasto' : 'Continuar', onTap: _canContinue ? () => _go(1) : null),
+              padding: const EdgeInsets.fromLTRB(
+                Space.gutter,
+                8,
+                Space.gutter,
+                12,
+              ),
+              child: PillButton(
+                _step == 3 ? 'Salvar gasto' : 'Continuar',
+                onTap: _canContinue ? () => _go(1) : null,
+              ),
             ),
           ],
         ),
@@ -219,7 +249,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 keyboardAppearance: c.brightness,
                 cursorColor: c.accent,
                 style: T.title.copyWith(color: c.text, fontSize: 30),
-                placeholderStyle: T.title.copyWith(color: c.textTertiary, fontSize: 30),
+                placeholderStyle: T.title.copyWith(
+                  color: c.textTertiary,
+                  fontSize: 30,
+                ),
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: c.border)),
                 ),
@@ -235,7 +268,9 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                       s,
                       onTap: () {
                         _name.text = s;
-                        _name.selection = TextSelection.collapsed(offset: _name.text.length);
+                        _name.selection = TextSelection.collapsed(
+                          offset: _name.text.length,
+                        );
                       },
                     ),
                 ],
@@ -250,9 +285,16 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                     key: ValueKey(_category),
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(categoryById(_category).icon, size: 16, color: c.tone(categoryById(_category).color)),
+                      Icon(
+                        categoryById(_category).icon,
+                        size: 16,
+                        color: c.tone(categoryById(_category).color),
+                      ),
                       const SizedBox(width: 6),
-                      Text('Categoria sugerida: ${categoryById(_category).label}', style: T.small.copyWith(color: c.textSecondary)),
+                      Text(
+                        'Categoria sugerida: ${categoryById(_category).label}',
+                        style: T.small.copyWith(color: c.textSecondary),
+                      ),
                     ],
                   ),
                 ),
@@ -280,9 +322,12 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 itemBuilder: (_, i) => AnimatedBuilder(
                   animation: _catPage,
                   builder: (_, _) {
-                    final page = _catPage.hasClients && _catPage.position.haveDimensions
+                    final page =
+                        _catPage.hasClients && _catPage.position.haveDimensions
                         ? _catPage.page ?? 0
-                        : categories.indexWhere((x) => x.id == _category).toDouble();
+                        : categories
+                              .indexWhere((x) => x.id == _category)
+                              .toDouble();
                     final d = (page - i).abs().clamp(0.0, 1.0);
                     final cat = categories[i];
                     return Transform.scale(
@@ -290,17 +335,35 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                       child: Opacity(
                         opacity: 1 - 0.5 * d,
                         child: Pressable(
-                          onTap: () => _catPage.animateToPage(i, duration: const Duration(milliseconds: 400), curve: easeOutExpo),
+                          onTap: () => _catPage.animateToPage(
+                            i,
+                            duration: const Duration(milliseconds: 400),
+                            curve: easeOutExpo,
+                          ),
                           child: Container(
                             margin: const EdgeInsets.symmetric(horizontal: 8),
                             decoration: BoxDecoration(
-                              color: Color.lerp(cat.color.withValues(alpha: c.isDark ? 0.22 : 0.16), c.card, d),
+                              color: Color.lerp(
+                                cat.color.withValues(
+                                  alpha: c.isDark ? 0.22 : 0.16,
+                                ),
+                                c.card,
+                                d,
+                              ),
                               borderRadius: BorderRadius.circular(32),
                             ),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(cat.icon, size: 56, color: Color.lerp(c.tone(cat.color), c.textTertiary, d)),
+                                Icon(
+                                  cat.icon,
+                                  size: 56,
+                                  color: Color.lerp(
+                                    c.tone(cat.color),
+                                    c.textTertiary,
+                                    d,
+                                  ),
+                                ),
                                 const SizedBox(height: 16),
                                 Text(
                                   cat.label,
@@ -318,7 +381,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
               ),
             ),
             const SizedBox(height: 16),
-            Text('Deslize para trocar', style: T.small.copyWith(color: c.textTertiary)),
+            Text(
+              'Deslize para trocar',
+              style: T.small.copyWith(color: c.textTertiary),
+            ),
             const Spacer(),
           ],
         );
@@ -338,7 +404,11 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           index: 0,
           child: Row(
             children: [
-              IconBadge(categoryById(_category).icon, categoryById(_category).color, size: 52),
+              IconBadge(
+                categoryById(_category).icon,
+                categoryById(_category).color,
+                size: 52,
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
@@ -350,7 +420,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    Text(categoryById(_category).label, style: T.label.copyWith(color: c.textSecondary)),
+                    Text(
+                      categoryById(_category).label,
+                      style: T.label.copyWith(color: c.textSecondary),
+                    ),
                   ],
                 ),
               ),
@@ -364,34 +437,51 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           index: 1,
           child: Segmented<Recurrence>(
             value: _rec,
-            options: const {Recurrence.once: 'Único', Recurrence.monthly: 'Recorrente'},
+            options: const {
+              Recurrence.once: 'Único',
+              Recurrence.monthly: 'Recorrente',
+            },
             onChanged: (r) => setState(() => _rec = r),
           ),
         ),
         const SizedBox(height: 8),
         BlurSwitcher(
           child: Text(
-            _rec == Recurrence.once ? 'Conta só no ciclo da data do gasto.' : 'Repete todo ciclo até você encerrar.',
+            _rec == Recurrence.once
+                ? 'Conta só no ciclo da data do gasto.'
+                : 'Repete todo ciclo até você encerrar.',
             key: ValueKey(_rec),
             style: T.small.copyWith(color: c.textSecondary),
           ),
         ),
         const SizedBox(height: 20),
-        Reveal(index: 2, child: FieldLabel(_rec == Recurrence.once ? 'Quando' : 'Começa em')),
+        Reveal(
+          index: 2,
+          child: FieldLabel(_rec == Recurrence.once ? 'Quando' : 'Começa em'),
+        ),
         Reveal(
           index: 2,
           child: SelectField(
-            leading: Icon(LucideIcons.calendar, size: 18, color: c.textSecondary),
+            leading: Icon(
+              LucideIcons.calendar,
+              size: 18,
+              color: c.textSecondary,
+            ),
             value: sameDay(_date, DateTime.now()) ? 'Hoje' : df.format(_date),
             placeholder: 'Hoje',
-            onTap: () => pickDate(context, _date, (d) => setState(() => _date = d)),
+            onTap: () =>
+                pickDate(context, _date, (d) => setState(() => _date = d)),
           ),
         ),
         if (_rec == Recurrence.monthly) ...[
           const SizedBox(height: 14),
           const FieldLabel('Termina em (opcional)'),
           SelectField(
-            leading: Icon(LucideIcons.calendarX, size: 18, color: c.textSecondary),
+            leading: Icon(
+              LucideIcons.calendarX,
+              size: 18,
+              color: c.textSecondary,
+            ),
             value: _end == null ? null : df.format(_end!),
             placeholder: 'Sem data final',
             onTap: () => pickDate(
@@ -410,7 +500,11 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ChipButton('Nenhum', selected: _cardId == null, onTap: () => setState(() => _cardId = null)),
+              ChipButton(
+                'Nenhum',
+                selected: _cardId == null,
+                onTap: () => setState(() => _cardId = null),
+              ),
               for (final k in cards)
                 ChipButton(
                   '${k.name} •${k.last4}',
@@ -427,7 +521,13 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
 }
 
 /// Picker de data nativo (Cupertino) num sheet.
-Future<void> pickDate(BuildContext context, DateTime initial, ValueChanged<DateTime> onPick, {VoidCallback? onClear, DateTime? min}) {
+Future<void> pickDate(
+  BuildContext context,
+  DateTime initial,
+  ValueChanged<DateTime> onPick, {
+  VoidCallback? onClear,
+  DateTime? min,
+}) {
   var current = initial;
   return showCupertinoModalPopup(
     context: context,
@@ -451,7 +551,10 @@ Future<void> pickDate(BuildContext context, DateTime initial, ValueChanged<DateT
                         onClear();
                         Navigator.pop(ctx);
                       },
-                      child: Text('Remover', style: T.body.copyWith(color: c.negative)),
+                      child: Text(
+                        'Remover',
+                        style: T.body.copyWith(color: c.negative),
+                      ),
                     ),
                   const Spacer(),
                   CupertinoButton(
@@ -459,14 +562,19 @@ Future<void> pickDate(BuildContext context, DateTime initial, ValueChanged<DateT
                       onPick(current);
                       Navigator.pop(ctx);
                     },
-                    child: Text('Pronto', style: T.bodyStrong.copyWith(color: c.accent)),
+                    child: Text(
+                      'Pronto',
+                      style: T.bodyStrong.copyWith(color: c.accent),
+                    ),
                   ),
                 ],
               ),
               Expanded(
                 child: CupertinoDatePicker(
                   mode: CupertinoDatePickerMode.date,
-                  initialDateTime: min != null && initial.isBefore(min) ? min : initial,
+                  initialDateTime: min != null && initial.isBefore(min)
+                      ? min
+                      : initial,
                   minimumDate: min == null ? null : dateOnly(min),
                   maximumDate: DateTime(DateTime.now().year + 10),
                   onDateTimeChanged: (d) => current = d,
@@ -521,11 +629,22 @@ class _ExpenseFormState extends State<ExpenseForm> {
           children: [
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 16),
+                padding: const EdgeInsets.fromLTRB(
+                  Space.gutter,
+                  4,
+                  Space.gutter,
+                  16,
+                ),
                 children: [
-                  const Align(alignment: Alignment.centerLeft, child: BackChevron()),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: BackChevron(),
+                  ),
                   const SizedBox(height: 20),
-                  Text('Editar gasto', style: T.title.copyWith(color: c.text, fontSize: 32)),
+                  Text(
+                    'Editar gasto',
+                    style: T.title.copyWith(color: c.text, fontSize: 32),
+                  ),
                   const SizedBox(height: 20),
                   Pressable(
                     onTap: () => setState(() => _typing = !_typing),
@@ -554,7 +673,11 @@ class _ExpenseFormState extends State<ExpenseForm> {
                   ),
                   const SizedBox(height: 18),
                   const FieldLabel('Nome'),
-                  AppField(controller: _name, placeholder: 'Em que você gastou?', maxLength: 40),
+                  AppField(
+                    controller: _name,
+                    placeholder: 'Em que você gastou?',
+                    maxLength: 40,
+                  ),
                   const SizedBox(height: 18),
                   const FieldLabel('Categoria'),
                   SelectField(
@@ -570,7 +693,10 @@ class _ExpenseFormState extends State<ExpenseForm> {
                   const FieldLabel('Frequência do gasto'),
                   Segmented<Recurrence>(
                     value: _e.recurrence,
-                    options: const {Recurrence.once: 'Único', Recurrence.monthly: 'Recorrente'},
+                    options: const {
+                      Recurrence.once: 'Único',
+                      Recurrence.monthly: 'Recorrente',
+                    },
                     onChanged: (r) => setState(() => _e.recurrence = r),
                   ),
                   const SizedBox(height: 8),
@@ -583,16 +709,28 @@ class _ExpenseFormState extends State<ExpenseForm> {
                   const SizedBox(height: 18),
                   FieldLabel(_e.isRecurring ? 'Começa em' : 'Data'),
                   SelectField(
-                    leading: Icon(LucideIcons.calendar, size: 18, color: c.textSecondary),
+                    leading: Icon(
+                      LucideIcons.calendar,
+                      size: 18,
+                      color: c.textSecondary,
+                    ),
                     value: df.format(_e.date),
                     placeholder: '',
-                    onTap: () => pickDate(context, _e.date, (d) => setState(() => _e.date = d)),
+                    onTap: () => pickDate(
+                      context,
+                      _e.date,
+                      (d) => setState(() => _e.date = d),
+                    ),
                   ),
                   if (_e.isRecurring) ...[
                     const SizedBox(height: 14),
                     const FieldLabel('Termina em (opcional)'),
                     SelectField(
-                      leading: Icon(LucideIcons.calendarX, size: 18, color: c.textSecondary),
+                      leading: Icon(
+                        LucideIcons.calendarX,
+                        size: 18,
+                        color: c.textSecondary,
+                      ),
                       value: _e.endDate == null ? null : df.format(_e.endDate!),
                       placeholder: 'Sem data final',
                       onTap: () => pickDate(
@@ -611,7 +749,11 @@ class _ExpenseFormState extends State<ExpenseForm> {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        ChipButton('Nenhum', selected: _e.cardId == null, onTap: () => setState(() => _e.cardId = null)),
+                        ChipButton(
+                          'Nenhum',
+                          selected: _e.cardId == null,
+                          onTap: () => setState(() => _e.cardId = null),
+                        ),
                         for (final k in s.data.cards)
                           ChipButton(
                             '${k.name} •${k.last4}',
@@ -626,8 +768,18 @@ class _ExpenseFormState extends State<ExpenseForm> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(Space.gutter, 8, Space.gutter, 12),
-              child: PillButton('Salvar alterações', onTap: _amount.value > 0 && _name.text.trim().isNotEmpty ? _save : null),
+              padding: const EdgeInsets.fromLTRB(
+                Space.gutter,
+                8,
+                Space.gutter,
+                12,
+              ),
+              child: PillButton(
+                'Salvar alterações',
+                onTap: _amount.value > 0 && _name.text.trim().isNotEmpty
+                    ? _save
+                    : null,
+              ),
             ),
           ],
         ),
@@ -669,14 +821,22 @@ Future<String?> pickCategory(BuildContext context, String current) {
                 onTap: () => Navigator.pop(ctx, categories[i].id),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: categories[i].id == current ? categories[i].color.withValues(alpha: 0.2) : c.card,
+                    color: categories[i].id == current
+                        ? categories[i].color.withValues(alpha: 0.2)
+                        : c.card,
                     borderRadius: BorderRadius.circular(20),
-                    border: categories[i].id == current ? Border.all(color: categories[i].color, width: 1.5) : null,
+                    border: categories[i].id == current
+                        ? Border.all(color: categories[i].color, width: 1.5)
+                        : null,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(categories[i].icon, color: c.tone(categories[i].color), size: 28),
+                      Icon(
+                        categories[i].icon,
+                        color: c.tone(categories[i].color),
+                        size: 28,
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         categories[i].label,

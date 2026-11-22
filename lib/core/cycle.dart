@@ -66,10 +66,12 @@ class Cycle {
   }
 
   @override
-  bool operator ==(Object other) => other is Cycle && other.key == key && other.start == start;
+  bool operator ==(Object other) =>
+      other is Cycle && other.key == key && other.start == start;
   @override
   int get hashCode => Object.hash(key, start);
 }
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-bool sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+bool sameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;

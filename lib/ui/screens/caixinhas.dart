@@ -39,14 +39,19 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
     final hidden = s.data.hideValues;
     final total = f.boxesBalanceTotal();
     final totalGoals = open.fold<int>(0, (t, b) => t + (b.goalCents ?? 0));
-    final monthly = open.fold<int>(0, (t, b) => t + f.contributionFor(b, f.current));
+    final monthly = open.fold<int>(
+      0,
+      (t, b) => t + f.contributionFor(b, f.current),
+    );
     final pad = sidePadding(context, maxWidth: 720);
 
     return Stack(
       children: [
         GlowBackground(tint: c.primary, height: 460),
         CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             PinnedCupertinoBar(
               height: 60,
@@ -54,7 +59,10 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
               builder: (ctx, _) => Row(
                 children: [
                   Expanded(
-                    child: Text('Caixinhas', style: T.title.copyWith(color: c.text, fontSize: 26)),
+                    child: Text(
+                      'Caixinhas',
+                      style: T.title.copyWith(color: c.text, fontSize: 26),
+                    ),
                   ),
                   RoundIconButton(
                     LucideIcons.plus,
@@ -68,7 +76,12 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
               ),
             ),
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(pad, Space.lg, pad, navClearance(context)),
+              padding: EdgeInsets.fromLTRB(
+                pad,
+                Space.lg,
+                pad,
+                navClearance(context),
+              ),
               sliver: SliverList.list(
                 children: [
                   // ── Hero centralizado (evita duplicar ícone quando a lista está vazia)
@@ -81,14 +94,24 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                           decoration: BoxDecoration(
                             color: c.primarySoft,
                             shape: BoxShape.circle,
-                            border: Border.all(color: c.primary.withValues(alpha: 0.25)),
+                            border: Border.all(
+                              color: c.primary.withValues(alpha: 0.25),
+                            ),
                           ),
-                          child: Icon(LucideIcons.piggyBank, size: 28, color: c.primary),
+                          child: Icon(
+                            LucideIcons.piggyBank,
+                            size: 28,
+                            color: c.primary,
+                          ),
                         ),
                         const SizedBox(height: Space.base),
                         CountingMoney(
                           cents: total,
-                          builder: (v) => MoneyText(v, hidden: hidden, style: T.display.copyWith(fontSize: 36)),
+                          builder: (v) => MoneyText(
+                            v,
+                            hidden: hidden,
+                            style: T.display.copyWith(fontSize: 36),
+                          ),
                         ),
                         const SizedBox(height: Space.xs),
                         Text(
@@ -106,7 +129,10 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                   if (closed.isNotEmpty) ...[
                     Segmented<bool>(
                       value: _showClosed,
-                      options: {false: 'Ativas (${open.length})', true: 'Encerradas (${closed.length})'},
+                      options: {
+                        false: 'Ativas (${open.length})',
+                        true: 'Encerradas (${closed.length})',
+                      },
                       onChanged: (v) => setState(() => _showClosed = v),
                     ),
                     const SizedBox(height: Space.base),
@@ -115,7 +141,9 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                   if (list.isEmpty)
                     EmptyState(
                       icon: LucideIcons.piggyBank,
-                      title: _showClosed ? 'Nenhuma caixinha encerrada' : 'Nenhuma caixinha ainda',
+                      title: _showClosed
+                          ? 'Nenhuma caixinha encerrada'
+                          : 'Nenhuma caixinha ainda',
                       message: _showClosed
                           ? 'Quando você encerrar uma caixinha, ela aparece aqui.'
                           : 'Uma caixinha recebe um valor fixo ou % do salário todo ciclo e acumula automaticamente.',
@@ -165,7 +193,9 @@ class _BoxCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: c.card,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7)),
+          border: Border.all(
+            color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7),
+          ),
         ),
         child: Row(
           children: [
@@ -175,7 +205,11 @@ class _BoxCard extends StatelessWidget {
               fraction: hasGoal ? pct : 0.35,
               color: c.tone(box.colorValue),
               track: c.cardAlt,
-              child: Icon(box.iconData, size: 22, color: c.tone(box.colorValue)),
+              child: Icon(
+                box.iconData,
+                size: 22,
+                color: c.tone(box.colorValue),
+              ),
             ),
             const SizedBox(width: Space.md),
             Expanded(
@@ -206,14 +240,21 @@ class _BoxCard extends StatelessWidget {
               children: [
                 if (hasGoal)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.sm,
+                      vertical: Space.xs,
+                    ),
                     decoration: BoxDecoration(
-                      color: box.colorValue.withValues(alpha: c.isDark ? 0.22 : 0.14),
+                      color: box.colorValue.withValues(
+                        alpha: c.isDark ? 0.22 : 0.14,
+                      ),
                       borderRadius: BorderRadius.circular(Space.radiusSm),
                     ),
                     child: Text(
                       '${(bal / goal * 100).clamp(0, 999).round()}%',
-                      style: T.smallStrong.copyWith(color: c.tone(box.colorValue, min: 4.5)),
+                      style: T.smallStrong.copyWith(
+                        color: c.tone(box.colorValue, min: 4.5),
+                      ),
                     ),
                   )
                 else
@@ -243,7 +284,11 @@ class BoxDetail extends StatelessWidget {
     final c = context.c;
     final s = context.store;
     final box = s.box(id);
-    if (box == null) return CupertinoPageScaffold(backgroundColor: c.bg, child: const SizedBox());
+    if (box == null)
+      return CupertinoPageScaffold(
+        backgroundColor: c.bg,
+        child: const SizedBox(),
+      );
     final f = s.f;
     final hidden = s.data.hideValues;
     final bal = f.boxBalance(box);
@@ -260,7 +305,10 @@ class BoxDetail extends StatelessWidget {
       backgroundColor: c.bg,
       child: Stack(
         children: [
-          GlowBackground(tint: context.c.tone(box.colorValue, min: 2.5), height: 460),
+          GlowBackground(
+            tint: context.c.tone(box.colorValue, min: 2.5),
+            height: 460,
+          ),
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [
@@ -310,10 +358,16 @@ class BoxDetail extends StatelessWidget {
                               width: 100,
                               height: 100,
                               decoration: BoxDecoration(
-                                color: box.colorValue.withValues(alpha: c.isDark ? 0.18 : 0.12),
+                                color: box.colorValue.withValues(
+                                  alpha: c.isDark ? 0.18 : 0.12,
+                                ),
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(box.iconData, size: 42, color: c.tone(box.colorValue)),
+                              child: Icon(
+                                box.iconData,
+                                size: 42,
+                                color: c.tone(box.colorValue),
+                              ),
                             ),
                           ),
                         ),
@@ -331,8 +385,8 @@ class BoxDetail extends StatelessWidget {
                         Text(
                           hasGoal
                               ? bal >= goal
-                                  ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
-                                  : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
+                                    ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
+                                    : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
                               : plan.mode == PlanMode.percent
                               ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/ciclo'
                               : '+${fmtMoney(per, hidden: hidden)} por ciclo',
@@ -351,7 +405,11 @@ class BoxDetail extends StatelessWidget {
                             'Guardar',
                             icon: LucideIcons.arrowDownToLine,
                             height: 48,
-                            onTap: () => editMovement(context, box.id, MovementType.deposit),
+                            onTap: () => editMovement(
+                              context,
+                              box.id,
+                              MovementType.deposit,
+                            ),
                           ),
                         ),
                         const SizedBox(width: Space.sm),
@@ -361,7 +419,11 @@ class BoxDetail extends StatelessWidget {
                             icon: LucideIcons.shoppingCart,
                             kind: BtnKind.ghost,
                             height: 48,
-                            onTap: () => editMovement(context, box.id, MovementType.spend),
+                            onTap: () => editMovement(
+                              context,
+                              box.id,
+                              MovementType.spend,
+                            ),
                           ),
                         ),
                         const SizedBox(width: Space.sm),
@@ -371,7 +433,11 @@ class BoxDetail extends StatelessWidget {
                             icon: LucideIcons.arrowUpFromLine,
                             kind: BtnKind.ghost,
                             height: 48,
-                            onTap: () => editMovement(context, box.id, MovementType.redeem),
+                            onTap: () => editMovement(
+                              context,
+                              box.id,
+                              MovementType.redeem,
+                            ),
                           ),
                         ),
                       ],
@@ -382,7 +448,8 @@ class BoxDetail extends StatelessWidget {
                       EmptyState(
                         icon: LucideIcons.arrowLeftRight,
                         title: 'Sem movimentações extras',
-                        message: 'Guarde um extra, registre um pagamento com esta reserva ou resgate para o saldo livre.',
+                        message:
+                            'Guarde um extra, registre um pagamento com esta reserva ou resgate para o saldo livre.',
                       )
                     else
                       Column(
@@ -394,12 +461,22 @@ class BoxDetail extends StatelessWidget {
                                 color: c.card,
                                 borderRadius: BorderRadius.vertical(
                                   top: Radius.circular(i == 0 ? 22 : 8),
-                                  bottom: Radius.circular(i == moves.length - 1 ? 22 : 8),
+                                  bottom: Radius.circular(
+                                    i == moves.length - 1 ? 22 : 8,
+                                  ),
                                 ),
-                                border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.45 : 0.65)),
+                                border: Border.all(
+                                  color: c.border.withValues(
+                                    alpha: c.isDark ? 0.45 : 0.65,
+                                  ),
+                                ),
                               ),
                               clipBehavior: Clip.antiAlias,
-                              child: _MoveRow(box: box, m: moves[i], hidden: hidden),
+                              child: _MoveRow(
+                                box: box,
+                                m: moves[i],
+                                hidden: hidden,
+                              ),
                             ),
                           ],
                         ],
@@ -427,8 +504,18 @@ class BoxDetail extends StatelessWidget {
       title: box.name,
       actions: [
         const SheetAction('Editar caixinha', 'edit', icon: LucideIcons.pencil),
-        if (bal > 0 && box.closedKey == null) const SheetAction('Encerrar e devolver saldo', 'close', icon: LucideIcons.archive),
-        const SheetAction('Excluir caixinha', 'delete', destructive: true, icon: LucideIcons.trash2),
+        if (bal > 0 && box.closedKey == null)
+          const SheetAction(
+            'Encerrar e devolver saldo',
+            'close',
+            icon: LucideIcons.archive,
+          ),
+        const SheetAction(
+          'Excluir caixinha',
+          'delete',
+          destructive: true,
+          icon: LucideIcons.trash2,
+        ),
       ],
     );
     if (!context.mounted) return;
@@ -439,7 +526,8 @@ class BoxDetail extends StatelessWidget {
         final ok = await confirm(
           context,
           title: 'Encerrar "${box.name}"?',
-          message: '${fmtMoney(bal)} voltam para o saldo livre deste ciclo e a caixinha para de receber aportes.',
+          message:
+              '${fmtMoney(bal)} voltam para o saldo livre deste ciclo e a caixinha para de receber aportes.',
           action: 'Encerrar',
           destructive: false,
         );
@@ -452,7 +540,8 @@ class BoxDetail extends StatelessWidget {
         final ok = await confirm(
           context,
           title: 'Excluir "${box.name}"?',
-          message: 'Apaga a caixinha e todo o histórico dela. Para devolver o saldo, use "Encerrar".',
+          message:
+              'Apaga a caixinha e todo o histórico dela. Para devolver o saldo, use "Encerrar".',
           action: 'Excluir',
         );
         if (ok && context.mounted) {
@@ -487,7 +576,12 @@ class _ProgressRing extends StatelessWidget {
       width: size,
       height: size,
       child: CustomPaint(
-        painter: _RingPainter(fraction: fraction.clamp(0.0, 1.0), color: color, track: track, stroke: stroke),
+        painter: _RingPainter(
+          fraction: fraction.clamp(0.0, 1.0),
+          color: color,
+          track: track,
+          stroke: stroke,
+        ),
         child: Center(child: child),
       ),
     );
@@ -499,7 +593,12 @@ class _RingPainter extends CustomPainter {
   final Color color;
   final Color track;
   final double stroke;
-  _RingPainter({required this.fraction, required this.color, required this.track, required this.stroke});
+  _RingPainter({
+    required this.fraction,
+    required this.color,
+    required this.track,
+    required this.stroke,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -528,7 +627,8 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.fraction != fraction || old.color != color || old.track != track;
+  bool shouldRepaint(_RingPainter old) =>
+      old.fraction != fraction || old.color != color || old.track != track;
 }
 
 class _MoveRow extends StatelessWidget {
@@ -541,9 +641,17 @@ class _MoveRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final (icon, label, color) = switch (m.type) {
-      MovementType.deposit => (LucideIcons.arrowDownToLine, 'Guardado', c.positive),
+      MovementType.deposit => (
+        LucideIcons.arrowDownToLine,
+        'Guardado',
+        c.positive,
+      ),
       MovementType.spend => (LucideIcons.shoppingCart, 'Usado', c.negative),
-      MovementType.redeem => (LucideIcons.arrowUpFromLine, 'Resgatado', c.accentWarm),
+      MovementType.redeem => (
+        LucideIcons.arrowUpFromLine,
+        'Resgatado',
+        c.accentWarm,
+      ),
     };
     final when = m.recurrence == Recurrence.monthly
         ? 'Todo ciclo${m.endDate != null ? ' até ${DateFormat('MM/yy').format(m.endDate!)}' : ''}'
@@ -552,7 +660,10 @@ class _MoveRow extends StatelessWidget {
       scale: 0.985,
       onTap: () => editMovement(context, box.id, m.type, existing: m),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: Space.base,
+          vertical: Space.md,
+        ),
         child: Row(
           children: [
             IconBadge(icon, color, size: 42),
@@ -568,14 +679,19 @@ class _MoveRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: Space.xxs),
-                  Text('$label · $when', style: T.small.copyWith(color: c.textSecondary)),
+                  Text(
+                    '$label · $when',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
                 ],
               ),
             ),
             const SizedBox(width: Space.sm),
             Text(
               '${m.sign > 0 ? '+' : '−'}${fmtMoney(m.cents, hidden: hidden)}',
-              style: T.bodyStrong.copyWith(color: m.sign > 0 ? c.positive : c.text),
+              style: T.bodyStrong.copyWith(
+                color: m.sign > 0 ? c.positive : c.text,
+              ),
             ),
           ],
         ),
@@ -585,7 +701,12 @@ class _MoveRow extends StatelessWidget {
 }
 
 /// Sheet flutuante moderno para guardar / usar / resgatar (ou editar uma movimentação).
-Future<void> editMovement(BuildContext context, String boxId, MovementType type, {Movement? existing}) {
+Future<void> editMovement(
+  BuildContext context,
+  String boxId,
+  MovementType type, {
+  Movement? existing,
+}) {
   return showSheet(
     context,
     builder: (_) => _MovementForm(boxId: boxId, type: type, existing: existing),
@@ -622,9 +743,21 @@ class _MovementFormState extends State<_MovementForm> {
   }
 
   (String, String, String) get _copy => switch (widget.type) {
-    MovementType.deposit => ('Guardar um extra', 'Sai do saldo livre do ciclo e entra na caixinha.', 'Ex.: 13º, sobra do mês'),
-    MovementType.spend => ('Usar a caixinha', 'Pago com esta reserva. Não mexe no saldo livre.', 'Ex.: passagem, conserto'),
-    MovementType.redeem => ('Resgatar para o saldo', 'Sai da caixinha e volta para o saldo livre.', 'Ex.: reforço do mês'),
+    MovementType.deposit => (
+      'Guardar um extra',
+      'Sai do saldo livre do ciclo e entra na caixinha.',
+      'Ex.: 13º, sobra do mês',
+    ),
+    MovementType.spend => (
+      'Usar a caixinha',
+      'Pago com esta reserva. Não mexe no saldo livre.',
+      'Ex.: passagem, conserto',
+    ),
+    MovementType.redeem => (
+      'Resgatar para o saldo',
+      'Sai da caixinha e volta para o saldo livre.',
+      'Ex.: reforço do mês',
+    ),
   };
 
   @override
@@ -633,15 +766,29 @@ class _MovementFormState extends State<_MovementForm> {
     final (title, hint, ph) = _copy;
     final valid = _amount.value > 0;
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.lg),
+      padding: const EdgeInsets.fromLTRB(
+        Space.lg,
+        Space.md,
+        Space.lg,
+        Space.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.existing == null ? title : 'Editar movimentação', style: T.title.copyWith(color: c.text)),
+          Text(
+            widget.existing == null ? title : 'Editar movimentação',
+            style: T.title.copyWith(color: c.text),
+          ),
           const SizedBox(height: Space.xs),
           Text(hint, style: T.small.copyWith(color: c.textSecondary)),
           const SizedBox(height: Space.base),
-          Center(child: AmountDisplay(cents: _amount.value, size: 44, color: c.primary)),
+          Center(
+            child: AmountDisplay(
+              cents: _amount.value,
+              size: 44,
+              color: c.primary,
+            ),
+          ),
           const SizedBox(height: Space.md),
           QuickAddChips(controller: _amount),
           const SizedBox(height: Space.sm),
@@ -652,16 +799,24 @@ class _MovementFormState extends State<_MovementForm> {
             const SizedBox(height: Space.md),
             Segmented<Recurrence>(
               value: _rec,
-              options: const {Recurrence.once: 'Uma vez', Recurrence.monthly: 'Todo ciclo'},
+              options: const {
+                Recurrence.once: 'Uma vez',
+                Recurrence.monthly: 'Todo ciclo',
+              },
               onChanged: (r) => setState(() => _rec = r),
             ),
           ],
           const SizedBox(height: Space.md),
           SelectField(
-            leading: Icon(LucideIcons.calendar, size: 18, color: c.textSecondary),
+            leading: Icon(
+              LucideIcons.calendar,
+              size: 18,
+              color: c.textSecondary,
+            ),
             value: DateFormat("d 'de' MMMM 'de' y", 'pt_BR').format(_date),
             placeholder: '',
-            onTap: () => pickDate(context, _date, (d) => setState(() => _date = d)),
+            onTap: () =>
+                pickDate(context, _date, (d) => setState(() => _date = d)),
           ),
           const SizedBox(height: Space.base),
           PillButton(
@@ -676,12 +831,16 @@ class _MovementFormState extends State<_MovementForm> {
           ),
           if (widget.existing != null) ...[
             const SizedBox(height: Space.sm),
-            if (widget.existing!.recurrence == Recurrence.monthly && widget.existing!.endDate == null) ...[
+            if (widget.existing!.recurrence == Recurrence.monthly &&
+                widget.existing!.endDate == null) ...[
               PillButton(
                 'Parar de repetir após este ciclo',
                 kind: BtnKind.ghost,
                 onTap: () {
-                  context.storeRead.endMovement(widget.boxId, widget.existing!.id);
+                  context.storeRead.endMovement(
+                    widget.boxId,
+                    widget.existing!.id,
+                  );
                   Navigator.pop(context);
                 },
               ),
@@ -691,9 +850,16 @@ class _MovementFormState extends State<_MovementForm> {
               'Excluir',
               kind: BtnKind.danger,
               onTap: () {
-                context.storeRead.deleteMovement(widget.boxId, widget.existing!.id);
+                context.storeRead.deleteMovement(
+                  widget.boxId,
+                  widget.existing!.id,
+                );
                 Navigator.pop(context);
-                toast(context, 'Movimentação excluída', icon: LucideIcons.trash2);
+                toast(
+                  context,
+                  'Movimentação excluída',
+                  icon: LucideIcons.trash2,
+                );
               },
             ),
           ],

@@ -26,14 +26,27 @@ class CardsStrip extends StatelessWidget {
         children: [
           Text('Contas', style: T.body.copyWith(color: c.text)),
           const SizedBox(width: Space.sm),
-          RoundIconButton(LucideIcons.plus, size: 32, label: 'Nova conta ou cartão', onTap: () => editCard(context)),
+          RoundIconButton(
+            LucideIcons.plus,
+            size: 32,
+            label: 'Nova conta ou cartão',
+            onTap: () => editCard(context),
+          ),
           const SizedBox(width: Space.sm),
           Expanded(
             child: cards.isEmpty
-                ? Text('Separe gastos por conta ou cartão', style: T.small.copyWith(color: c.textSecondary))
+                ? Text(
+                    'Separe gastos por conta ou cartão',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  )
                 : ShaderMask(
                     shaderCallback: (r) => const LinearGradient(
-                      colors: [Color(0x00FFFFFF), Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+                      colors: [
+                        Color(0x00FFFFFF),
+                        Color(0xFFFFFFFF),
+                        Color(0xFFFFFFFF),
+                        Color(0x00FFFFFF),
+                      ],
                       stops: [0.0, 0.08, 0.92, 1.0],
                     ).createShader(r),
                     blendMode: BlendMode.dstIn,
@@ -42,9 +55,12 @@ class CardsStrip extends StatelessWidget {
                       physics: const BouncingScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: Space.md),
                       itemCount: cards.length,
-                      separatorBuilder: (_, _) => const SizedBox(width: Space.sm),
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(width: Space.sm),
                       itemBuilder: (_, i) => Pressable(
-                        onTap: () => ShellScope.of(context)?.goTo(1, filter: ExtratoFilter(cardId: cards[i].id)),
+                        onTap: () => ShellScope.of(
+                          context,
+                        )?.goTo(1, filter: ExtratoFilter(cardId: cards[i].id)),
                         onLongPress: () => editCard(context, card: cards[i]),
                         child: CardChip(card: cards[i]),
                       ),
@@ -65,20 +81,29 @@ class CardChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = Color(card.color);
-    final onColor = color.computeLuminance() > 0.5 ? Palette.neutral800 : Palette.neutral0;
+    final onColor = color.computeLuminance() > 0.5
+        ? Palette.neutral800
+        : Palette.neutral0;
     final hasLast4 = card.last4.trim().isNotEmpty;
     return Container(
       width: width,
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 6),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Space.radiusMd)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(Space.radiusMd),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             card.name.isEmpty ? 'Conta' : card.name,
-            style: T.tiny.copyWith(color: onColor, fontWeight: FontWeight.w600, fontSize: 11),
+            style: T.tiny.copyWith(
+              color: onColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -87,14 +112,21 @@ class CardChip extends StatelessWidget {
               Expanded(
                 child: Text(
                   hasLast4 ? '•••${card.last4}' : 'Conta',
-                  style: T.tiny.copyWith(color: onColor.withValues(alpha: 0.85), fontSize: 10),
+                  style: T.tiny.copyWith(
+                    color: onColor.withValues(alpha: 0.85),
+                    fontSize: 10,
+                  ),
                   maxLines: 1,
                 ),
               ),
               if (hasLast4)
                 BrandBadge(brand: card.brand)
               else
-                Icon(LucideIcons.landmark, size: 12, color: onColor.withValues(alpha: 0.9)),
+                Icon(
+                  LucideIcons.landmark,
+                  size: 12,
+                  color: onColor.withValues(alpha: 0.9),
+                ),
             ],
           ),
         ],
@@ -111,7 +143,10 @@ class BrandBadge extends StatelessWidget {
     Widget box(Widget child) => Container(
       height: 14,
       padding: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(color: Palette.neutral0, borderRadius: BorderRadius.circular(3)),
+      decoration: BoxDecoration(
+        color: Palette.neutral0,
+        borderRadius: BorderRadius.circular(3),
+      ),
       alignment: Alignment.center,
       child: child,
     );
@@ -128,7 +163,10 @@ class BrandBadge extends StatelessWidget {
                   child: Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(color: Color(0xFFEB001B), shape: BoxShape.circle),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFEB001B),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
                 Positioned(
@@ -136,7 +174,10 @@ class BrandBadge extends StatelessWidget {
                   child: Container(
                     width: 10,
                     height: 10,
-                    decoration: BoxDecoration(color: const Color(0xFFF79E1B).withValues(alpha: 0.9), shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF79E1B).withValues(alpha: 0.9),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
               ],
@@ -147,18 +188,31 @@ class BrandBadge extends StatelessWidget {
         return box(
           Text(
             'VISA',
-            style: T.tiny.copyWith(fontSize: 7, fontWeight: FontWeight.w800, color: const Color(0xFF1A1F71), fontStyle: FontStyle.italic),
+            style: T.tiny.copyWith(
+              fontSize: 7,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF1A1F71),
+              fontStyle: FontStyle.italic,
+            ),
           ),
         );
       case CardBrand.elo:
         return box(
           Text(
             'elo',
-            style: T.tiny.copyWith(fontSize: 8, fontWeight: FontWeight.w800, color: Palette.neutral800),
+            style: T.tiny.copyWith(
+              fontSize: 8,
+              fontWeight: FontWeight.w800,
+              color: Palette.neutral800,
+            ),
           ),
         );
       case CardBrand.other:
-        return const Icon(LucideIcons.creditCard, size: 14, color: Palette.neutral0);
+        return const Icon(
+          LucideIcons.creditCard,
+          size: 14,
+          color: Palette.neutral0,
+        );
     }
   }
 }
@@ -206,18 +260,34 @@ class _CardFormState extends State<_CardForm> {
     ('PicPay', Color(0xFF11C76F)),
   ];
 
-  bool get _valid => _name.text.trim().isNotEmpty && (_last4.text.isEmpty || _last4.text.length == 4);
+  bool get _valid =>
+      _name.text.trim().isNotEmpty &&
+      (_last4.text.isEmpty || _last4.text.length == 4);
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final preview = PayCard(id: 'preview', name: _name.text, last4: _last4.text, color: _color, brand: _brand);
+    final preview = PayCard(
+      id: 'preview',
+      name: _name.text,
+      last4: _last4.text,
+      color: _color,
+      brand: _brand,
+    );
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.lg),
+      padding: const EdgeInsets.fromLTRB(
+        Space.lg,
+        Space.md,
+        Space.lg,
+        Space.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.card == null ? 'Nova conta ou cartão' : 'Editar conta', style: T.title.copyWith(color: c.text)),
+          Text(
+            widget.card == null ? 'Nova conta ou cartão' : 'Editar conta',
+            style: T.title.copyWith(color: c.text),
+          ),
           const SizedBox(height: Space.xs),
           Text(
             'Separe seus gastos por banco ou cartão no extrato.',
@@ -244,7 +314,8 @@ class _CardFormState extends State<_CardForm> {
                 ChipButton(
                   bName,
                   dot: bCol,
-                  selected: _name.text.trim().toLowerCase() == bName.toLowerCase(),
+                  selected:
+                      _name.text.trim().toLowerCase() == bName.toLowerCase(),
                   onTap: () => setState(() {
                     _name.text = bName;
                     _color = bCol.toARGB32();
@@ -254,7 +325,11 @@ class _CardFormState extends State<_CardForm> {
           ),
           const SizedBox(height: Space.base),
           const FieldLabel('Nome da conta ou banco'),
-          AppField(controller: _name, placeholder: 'Nubank, Inter, Itaú…', maxLength: 20),
+          AppField(
+            controller: _name,
+            placeholder: 'Nubank, Inter, Itaú…',
+            maxLength: 20,
+          ),
           const SizedBox(height: Space.md),
           const FieldLabel('Últimos 4 dígitos do cartão (opcional)'),
           AppField(
@@ -269,7 +344,12 @@ class _CardFormState extends State<_CardForm> {
             const FieldLabel('Bandeira'),
             Segmented<CardBrand>(
               value: _brand,
-              options: const {CardBrand.mastercard: 'Master', CardBrand.visa: 'Visa', CardBrand.elo: 'Elo', CardBrand.other: 'Outra'},
+              options: const {
+                CardBrand.mastercard: 'Master',
+                CardBrand.visa: 'Visa',
+                CardBrand.elo: 'Elo',
+                CardBrand.other: 'Outra',
+              },
               onChanged: (b) => setState(() => _brand = b),
             ),
           ],
@@ -290,7 +370,10 @@ class _CardFormState extends State<_CardForm> {
                     decoration: BoxDecoration(
                       color: col,
                       shape: BoxShape.circle,
-                      border: Border.all(color: _color == col.toARGB32() ? c.text : c.border, width: _color == col.toARGB32() ? 3 : 1),
+                      border: Border.all(
+                        color: _color == col.toARGB32() ? c.text : c.border,
+                        width: _color == col.toARGB32() ? 3 : 1,
+                      ),
                     ),
                   ),
                 ),
@@ -298,7 +381,10 @@ class _CardFormState extends State<_CardForm> {
           ),
           const SizedBox(height: Space.lg),
           PillButton('Salvar conta', onTap: _valid ? _save : null),
-          if (widget.card != null) ...[const SizedBox(height: Space.sm), PillButton('Excluir conta', kind: BtnKind.danger, onTap: _delete)],
+          if (widget.card != null) ...[
+            const SizedBox(height: Space.sm),
+            PillButton('Excluir conta', kind: BtnKind.danger, onTap: _delete),
+          ],
         ],
       ),
     );
@@ -306,16 +392,28 @@ class _CardFormState extends State<_CardForm> {
 
   void _save() {
     final s = context.storeRead;
-    s.saveCard(PayCard(id: widget.card?.id, name: _name.text.trim(), last4: _last4.text, color: _color, brand: _brand));
+    s.saveCard(
+      PayCard(
+        id: widget.card?.id,
+        name: _name.text.trim(),
+        last4: _last4.text,
+        color: _color,
+        brand: _brand,
+      ),
+    );
     Navigator.pop(context);
-    toast(context, widget.card == null ? 'Conta adicionada' : 'Conta atualizada');
+    toast(
+      context,
+      widget.card == null ? 'Conta adicionada' : 'Conta atualizada',
+    );
   }
 
   Future<void> _delete() async {
     final ok = await confirm(
       context,
       title: 'Excluir conta?',
-      message: 'Os gastos continuam no extrato, só deixam de estar ligados a esta conta.',
+      message:
+          'Os gastos continuam no extrato, só deixam de estar ligados a esta conta.',
       action: 'Excluir',
     );
     if (!ok || !mounted) return;

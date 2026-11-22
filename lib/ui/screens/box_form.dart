@@ -23,8 +23,12 @@ class _BoxFormState extends State<BoxForm> {
   late final _name = TextEditingController(text: widget.box?.name ?? '');
   final _nameFocus = FocusNode();
   late PlanMode _mode = widget.box?.currentPlan.mode ?? PlanMode.fixed;
-  late final _fixed = AmountController(_mode == PlanMode.fixed ? widget.box?.currentPlan.amount ?? 0 : 0);
-  late double _percent = _mode == PlanMode.percent ? (widget.box!.currentPlan.amount / 100) : 10;
+  late final _fixed = AmountController(
+    _mode == PlanMode.fixed ? widget.box?.currentPlan.amount ?? 0 : 0,
+  );
+  late double _percent = _mode == PlanMode.percent
+      ? (widget.box!.currentPlan.amount / 100)
+      : 10;
   late final _goal = AmountController(widget.box?.goalCents ?? 0);
   late String _icon = widget.box?.icon ?? 'piggy';
   late int _color = widget.box?.color ?? boxColors.first.toARGB32();
@@ -33,8 +37,20 @@ class _BoxFormState extends State<BoxForm> {
   bool _forward = true;
 
   static const _steps = 4;
-  static const _titles = ['Quanto entra por ciclo?', 'Qual o nome da caixinha?', 'Escolha o visual', 'Tem uma meta?'];
-  static const _suggestions = ['Reserva', 'Viagem', 'Notebook', 'Carro', 'Presentes', 'Casa'];
+  static const _titles = [
+    'Quanto entra por ciclo?',
+    'Qual o nome da caixinha?',
+    'Escolha o visual',
+    'Tem uma meta?',
+  ];
+  static const _suggestions = [
+    'Reserva',
+    'Viagem',
+    'Notebook',
+    'Carro',
+    'Presentes',
+    'Casa',
+  ];
 
   @override
   void initState() {
@@ -53,7 +69,8 @@ class _BoxFormState extends State<BoxForm> {
     super.dispose();
   }
 
-  int get _amount => _mode == PlanMode.fixed ? _fixed.value : (_percent * 100).round();
+  int get _amount =>
+      _mode == PlanMode.fixed ? _fixed.value : (_percent * 100).round();
 
   bool get _canContinue => switch (_step) {
     0 => _amount > 0,
@@ -75,7 +92,10 @@ class _BoxFormState extends State<BoxForm> {
       _step = next;
     });
     if (next == 1) {
-      Future.delayed(const Duration(milliseconds: 160), () => mounted ? _nameFocus.requestFocus() : null);
+      Future.delayed(
+        const Duration(milliseconds: 160),
+        () => mounted ? _nameFocus.requestFocus() : null,
+      );
     }
   }
 
@@ -83,13 +103,31 @@ class _BoxFormState extends State<BoxForm> {
     final s = context.storeRead;
     final goal = _goal.value > 0 ? _goal.value : null;
     if (widget.box == null) {
-      s.addBox(name: _name.text, icon: _icon, color: _color, mode: _mode, amount: _amount, goal: goal);
+      s.addBox(
+        name: _name.text,
+        icon: _icon,
+        color: _color,
+        mode: _mode,
+        amount: _amount,
+        goal: goal,
+      );
     } else {
-      s.updateBox(widget.box!.id, name: _name.text, icon: _icon, color: _color, mode: _mode, amount: _amount, goal: goal);
+      s.updateBox(
+        widget.box!.id,
+        name: _name.text,
+        icon: _icon,
+        color: _color,
+        mode: _mode,
+        amount: _amount,
+        goal: goal,
+      );
     }
     HapticFeedback.mediumImpact();
     Navigator.pop(context);
-    toast(context, widget.box == null ? 'Caixinha criada' : 'Caixinha atualizada');
+    toast(
+      context,
+      widget.box == null ? 'Caixinha criada' : 'Caixinha atualizada',
+    );
   }
 
   @override
@@ -98,7 +136,9 @@ class _BoxFormState extends State<BoxForm> {
     final s = context.store;
     final f = s.f;
     final salary = f.salary;
-    final perCycle = _mode == PlanMode.fixed ? _fixed.value : (salary * _percent / 100).round();
+    final perCycle = _mode == PlanMode.fixed
+        ? _fixed.value
+        : (salary * _percent / 100).round();
     final pad = sidePadding(context, maxWidth: 640);
     final progress = (_step + 1) / _steps;
 
@@ -112,7 +152,10 @@ class _BoxFormState extends State<BoxForm> {
               child: Container(
                 height: 4,
                 width: double.infinity,
-                decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: c.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
                 alignment: Alignment.centerLeft,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(end: progress),
@@ -121,7 +164,10 @@ class _BoxFormState extends State<BoxForm> {
                   builder: (_, v, _) => FractionallySizedBox(
                     widthFactor: v,
                     child: Container(
-                      decoration: BoxDecoration(color: c.primary, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: c.primary,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                 ),
@@ -140,15 +186,26 @@ class _BoxFormState extends State<BoxForm> {
                         _goal.clear();
                         _save();
                       },
-                      child: Text('Sem meta', style: T.label.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'Sem meta',
+                        style: T.label.copyWith(
+                          color: c.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     )
                   else if (_step > 0)
                     BlurSwitcher(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        _mode == PlanMode.fixed ? '${fmtMoney(perCycle)}/ciclo' : '${_percent.round()}%/ciclo',
+                        _mode == PlanMode.fixed
+                            ? '${fmtMoney(perCycle)}/ciclo'
+                            : '${_percent.round()}%/ciclo',
                         key: ValueKey('$_mode-$perCycle'),
-                        style: T.label.copyWith(color: c.textSecondary, fontWeight: FontWeight.w600),
+                        style: T.label.copyWith(
+                          color: c.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                 ],
@@ -178,19 +235,29 @@ class _BoxFormState extends State<BoxForm> {
                   return FadeTransition(
                     opacity: anim,
                     child: SlideTransition(
-                      position: Tween(begin: Offset(0.08 * dir, 0), end: Offset.zero).animate(anim),
+                      position: Tween(
+                        begin: Offset(0.08 * dir, 0),
+                        end: Offset.zero,
+                      ).animate(anim),
                       child: child,
                     ),
                   );
                 },
-                child: KeyedSubtree(key: ValueKey(_step), child: _body(context, pad, salary, perCycle)),
+                child: KeyedSubtree(
+                  key: ValueKey(_step),
+                  child: _body(context, pad, salary, perCycle),
+                ),
               ),
             ),
             Padding(
               padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.base),
               child: PillButton(
-                _step == _steps - 1 ? (widget.box == null ? 'Criar caixinha' : 'Salvar') : 'Continuar',
-                trailingIcon: _step == _steps - 1 ? null : LucideIcons.arrowRight,
+                _step == _steps - 1
+                    ? (widget.box == null ? 'Criar caixinha' : 'Salvar')
+                    : 'Continuar',
+                trailingIcon: _step == _steps - 1
+                    ? null
+                    : LucideIcons.arrowRight,
                 onTap: _canContinue ? () => _go(1) : null,
               ),
             ),
@@ -203,7 +270,9 @@ class _BoxFormState extends State<BoxForm> {
   Widget _body(BuildContext context, double pad, int salary, int perCycle) {
     final c = context.c;
     final f = context.store.f;
-    final free = f.freeBalance(f.current) + (widget.box == null ? 0 : f.contributionFor(widget.box!, f.current));
+    final free =
+        f.freeBalance(f.current) +
+        (widget.box == null ? 0 : f.contributionFor(widget.box!, f.current));
     final over = salary > 0 && perCycle > free;
 
     switch (_step) {
@@ -215,7 +284,10 @@ class _BoxFormState extends State<BoxForm> {
               const SizedBox(height: Space.base),
               Segmented<PlanMode>(
                 value: _mode,
-                options: const {PlanMode.fixed: 'Valor fixo', PlanMode.percent: '% do salário'},
+                options: const {
+                  PlanMode.fixed: 'Valor fixo',
+                  PlanMode.percent: '% do salário',
+                },
                 onChanged: (m) => setState(() => _mode = m),
               ),
               const Spacer(),
@@ -230,7 +302,9 @@ class _BoxFormState extends State<BoxForm> {
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
-                  salary > 0 ? '= ${fmtMoney(perCycle)} do salário atual' : 'Informe o salário no perfil para calcular',
+                  salary > 0
+                      ? '= ${fmtMoney(perCycle)} do salário atual'
+                      : 'Informe o salário no perfil para calcular',
                   style: T.label.copyWith(color: c.textSecondary),
                 ),
                 const SizedBox(height: Space.lg),
@@ -242,7 +316,8 @@ class _BoxFormState extends State<BoxForm> {
                   activeColor: c.primary,
                   thumbColor: c.isDark ? c.onPrimary : Palette.neutral0,
                   onChanged: (v) {
-                    if (v.round() != _percent.round()) HapticFeedback.selectionClick();
+                    if (v.round() != _percent.round())
+                      HapticFeedback.selectionClick();
                     setState(() => _percent = v.roundToDouble());
                   },
                 ),
@@ -252,7 +327,11 @@ class _BoxFormState extends State<BoxForm> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(LucideIcons.triangleAlert, size: 16, color: c.accentWarm),
+                    Icon(
+                      LucideIcons.triangleAlert,
+                      size: 16,
+                      color: c.accentWarm,
+                    ),
                     const SizedBox(width: Space.sm),
                     Flexible(
                       child: Text(
@@ -286,13 +365,22 @@ class _BoxFormState extends State<BoxForm> {
                 placeholder: 'Viagem, reserva…',
                 keyboardAppearance: c.brightness,
                 cursorColor: c.primary,
-                padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.base,
+                  vertical: Space.base,
+                ),
                 style: T.title.copyWith(color: c.text, fontSize: 28),
-                placeholderStyle: T.title.copyWith(color: c.textTertiary, fontSize: 28),
+                placeholderStyle: T.title.copyWith(
+                  color: c.textTertiary,
+                  fontSize: 28,
+                ),
                 decoration: BoxDecoration(
                   color: c.card,
                   borderRadius: BorderRadius.circular(Space.radiusField),
-                  border: Border.all(color: _name.text.trim().isNotEmpty ? c.primary : c.border, width: 1.5),
+                  border: Border.all(
+                    color: _name.text.trim().isNotEmpty ? c.primary : c.border,
+                    width: 1.5,
+                  ),
                 ),
               ),
               const SizedBox(height: Space.base),
@@ -306,7 +394,9 @@ class _BoxFormState extends State<BoxForm> {
                       s,
                       onTap: () {
                         _name.text = s;
-                        _name.selection = TextSelection.collapsed(offset: _name.text.length);
+                        _name.selection = TextSelection.collapsed(
+                          offset: _name.text.length,
+                        );
                       },
                     ),
                 ],
@@ -328,7 +418,10 @@ class _BoxFormState extends State<BoxForm> {
                 duration: const Duration(milliseconds: 220),
                 curve: easeOutExpo,
                 padding: const EdgeInsets.all(Space.base),
-                decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(Space.radiusCard)),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(Space.radiusCard),
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -346,12 +439,19 @@ class _BoxFormState extends State<BoxForm> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _name.text.trim().isEmpty ? 'Nome da caixinha' : _name.text.trim(),
-                            style: T.bodyStrong.copyWith(color: Palette.neutral0),
+                            _name.text.trim().isEmpty
+                                ? 'Nome da caixinha'
+                                : _name.text.trim(),
+                            style: T.bodyStrong.copyWith(
+                              color: Palette.neutral0,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          Text('+${fmtMoney(perCycle)} por ciclo', style: T.small.copyWith(color: light)),
+                          Text(
+                            '+${fmtMoney(perCycle)} por ciclo',
+                            style: T.small.copyWith(color: light),
+                          ),
                         ],
                       ),
                     ),
@@ -375,9 +475,15 @@ class _BoxFormState extends State<BoxForm> {
                         decoration: BoxDecoration(
                           color: _icon == e.key ? color : c.card,
                           borderRadius: BorderRadius.circular(Space.radiusMd),
-                          border: Border.all(color: _icon == e.key ? color : c.border),
+                          border: Border.all(
+                            color: _icon == e.key ? color : c.border,
+                          ),
                         ),
-                        child: Icon(e.value, size: 22, color: _icon == e.key ? light : c.textSecondary),
+                        child: Icon(
+                          e.value,
+                          size: 22,
+                          color: _icon == e.key ? light : c.textSecondary,
+                        ),
                       ),
                     ),
                 ],
@@ -404,7 +510,13 @@ class _BoxFormState extends State<BoxForm> {
                             width: _color == col.toARGB32() ? 3 : 1,
                           ),
                         ),
-                        child: _color == col.toARGB32() ? const Icon(LucideIcons.check, size: 18, color: Palette.neutral0) : null,
+                        child: _color == col.toARGB32()
+                            ? const Icon(
+                                LucideIcons.check,
+                                size: 18,
+                                color: Palette.neutral0,
+                              )
+                            : null,
                       ),
                     ),
                 ],
@@ -414,7 +526,9 @@ class _BoxFormState extends State<BoxForm> {
         );
 
       default:
-        final cycles = perCycle > 0 && _goal.value > 0 ? (_goal.value / perCycle).ceil() : null;
+        final cycles = perCycle > 0 && _goal.value > 0
+            ? (_goal.value / perCycle).ceil()
+            : null;
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: pad),
           child: Column(

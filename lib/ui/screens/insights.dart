@@ -17,7 +17,11 @@ class _DetailPage extends StatelessWidget {
   final String title;
   final String? subtitle;
   final List<Widget> children;
-  const _DetailPage({required this.title, this.subtitle, required this.children});
+  const _DetailPage({
+    required this.title,
+    this.subtitle,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,10 +61,16 @@ class _DetailPage extends StatelessWidget {
                 padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.xl),
                 sliver: SliverList.list(
                   children: [
-                    Text(title, style: T.title.copyWith(color: c.text, fontSize: 28)),
+                    Text(
+                      title,
+                      style: T.title.copyWith(color: c.text, fontSize: 28),
+                    ),
                     if (subtitle != null) ...[
                       const SizedBox(height: Space.xs),
-                      Text(subtitle!, style: T.label.copyWith(color: c.textSecondary)),
+                      Text(
+                        subtitle!,
+                        style: T.label.copyWith(color: c.textSecondary),
+                      ),
                     ],
                     const SizedBox(height: Space.lg),
                     ...children,
@@ -126,8 +136,14 @@ class CategoriesScreen extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(e.key.label, style: T.bodyStrong.copyWith(color: c.text)),
-                              Text(_delta(e.value, prevMap[e.key.id], hidden), style: T.small.copyWith(color: c.textSecondary)),
+                              Text(
+                                e.key.label,
+                                style: T.bodyStrong.copyWith(color: c.text),
+                              ),
+                              Text(
+                                _delta(e.value, prevMap[e.key.id], hidden),
+                                style: T.small.copyWith(color: c.textSecondary),
+                              ),
                             ],
                           ),
                         ),
@@ -138,13 +154,21 @@ class CategoriesScreen extends StatelessWidget {
                               fmtMoney(e.value, hidden: hidden),
                               style: T.bodyStrong.copyWith(color: c.text),
                             ),
-                            Text('${(e.value / total * 100).round()}%', style: T.small.copyWith(color: c.textSecondary)),
+                            Text(
+                              '${(e.value / total * 100).round()}%',
+                              style: T.small.copyWith(color: c.textSecondary),
+                            ),
                           ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    SpringBar(fraction: e.value / total, color: c.tone(e.key.color), track: c.cardAlt, height: 6),
+                    SpringBar(
+                      fraction: e.value / total,
+                      color: c.tone(e.key.color),
+                      track: c.cardAlt,
+                      height: 6,
+                    ),
                   ],
                 ),
               ),
@@ -161,7 +185,8 @@ class CategoriesScreen extends StatelessWidget {
     return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. ciclo anterior';
   }
 
-  void _openExtratoFiltered(BuildContext context, String id) => shellNav.goTo(1, filter: ExtratoFilter(categoryId: id));
+  void _openExtratoFiltered(BuildContext context, String id) =>
+      shellNav.goTo(1, filter: ExtratoFilter(categoryId: id));
 }
 
 // ── Ritmo do ciclo (Para hoje / Fim de semana / Sequência) ──
@@ -179,13 +204,17 @@ class RhythmScreen extends StatelessWidget {
     final today = f.todayAllowance;
     return _DetailPage(
       title: 'Ritmo do ciclo',
-      subtitle: '${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'} em ${cy.label()}',
+      subtitle:
+          '${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'} em ${cy.label()}',
       children: [
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Pode gastar hoje', style: T.label.copyWith(color: c.textSecondary)),
+              Text(
+                'Pode gastar hoje',
+                style: T.label.copyWith(color: c.textSecondary),
+              ),
               CountingMoney(
                 cents: today < 0 ? 0 : today,
                 builder: (v) => MoneyText(v, hidden: hidden, style: T.display),
@@ -210,9 +239,21 @@ class RhythmScreen extends StatelessWidget {
                 spacing: 14,
                 runSpacing: 8,
                 children: [
-                  _legend(context, c.isDark ? Palette.teal100 : Palette.teal200, 'Sem gastos'),
-                  _legend(context, c.isDark ? Palette.teal550 : Palette.teal750, 'Dentro da meta'),
-                  _legend(context, c.isDark ? const Color(0xFF5B8087) : Palette.neutral400, 'Passou da meta'),
+                  _legend(
+                    context,
+                    c.isDark ? Palette.teal100 : Palette.teal200,
+                    'Sem gastos',
+                  ),
+                  _legend(
+                    context,
+                    c.isDark ? Palette.teal550 : Palette.teal750,
+                    'Dentro da meta',
+                  ),
+                  _legend(
+                    context,
+                    c.isDark ? const Color(0xFF5B8087) : Palette.neutral400,
+                    'Passou da meta',
+                  ),
                   _legend(context, c.accentWarm, 'Hoje'),
                 ],
               ),
@@ -230,7 +271,10 @@ class RhythmScreen extends StatelessWidget {
             children: [
               Icon(LucideIcons.zap, color: c.accentWarm),
               const SizedBox(width: 8),
-              Text('${f.streak} ${f.streak == 1 ? 'dia' : 'dias'} de sequência', style: T.headline.copyWith(color: c.text)),
+              Text(
+                '${f.streak} ${f.streak == 1 ? 'dia' : 'dias'} de sequência',
+                style: T.headline.copyWith(color: c.text),
+              ),
             ],
           ),
           child: Column(
@@ -252,12 +296,42 @@ class RhythmScreen extends StatelessWidget {
             children: [
               _line(context, 'Salário', f.salaryFor(cy), hidden),
               _line(context, 'Gastos recorrentes', -f.fixedTotal(cy), hidden),
-              _line(context, 'Aportes nas caixinhas', -f.contributionsTotal(cy), hidden),
-              _line(context, 'Gastos do dia a dia', -f.variableTotal(cy), hidden),
-              if (f.committed(cy) - f.fixedTotal(cy) - f.contributionsTotal(cy) != 0)
-                _line(context, 'Extras e resgates de caixinhas', -(f.committed(cy) - f.fixedTotal(cy) - f.contributionsTotal(cy)), hidden),
-              Container(height: 1, color: c.border, margin: const EdgeInsets.symmetric(vertical: 8)),
-              _line(context, 'Saldo livre', f.freeBalance(cy), hidden, strong: true),
+              _line(
+                context,
+                'Aportes nas caixinhas',
+                -f.contributionsTotal(cy),
+                hidden,
+              ),
+              _line(
+                context,
+                'Gastos do dia a dia',
+                -f.variableTotal(cy),
+                hidden,
+              ),
+              if (f.committed(cy) -
+                      f.fixedTotal(cy) -
+                      f.contributionsTotal(cy) !=
+                  0)
+                _line(
+                  context,
+                  'Extras e resgates de caixinhas',
+                  -(f.committed(cy) -
+                      f.fixedTotal(cy) -
+                      f.contributionsTotal(cy)),
+                  hidden,
+                ),
+              Container(
+                height: 1,
+                color: c.border,
+                margin: const EdgeInsets.symmetric(vertical: 8),
+              ),
+              _line(
+                context,
+                'Saldo livre',
+                f.freeBalance(cy),
+                hidden,
+                strong: true,
+              ),
             ],
           ),
         ),
@@ -271,16 +345,27 @@ class RhythmScreen extends StatelessWidget {
       Container(
         width: 12,
         height: 12,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3)),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(3),
+        ),
       ),
       const SizedBox(width: 6),
       Text(label, style: T.small.copyWith(color: context.c.textSecondary)),
     ],
   );
 
-  Widget _line(BuildContext context, String label, int v, bool hidden, {bool strong = false}) {
+  Widget _line(
+    BuildContext context,
+    String label,
+    int v,
+    bool hidden, {
+    bool strong = false,
+  }) {
     final c = context.c;
-    final st = (strong ? T.bodyStrong : T.label).copyWith(color: strong ? c.text : c.textSecondary);
+    final st = (strong ? T.bodyStrong : T.label).copyWith(
+      color: strong ? c.text : c.textSecondary,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -288,7 +373,11 @@ class RhythmScreen extends StatelessWidget {
           Expanded(child: Text(label, style: st)),
           Text(
             fmtMoney(v, hidden: hidden),
-            style: st.copyWith(color: v < 0 && strong ? c.negative : (strong ? c.text : c.textSecondary)),
+            style: st.copyWith(
+              color: v < 0 && strong
+                  ? c.negative
+                  : (strong ? c.text : c.textSecondary),
+            ),
           ),
         ],
       ),
@@ -311,13 +400,16 @@ class SubscriptionsScreen extends StatelessWidget {
     final total = subs.fold<int>(0, (t, e) => t + e.cents);
     return _DetailPage(
       title: 'Assinaturas',
-      subtitle: subs.isEmpty ? null : '${fmtMoney(total, hidden: hidden)} por mês · ${fmtMoney(total * 12, hidden: hidden)} por ano',
+      subtitle: subs.isEmpty
+          ? null
+          : '${fmtMoney(total, hidden: hidden)} por mês · ${fmtMoney(total * 12, hidden: hidden)} por ano',
       children: [
         if (subs.isEmpty)
           EmptyState(
             icon: LucideIcons.tv,
             title: 'Nenhuma assinatura',
-            message: 'Adicione um gasto recorrente na categoria Assinaturas para acompanhar quanto seus serviços custam.',
+            message:
+                'Adicione um gasto recorrente na categoria Assinaturas para acompanhar quanto seus serviços custam.',
             action: 'Adicionar',
             onAction: () => openAddExpense(context),
           )
@@ -327,14 +419,22 @@ class SubscriptionsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Container(
-            decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(Space.radiusCard)),
+            decoration: BoxDecoration(
+              color: c.card,
+              borderRadius: BorderRadius.circular(Space.radiusCard),
+            ),
             clipBehavior: Clip.antiAlias,
             child: Column(
-              children: [for (final e in subs) ExpenseRow(e: e, f: f, hidden: hidden)],
+              children: [
+                for (final e in subs) ExpenseRow(e: e, f: f, hidden: hidden),
+              ],
             ),
           ),
           const SizedBox(height: 10),
-          Text('Toque numa assinatura para editar ou parar de repetir.', style: T.small.copyWith(color: c.textTertiary)),
+          Text(
+            'Toque numa assinatura para editar ou parar de repetir.',
+            style: T.small.copyWith(color: c.textTertiary),
+          ),
         ],
       ],
     );
@@ -361,14 +461,25 @@ class HistoryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              HistoryBars(f: f, cycles: isWide(context) ? 12 : 6, height: 180, hidden: hidden),
+              HistoryBars(
+                f: f,
+                cycles: isWide(context) ? 12 : 6,
+                height: 180,
+                hidden: hidden,
+              ),
               const SizedBox(height: 8),
               Row(
                 children: [
                   _dot(c.isDark ? Palette.teal550 : Palette.teal750),
-                  Text(' Fixos e caixinhas   ', style: T.small.copyWith(color: c.textSecondary)),
+                  Text(
+                    ' Fixos e caixinhas   ',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
                   _dot(c.isDark ? Palette.teal100 : Palette.teal200),
-                  Text(' Dia a dia', style: T.small.copyWith(color: c.textSecondary)),
+                  Text(
+                    ' Dia a dia',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
                 ],
               ),
             ],
@@ -386,7 +497,10 @@ class HistoryScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(cy.label(), style: T.bodyStrong.copyWith(color: c.text)),
+                          Text(
+                            cy.label(),
+                            style: T.bodyStrong.copyWith(color: c.text),
+                          ),
                           Text(
                             'Gastos ${fmtMoney(f.expensesTotal(cy), hidden: hidden)} · Guardado ${fmtMoney(f.contributionsTotal(cy), hidden: hidden)}',
                             style: T.small.copyWith(color: c.textSecondary),
@@ -399,10 +513,16 @@ class HistoryScreen extends StatelessWidget {
                       children: [
                         Text(
                           fmtMoney(f.freeBalance(cy), hidden: hidden),
-                          style: T.bodyStrong.copyWith(color: f.freeBalance(cy) < 0 ? c.negative : c.positive),
+                          style: T.bodyStrong.copyWith(
+                            color: f.freeBalance(cy) < 0
+                                ? c.negative
+                                : c.positive,
+                          ),
                         ),
                         Text(
-                          sameDay(cy.start, f.current.start) ? 'livre até agora' : 'sobrou',
+                          sameDay(cy.start, f.current.start)
+                              ? 'livre até agora'
+                              : 'sobrou',
                           style: T.tiny.copyWith(color: c.textSecondary),
                         ),
                       ],

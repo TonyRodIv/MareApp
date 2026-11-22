@@ -45,7 +45,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         const GlowBackground(height: 560),
         CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             PinnedCupertinoBar(
               height: 68,
@@ -59,11 +61,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           name.isEmpty ? 'Olá,' : 'Olá $name,',
-                          style: T.headline.copyWith(color: c.text, fontSize: 20),
+                          style: T.headline.copyWith(
+                            color: c.text,
+                            fontSize: 20,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(_greeting(), style: T.small.copyWith(color: c.textSecondary)),
+                        Text(
+                          _greeting(),
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
                       ],
                     ),
                   ),
@@ -78,7 +86,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   Pressable(
                     semanticLabel: 'Seu perfil',
                     onTap: () => ShellScope.of(context)?.goTo(3),
-                    child: Avatar(path: s.data.avatarPath, name: s.data.userName, size: 44),
+                    child: Avatar(
+                      path: s.data.avatarPath,
+                      name: s.data.userName,
+                      size: 44,
+                    ),
                   ),
                 ],
               ),
@@ -102,23 +114,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: Space.base),
                   ],
 
-                  // ── Ações rápidas
+                  // ── Ações rápidas: círculo com ícone e nome embaixo
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(
-                        child: PillButton(
-                          'Gastos',
-                          icon: LucideIcons.receipt,
-                          kind: BtnKind.secondary,
-                          onTap: () => openAddExpense(context),
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      Expanded(
-                        child: PillButton('Caixinhas', icon: LucideIcons.piggyBank, onTap: () => pushFluid(context, const BoxForm())),
-                      ),
-                      const SizedBox(width: Space.md),
-                      RoundIconButton(LucideIcons.layoutGrid, size: 56, label: 'Mais ações', onTap: () => _moreActions(context)),
+                      CircleAction(icon: LucideIcons.plus, label: 'Gasto', primary: true, onTap: () => openAddExpense(context)),
+                      CircleAction(icon: LucideIcons.piggyBank, label: 'Caixinha', onTap: () => pushFluid(context, const BoxForm())),
+                      CircleAction(icon: LucideIcons.creditCard, label: 'Cartão', onTap: () => editCard(context)),
+                      CircleAction(icon: LucideIcons.ellipsis, label: 'Mais', onTap: () => _moreActions(context)),
                     ],
                   ),
                   const SizedBox(height: Space.lg),
@@ -137,7 +140,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: T.label.copyWith(color: c.onPrimary),
                             ),
                           ),
-                          Icon(LucideIcons.arrowUpRight, color: c.onPrimary, size: 20),
+                          Icon(
+                            LucideIcons.arrowUpRight,
+                            color: c.onPrimary,
+                            size: 20,
+                          ),
                         ],
                       ),
                     ),
@@ -149,7 +156,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     gap: Space.md,
                     spans: s.data.cardSpans,
                     onSpanChanged: s.setCardSpan,
-                    tiles: _orderedVisibleTiles(context, f, hidden, noSalary, hasSubs),
+                    tiles: _orderedVisibleTiles(
+                      context,
+                      f,
+                      hidden,
+                      noSalary,
+                      hasSubs,
+                    ),
                   ),
                   const SizedBox(height: Space.sm),
                   Center(
@@ -194,7 +207,13 @@ class _HomeScreenState extends State<HomeScreen> {
     return ordered;
   }
 
-  List<DashTile> _orderedVisibleTiles(BuildContext context, Finance f, bool hidden, bool noSalary, bool hasSubs) {
+  List<DashTile> _orderedVisibleTiles(
+    BuildContext context,
+    Finance f,
+    bool hidden,
+    bool noSalary,
+    bool hasSubs,
+  ) {
     final s = context.store;
     final cy = f.current;
     final hiddenSet = s.data.hiddenWidgets.toSet();
@@ -203,9 +222,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     for (final id in order) {
       if (hiddenSet.contains(id)) continue;
-      if (noSalary && (id == 'hoje' || id == 'fds' || id == 'sequencia' || id == 'projecao')) continue;
-      if (id == 'categorias' && f.byCategory(cy).isEmpty && !s.data.widgetOrder.contains('categorias')) continue;
-      if (id == 'assinaturas' && !hasSubs && !s.data.widgetOrder.contains('assinaturas')) continue;
+      if (noSalary &&
+          (id == 'hoje' ||
+              id == 'fds' ||
+              id == 'sequencia' ||
+              id == 'projecao'))
+        continue;
+      if (id == 'categorias' &&
+          f.byCategory(cy).isEmpty &&
+          !s.data.widgetOrder.contains('categorias'))
+        continue;
+      if (id == 'assinaturas' &&
+          !hasSubs &&
+          !s.data.widgetOrder.contains('assinaturas'))
+        continue;
 
       switch (id) {
         case 'gastos':
@@ -219,17 +249,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ctx,
                 'Seus Gastos',
                 spent,
-                sal > 0 ? '${(ratio * 100).round()}% do salário' : 'Neste ciclo',
+                sal > 0
+                    ? '${(ratio * 100).round()}% do salário'
+                    : 'Neste ciclo',
                 hidden,
                 progress: sal > 0 ? ratio : null,
                 progressColor: ratio > 0.85 ? ctx.c.negative : ctx.c.primary,
-                onTap: () => ShellScope.of(context)?.goTo(1, filter: const ExtratoFilter()),
+                onTap: () => ShellScope.of(
+                  context,
+                )?.goTo(1, filter: const ExtratoFilter()),
               ),
             ),
           );
         case 'caixinhas':
           final boxes = f.openBoxes;
-          final monthly = boxes.fold<int>(0, (t, b) => t + f.contributionFor(b, cy));
+          final monthly = boxes.fold<int>(
+            0,
+            (t, b) => t + f.contributionFor(b, cy),
+          );
           tiles.add(
             DashTile(
               id: id,
@@ -237,25 +274,63 @@ class _HomeScreenState extends State<HomeScreen> {
                 ctx,
                 'Caixinhas',
                 f.boxesBalanceTotal(),
-                boxes.isEmpty ? 'Guardados agora' : '+${fmtMoney(monthly, hidden: hidden)}/ciclo',
+                boxes.isEmpty
+                    ? 'Guardados agora'
+                    : '+${fmtMoney(monthly, hidden: hidden)}/ciclo',
                 hidden,
-                badge: boxes.isEmpty ? null : '${boxes.length} ${boxes.length == 1 ? 'ativa' : 'ativas'}',
+                badge: boxes.isEmpty
+                    ? null
+                    : '${boxes.length} ${boxes.length == 1 ? 'ativa' : 'ativas'}',
                 onTap: () => ShellScope.of(context)?.goTo(2),
               ),
             ),
           );
         case 'categorias':
-          tiles.add(DashTile(id: id, defaultSpan: 2, builder: (ctx, w, span) => _categoriesCard(ctx, f, hidden, w)));
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: 2,
+              builder: (ctx, w, span) => _categoriesCard(ctx, f, hidden, w),
+            ),
+          );
         case 'hoje':
-          tiles.add(DashTile(id: id, builder: (ctx, w, span) => _todayCard(ctx, f, hidden, w)));
+          tiles.add(
+            DashTile(
+              id: id,
+              builder: (ctx, w, span) => _todayCard(ctx, f, hidden, w),
+            ),
+          );
         case 'fds':
-          tiles.add(DashTile(id: id, builder: (ctx, w, span) => _weekendCard(ctx, f, hidden, w)));
+          tiles.add(
+            DashTile(
+              id: id,
+              builder: (ctx, w, span) => _weekendCard(ctx, f, hidden, w),
+            ),
+          );
         case 'projecao':
-          tiles.add(DashTile(id: id, defaultSpan: 2, builder: (ctx, w, span) => _projectionCard(ctx, f, hidden)));
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: 2,
+              builder: (ctx, w, span) => _projectionCard(ctx, f, hidden),
+            ),
+          );
         case 'sequencia':
-          tiles.add(DashTile(id: id, defaultSpan: 2, builder: (ctx, w, span) => _streakCard(ctx, f, w)));
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: 2,
+              builder: (ctx, w, span) => _streakCard(ctx, f, w),
+            ),
+          );
         case 'assinaturas':
-          tiles.add(DashTile(id: id, defaultSpan: 2, builder: (ctx, w, span) => _subscriptionsCard(ctx, f, hidden, w)));
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: 2,
+              builder: (ctx, w, span) => _subscriptionsCard(ctx, f, hidden, w),
+            ),
+          );
         case 'historico':
           tiles.add(
             DashTile(
@@ -264,7 +339,11 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (ctx, w, span) => AppCard(
                 title: 'Histórico visual',
                 onTap: () => push(context, const HistoryScreen()),
-                child: HistoryBars(f: f, hidden: hidden, cycles: w < 220 ? 3 : (w < 420 ? 6 : 12)),
+                child: HistoryBars(
+                  f: f,
+                  hidden: hidden,
+                  cycles: w < 220 ? 3 : (w < 420 ? 6 : 12),
+                ),
               ),
             ),
           );
@@ -280,7 +359,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final elapsed = (totalDays - f.daysLeftInclToday + 1).clamp(1, totalDays);
     final spentVar = f.variableTotal(cy);
     final avgDaily = spentVar / elapsed;
-    final projectedRemainingVar = (avgDaily * (f.daysLeftInclToday - 1)).round();
+    final projectedRemainingVar = (avgDaily * (f.daysLeftInclToday - 1))
+        .round();
     final projectedEnd = f.freeBalance(cy) - projectedRemainingVar;
     final positive = projectedEnd >= 0;
     return AppCard(
@@ -300,7 +380,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
-                  positive ? 'Estimativa de sobra no ritmo atual' : 'No ritmo atual pode faltar no fim do ciclo',
+                  positive
+                      ? 'Estimativa de sobra no ritmo atual'
+                      : 'No ritmo atual pode faltar no fim do ciclo',
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
               ],
@@ -337,10 +419,20 @@ class _HomeScreenState extends State<HomeScreen> {
           final c = ctx.c;
           final available = [
             for (final id in order)
-              if (!(noSalary && (id == 'hoje' || id == 'fds' || id == 'sequencia' || id == 'projecao'))) id,
+              if (!(noSalary &&
+                  (id == 'hoje' ||
+                      id == 'fds' ||
+                      id == 'sequencia' ||
+                      id == 'projecao')))
+                id,
           ];
           return SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.lg),
+            padding: const EdgeInsets.fromLTRB(
+              Space.lg,
+              Space.md,
+              Space.lg,
+              Space.lg,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +440,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: Text('Editar grade', style: T.headline.copyWith(color: c.text)),
+                      child: Text(
+                        'Editar grade',
+                        style: T.headline.copyWith(color: c.text),
+                      ),
                     ),
                     CupertinoButton(
                       padding: EdgeInsets.zero,
@@ -359,7 +454,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           hidden = {};
                         });
                       },
-                      child: Text('Restaurar', style: T.label.copyWith(color: c.primary, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        'Restaurar',
+                        style: T.label.copyWith(
+                          color: c.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -378,15 +479,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       final span = s.data.cardSpans[id] ?? meta.$3;
                       return Container(
                         margin: const EdgeInsets.only(bottom: Space.sm),
-                        padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.md,
+                          vertical: Space.sm,
+                        ),
                         decoration: BoxDecoration(
                           color: c.card,
-                          borderRadius: BorderRadius.circular(Space.radiusField),
-                          border: Border.all(color: c.border.withValues(alpha: 0.6)),
+                          borderRadius: BorderRadius.circular(
+                            Space.radiusField,
+                          ),
+                          border: Border.all(
+                            color: c.border.withValues(alpha: 0.6),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            Icon(meta.$2, size: 18, color: visible ? c.accent : c.textTertiary),
+                            Icon(
+                              meta.$2,
+                              size: 18,
+                              color: visible ? c.accent : c.textTertiary,
+                            ),
                             const SizedBox(width: Space.md),
                             Expanded(
                               child: Text(
@@ -406,12 +518,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 set(() {});
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: Space.xs),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: Space.sm,
+                                  vertical: Space.xs,
+                                ),
                                 decoration: BoxDecoration(
                                   color: c.primarySoft,
-                                  borderRadius: BorderRadius.circular(Space.radiusSm),
+                                  borderRadius: BorderRadius.circular(
+                                    Space.radiusSm,
+                                  ),
                                 ),
-                                child: Text('${span}x', style: T.smallStrong.copyWith(color: c.primary)),
+                                child: Text(
+                                  '${span}x',
+                                  style: T.smallStrong.copyWith(
+                                    color: c.primary,
+                                  ),
+                                ),
                               ),
                             ),
                             const SizedBox(width: Space.xs),
@@ -427,11 +549,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                         order[a] = prevId;
                                         order[b] = id;
                                       });
-                                      s.setDashboardLayout(order: order, hidden: hidden.toList());
+                                      s.setDashboardLayout(
+                                        order: order,
+                                        hidden: hidden.toList(),
+                                      );
                                     },
                               child: Padding(
                                 padding: const EdgeInsets.all(Space.xs),
-                                child: Icon(LucideIcons.chevronUp, size: 18, color: idx == 0 ? c.textTertiary : c.textSecondary),
+                                child: Icon(
+                                  LucideIcons.chevronUp,
+                                  size: 18,
+                                  color: idx == 0
+                                      ? c.textTertiary
+                                      : c.textSecondary,
+                                ),
                               ),
                             ),
                             Pressable(
@@ -446,14 +577,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                         order[a] = nextId;
                                         order[b] = id;
                                       });
-                                      s.setDashboardLayout(order: order, hidden: hidden.toList());
+                                      s.setDashboardLayout(
+                                        order: order,
+                                        hidden: hidden.toList(),
+                                      );
                                     },
                               child: Padding(
                                 padding: const EdgeInsets.all(Space.xs),
                                 child: Icon(
                                   LucideIcons.chevronDown,
                                   size: 18,
-                                  color: idx == available.length - 1 ? c.textTertiary : c.textSecondary,
+                                  color: idx == available.length - 1
+                                      ? c.textTertiary
+                                      : c.textSecondary,
                                 ),
                               ),
                             ),
@@ -469,7 +605,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                     hidden.add(id);
                                   }
                                 });
-                                s.setDashboardLayout(order: order, hidden: hidden.toList());
+                                s.setDashboardLayout(
+                                  order: order,
+                                  hidden: hidden.toList(),
+                                );
                               },
                             ),
                           ],
@@ -507,7 +646,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return Pressable(
       scale: 0.98,
       semanticLabel: '$label. Toque para alternar.',
-      onTap: () => setState(() => _view = HeroView.values[(_view.index + 1) % HeroView.values.length]),
+      onTap: () => setState(
+        () =>
+            _view = HeroView.values[(_view.index + 1) % HeroView.values.length],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -521,14 +663,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const SizedBox(width: 6),
-              Icon(LucideIcons.chevronsUpDown, size: 14, color: c.textSecondary),
+              Icon(
+                LucideIcons.chevronsUpDown,
+                size: 14,
+                color: c.textSecondary,
+              ),
             ],
           ),
           const SizedBox(height: Space.xs),
           CountingMoney(
             key: ValueKey(_view),
             cents: value,
-            builder: (v) => MoneyText(v, hidden: hidden, style: T.display.copyWith(fontSize: 36), color: value < 0 ? c.negative : null),
+            builder: (v) => MoneyText(
+              v,
+              hidden: hidden,
+              style: T.display.copyWith(fontSize: 36),
+              color: value < 0 ? c.negative : null,
+            ),
           ),
           const SizedBox(height: Space.xs),
           Text(
@@ -554,20 +705,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     return AppCard(
       title: title,
-      expandChild: true,
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (progress != null) ...[
             const SizedBox(height: Space.xs),
-            SpringBar(fraction: progress, color: progressColor ?? c.primary, track: c.cardAlt, height: 6),
+            SpringBar(
+              fraction: progress,
+              color: progressColor ?? c.primary,
+              track: c.cardAlt,
+              height: 6,
+            ),
           ] else if (badge != null) ...[
             const SizedBox(height: Space.xs),
             Tag(badge, bg: c.primarySoft, fg: c.accent),
           ],
-          const Spacer(),
-          const SizedBox(height: Space.base),
+          const SizedBox(height: Space.lg),
           CountingMoney(
             cents: v,
             builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
@@ -584,7 +738,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _categoriesCard(BuildContext context, Finance f, bool hidden, double w) {
+  Widget _categoriesCard(
+    BuildContext context,
+    Finance f,
+    bool hidden,
+    double w,
+  ) {
     final c = context.c;
     final data = f.byCategory(f.current);
     final total = data.fold<int>(0, (s, e) => s + e.value);
@@ -594,7 +753,11 @@ class _HomeScreenState extends State<HomeScreen> {
       rows.add((data[k].key.label, data[k].value, shades[k]));
     }
     if (data.length > 3) {
-      rows.add(('Outros', data.skip(3).fold(0, (s, e) => s + e.value), c.emptyCell));
+      rows.add((
+        'Outros',
+        data.skip(3).fold(0, (s, e) => s + e.value),
+        c.emptyCell,
+      ));
     }
     return AppCard(
       title: 'Gastos por categoria',
@@ -602,13 +765,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: total <= 0
           ? Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text('Seus gastos aparecem aqui, separados por categoria.', style: T.label.copyWith(color: c.textSecondary)),
+              child: Text(
+                'Seus gastos aparecem aqui, separados por categoria.',
+                style: T.label.copyWith(color: c.textSecondary),
+              ),
             )
           : Flex(
               direction: w < 280 ? Axis.vertical : Axis.horizontal,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                CategoryWaffle(data: data, width: w < 280 ? w : (w * 0.36).clamp(100.0, 200.0)),
+                CategoryWaffle(
+                  data: data,
+                  width: w < 280 ? w : (w * 0.36).clamp(100.0, 200.0),
+                ),
                 const SizedBox(width: 16, height: 14),
                 Flexible(
                   fit: w < 280 ? FlexFit.loose : FlexFit.tight,
@@ -622,7 +791,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 width: 10,
                                 height: 10,
-                                decoration: BoxDecoration(color: r.$3, borderRadius: BorderRadius.circular(3)),
+                                decoration: BoxDecoration(
+                                  color: r.$3,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -637,12 +809,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     Text(
                                       fmtMoney(r.$2, hidden: hidden),
-                                      style: T.tiny.copyWith(color: c.textSecondary),
+                                      style: T.tiny.copyWith(
+                                        color: c.textSecondary,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                              Text('${(r.$2 / total * 100).round()}%', style: T.bodyStrong.copyWith(color: c.text)),
+                              Text(
+                                '${(r.$2 / total * 100).round()}%',
+                                style: T.bodyStrong.copyWith(color: c.text),
+                              ),
                             ],
                           ),
                         ),
@@ -659,22 +836,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final v = f.todayAllowance;
     return AppCard(
       title: 'Para hoje',
-      expandChild: true,
       onTap: () => push(context, const RhythmScreen()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CycleGrid(f: f, width: w, columns: _gridCols(w)),
-          const Spacer(),
-          const SizedBox(height: Space.md),
+          const SizedBox(height: Space.lg),
           CountingMoney(
             cents: v < 0 ? 0 : v,
             builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
           ),
           const SizedBox(height: Space.xxs),
           Text(
-            v < 0 ? 'Passou ${fmtMoney(-v, hidden: hidden)} hoje' : 'Pode gastar hoje',
-            style: T.small.copyWith(color: v < 0 ? c.negative : c.textSecondary),
+            v < 0
+                ? 'Passou ${fmtMoney(-v, hidden: hidden)} hoje'
+                : 'Pode gastar hoje',
+            style: T.small.copyWith(
+              color: v < 0 ? c.negative : c.textSecondary,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -689,14 +868,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final v = f.weekendAllowance;
     return AppCard(
       title: 'Fim de semana',
-      expandChild: true,
       onTap: () => push(context, const RhythmScreen()),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CycleGrid(f: f, highlight: days.toSet(), width: w, columns: _gridCols(w)),
-          const Spacer(),
-          const SizedBox(height: Space.md),
+          CycleGrid(
+            f: f,
+            highlight: days.toSet(),
+            width: w,
+            columns: _gridCols(w),
+          ),
+          const SizedBox(height: Space.lg),
           if (days.isEmpty) ...[
             Text('—', style: T.cardValue.copyWith(color: c.textSecondary)),
             const SizedBox(height: Space.xxs),
@@ -730,7 +912,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final n = f.streak;
     final hidden = context.store.data.hideValues;
-    final msg = 'Meta diária: ${fmtMoney(f.idealDaily(f.current), hidden: hidden)}';
+    final msg =
+        'Meta diária: ${fmtMoney(f.idealDaily(f.current), hidden: hidden)}';
     return AppCard(
       onTap: () => push(context, const RhythmScreen()),
       titleWidget: Row(
@@ -743,9 +926,13 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   n == 1 ? '1 dia de sequência' : '$n dias de sequência',
-                  style: T.headline.copyWith(color: c.text, fontSize: w < 240 ? 16 : 20),
+                  style: T.headline.copyWith(
+                    color: c.text,
+                    fontSize: w < 240 ? 16 : 20,
+                  ),
                 ),
-                if (w >= 240) Text(msg, style: T.small.copyWith(color: c.textSecondary)),
+                if (w >= 240)
+                  Text(msg, style: T.small.copyWith(color: c.textSecondary)),
               ],
             ),
           ),
@@ -755,7 +942,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _subscriptionsCard(BuildContext context, Finance f, bool hidden, double w) {
+  Widget _subscriptionsCard(
+    BuildContext context,
+    Finance f,
+    bool hidden,
+    double w,
+  ) {
     final c = context.c;
     final subs = f.subscriptions(f.current);
     final total = subs.fold<int>(0, (s, e) => s + e.cents);
@@ -795,7 +987,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                SubscriptionBubbles(subs: subs, hidden: hidden, width: w * 0.55),
+                SubscriptionBubbles(
+                  subs: subs,
+                  hidden: hidden,
+                  width: w * 0.55,
+                ),
               ],
             ),
     );

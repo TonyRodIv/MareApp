@@ -4,11 +4,16 @@ import 'package:intl/intl.dart';
 /// do app original (0.1 + 0.2 != 0.3).
 typedef Cents = int;
 
-final _full = NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$', decimalDigits: 2);
+final _full = NumberFormat.currency(
+  locale: 'pt_BR',
+  symbol: 'R\$',
+  decimalDigits: 2,
+);
 final _num = NumberFormat.decimalPattern('pt_BR')
   ..minimumFractionDigits = 2
   ..maximumFractionDigits = 2;
-final _compact = NumberFormat.decimalPattern('pt_BR')..maximumFractionDigits = 0;
+final _compact = NumberFormat.decimalPattern('pt_BR')
+  ..maximumFractionDigits = 0;
 
 String fmtMoney(Cents c, {bool hidden = false}) {
   if (hidden) return 'R\$ •••••';

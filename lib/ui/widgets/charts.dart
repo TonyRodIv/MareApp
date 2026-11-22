@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/cycle.dart';
+import '../../core/color_engine.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../data/finance.dart';
@@ -475,5 +476,107 @@ class HistoryBars extends StatelessWidget {
       10,
     ].map((m) => m * mag).firstWhere((s) => s >= raw, orElse: () => 10 * mag));
     return [for (var i = 0; i <= 3; i++) (step * i * 100).round()];
+  }
+}
+
+/// Gastos por dia da semana (Dom–Sáb). A barra mais alta começa selecionada e
+/// qualquer barra pode ser tocada; a selecionada fica escura e mostra o valor.
+class WeekdayBars extends StatefulWidget {
+  final List<Cents> values; // 7 itens, Dom..Sáb
+  final bool hidden;
+  const WeekdayBars({super.key, required this.values, this.hidden = false});
+
+  @override
+  State<WeekdayBars> createState() => _WeekdayBarsState();
+}
+
+class _WeekdayBarsState extends State<WeekdayBars> {
+  int? _sel;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final v = widget.values;
+    final maxV = v.fold<int>(0, math.max);
+    var top = 0;
+    for (var i = 1; i < 7; i++) {
+      if (v[i] > v[top]) top = i;
+    }
+    final sel = _sel ?? top;
+    const labels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const barH = 110.0;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        for (var i = 0; i < 7; i++)
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _sel = i),
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 30,
+                    child: i == sel && v[i] > 0
+                        ? OverflowBox(
+                            maxWidth: 96,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: c.accentWarm,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                widget.hidden
+                                    ? '•••'
+                                    : 'R\$${fmtCompact(v[i])}',
+                                style: T.tiny.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: onColor(c.accentWarm),
+                                ),
+                                maxLines: 1,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 4),
+                  Container(
+                    height: barH,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    alignment: Alignment.bottomCenter,
+                    decoration: BoxDecoration(
+                      color: c.cardAlt,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: SpringBuilder(
+                      value: maxV == 0 ? 0 : v[i] / maxV,
+                      from: 0,
+                      spring: Springs.settle,
+                      builder: (_, t, _) => Container(
+                        height: math.max(14.0, barH * t.clamp(0.0, 1.05)),
+                        decoration: BoxDecoration(
+                          color: i == sel ? c.text : c.borderStrong,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    labels[i],
+                    style: T.tiny.copyWith(
+                      color: i == sel ? c.text : c.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }

@@ -81,7 +81,7 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   }
 
   // Adicionar gasto pelo botão "Gastos"
-  await tester.tap(find.widgetWithText(PillButton, 'Gastos').first);
+  await tester.tap(find.widgetWithText(CircleAction, 'Gasto').first);
   await settle(tester, 900);
   await keypad(tester, '2590'); // R$ 25,90
   await tapText(tester, 'Continuar');
@@ -101,7 +101,7 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.data.expenses.single.name, 'Almoço');
 
   // Criar caixinha (fluxo passo a passo)
-  await tester.tap(find.widgetWithText(PillButton, 'Caixinhas').first);
+  await tester.tap(find.widgetWithText(CircleAction, 'Caixinha').first);
   await settle(tester, 600);
   await keypad(tester, '10000'); // R$ 100,00 por ciclo
   await tapText(tester, 'Continuar');

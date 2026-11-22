@@ -12,16 +12,19 @@ import 'home.dart';
 import 'profile.dart';
 
 /// Navega com a transição nativa do iOS (swipe para voltar incluso).
-Future<V?> push<V>(BuildContext context, Widget page) => Navigator.of(context).push<V>(CupertinoPageRoute(builder: (_) => page));
+Future<V?> push<V>(BuildContext context, Widget page) =>
+    Navigator.of(context).push<V>(CupertinoPageRoute(builder: (_) => page));
 
 /// Abre fluxos de criação com a transição "fluida" (sobe + desfoca).
-Future<V?> pushFluid<V>(BuildContext context, Widget page) => Navigator.of(context).push<V>(FluidModalRoute(builder: (_) => page));
+Future<V?> pushFluid<V>(BuildContext context, Widget page) =>
+    Navigator.of(context).push<V>(FluidModalRoute(builder: (_) => page));
 
 /// Permite que telas filhas troquem a aba (ex.: card "Seus gastos" → Extrato).
 class ShellScope extends InheritedWidget {
   final void Function(int tab, {ExtratoFilter? filter}) goTo;
   const ShellScope({super.key, required this.goTo, required super.child});
-  static ShellScope? of(BuildContext c) => c.dependOnInheritedWidgetOfExactType<ShellScope>();
+  static ShellScope? of(BuildContext c) =>
+      c.dependOnInheritedWidgetOfExactType<ShellScope>();
   @override
   bool updateShouldNotify(ShellScope oldWidget) => false;
 }
@@ -30,7 +33,8 @@ class ShellScope extends InheritedWidget {
 /// também conseguem trocar de aba.
 class ShellNav {
   void Function(int tab, {ExtratoFilter? filter})? _impl;
-  void goTo(int tab, {ExtratoFilter? filter}) => _impl?.call(tab, filter: filter);
+  void goTo(int tab, {ExtratoFilter? filter}) =>
+      _impl?.call(tab, filter: filter);
 }
 
 final shellNav = ShellNav();
@@ -60,7 +64,12 @@ class _ShellState extends State<Shell> {
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.store;
-    final pages = [const HomeScreen(), ExtratoScreen(filter: _extratoFilter), const CaixinhasScreen(), const ProfileScreen()];
+    final pages = [
+      const HomeScreen(),
+      ExtratoScreen(filter: _extratoFilter),
+      const CaixinhasScreen(),
+      const ProfileScreen(),
+    ];
     final bottom = MediaQuery.paddingOf(context).bottom;
     return ShellScope(
       goTo: _goTo,
@@ -98,22 +107,29 @@ class _ShellState extends State<Shell> {
                       NavItem(
                         'Carteira',
                         LucideIcons.wallet,
-                        activeBuilder: (col, sz) => _FilledNavIcon(kind: 0, color: col, size: sz),
+                        activeBuilder: (col, sz) =>
+                            _FilledNavIcon(kind: 0, color: col, size: sz),
                       ),
                       NavItem(
                         'Extrato',
                         LucideIcons.receipt,
-                        activeBuilder: (col, sz) => _FilledNavIcon(kind: 1, color: col, size: sz),
+                        activeBuilder: (col, sz) =>
+                            _FilledNavIcon(kind: 1, color: col, size: sz),
                       ),
                       NavItem(
                         'Caixinhas',
                         LucideIcons.piggyBank,
-                        activeBuilder: (col, sz) => _FilledNavIcon(kind: 2, color: col, size: sz),
+                        activeBuilder: (col, sz) =>
+                            _FilledNavIcon(kind: 2, color: col, size: sz),
                       ),
                       NavItem(
                         'Seu Perfil',
                         LucideIcons.user,
-                        custom: Avatar(path: s.data.avatarPath, name: s.data.userName, size: 24),
+                        custom: Avatar(
+                          path: s.data.avatarPath,
+                          name: s.data.userName,
+                          size: 24,
+                        ),
                       ),
                     ],
                   ),
@@ -128,19 +144,29 @@ class _ShellState extends State<Shell> {
 }
 
 /// Espaço no fim das listas para não ficar atrás da barra flutuante.
-double navClearance(BuildContext context) => 66 + 40 + MediaQuery.paddingOf(context).bottom;
+double navClearance(BuildContext context) =>
+    66 + 40 + MediaQuery.paddingOf(context).bottom;
 
 /// Ícone preenchido para a aba ativa da navbar (combinando com os traços do Lucide).
 class _FilledNavIcon extends StatelessWidget {
   final int kind; // 0 = carteira, 1 = extrato, 2 = caixinhas
   final Color color;
   final double size;
-  const _FilledNavIcon({required this.kind, required this.color, required this.size});
+  const _FilledNavIcon({
+    required this.kind,
+    required this.color,
+    required this.size,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final cutout = context.c.isDark ? const Color(0xFF242427) : const Color(0xFFEBEBF0);
-    return CustomPaint(size: Size.square(size), painter: _FilledNavPainter(kind, color, cutout));
+    final cutout = context.c.isDark
+        ? const Color(0xFF242427)
+        : const Color(0xFFEBEBF0);
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _FilledNavPainter(kind, color, cutout),
+    );
   }
 }
 
@@ -159,10 +185,28 @@ class _FilledNavPainter extends CustomPainter {
 
     if (kind == 0) {
       // Carteira preenchida (estilo Lucide wallet sólido)
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.12, h * 0.18, w * 0.72, h * 0.64), Radius.circular(w * 0.14)), fill);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.12, h * 0.18, w * 0.72, h * 0.64),
+          Radius.circular(w * 0.14),
+        ),
+        fill,
+      );
       // Aba lateral do fecho
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.50, h * 0.36, w * 0.38, h * 0.28), Radius.circular(w * 0.10)), cut);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.56, h * 0.41, w * 0.30, h * 0.18), Radius.circular(w * 0.08)), fill);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.50, h * 0.36, w * 0.38, h * 0.28),
+          Radius.circular(w * 0.10),
+        ),
+        cut,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.56, h * 0.41, w * 0.30, h * 0.18),
+          Radius.circular(w * 0.08),
+        ),
+        fill,
+      );
       canvas.drawCircle(Offset(w * 0.68, h * 0.50), w * 0.055, cut);
     } else if (kind == 1) {
       // Extrato / recibo preenchido
@@ -182,30 +226,71 @@ class _FilledNavPainter extends CustomPainter {
         ..color = cutout
         ..strokeWidth = w * 0.08
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(w * 0.32, h * 0.34), Offset(w * 0.68, h * 0.34), line);
-      canvas.drawLine(Offset(w * 0.32, h * 0.50), Offset(w * 0.68, h * 0.50), line);
-      canvas.drawLine(Offset(w * 0.32, h * 0.66), Offset(w * 0.54, h * 0.66), line);
+      canvas.drawLine(
+        Offset(w * 0.32, h * 0.34),
+        Offset(w * 0.68, h * 0.34),
+        line,
+      );
+      canvas.drawLine(
+        Offset(w * 0.32, h * 0.50),
+        Offset(w * 0.68, h * 0.50),
+        line,
+      );
+      canvas.drawLine(
+        Offset(w * 0.32, h * 0.66),
+        Offset(w * 0.54, h * 0.66),
+        line,
+      );
     } else {
       // Cofrinho (piggy bank) preenchido
-      canvas.drawOval(Rect.fromLTWH(w * 0.14, h * 0.24, w * 0.64, h * 0.50), fill);
+      canvas.drawOval(
+        Rect.fromLTWH(w * 0.14, h * 0.24, w * 0.64, h * 0.50),
+        fill,
+      );
       // Focinho
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.72, h * 0.42, w * 0.16, h * 0.18), Radius.circular(w * 0.06)), fill);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.72, h * 0.42, w * 0.16, h * 0.18),
+          Radius.circular(w * 0.06),
+        ),
+        fill,
+      );
       // Orelha
-      canvas.drawOval(Rect.fromLTWH(w * 0.52, h * 0.14, w * 0.16, h * 0.18), fill);
+      canvas.drawOval(
+        Rect.fromLTWH(w * 0.52, h * 0.14, w * 0.16, h * 0.18),
+        fill,
+      );
       // Perninhas
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.26, h * 0.66, w * 0.13, h * 0.18), Radius.circular(w * 0.05)), fill);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(w * 0.54, h * 0.66, w * 0.13, h * 0.18), Radius.circular(w * 0.05)), fill);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.26, h * 0.66, w * 0.13, h * 0.18),
+          Radius.circular(w * 0.05),
+        ),
+        fill,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.54, h * 0.66, w * 0.13, h * 0.18),
+          Radius.circular(w * 0.05),
+        ),
+        fill,
+      );
       // Fenda da moeda
       final slot = Paint()
         ..color = cutout
         ..strokeWidth = w * 0.075
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(Offset(w * 0.36, h * 0.36), Offset(w * 0.54, h * 0.36), slot);
+      canvas.drawLine(
+        Offset(w * 0.36, h * 0.36),
+        Offset(w * 0.54, h * 0.36),
+        slot,
+      );
       // Olho
       canvas.drawCircle(Offset(w * 0.64, h * 0.44), w * 0.045, cut);
     }
   }
 
   @override
-  bool shouldRepaint(_FilledNavPainter old) => old.kind != kind || old.color != color || old.cutout != cutout;
+  bool shouldRepaint(_FilledNavPainter old) =>
+      old.kind != kind || old.color != color || old.cutout != cutout;
 }

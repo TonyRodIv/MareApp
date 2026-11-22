@@ -27,14 +27,23 @@ class Oklch {
   const Oklch(this.l, this.c, this.h);
 }
 
-double _toLinear(double v) => v <= 0.04045 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
-double _fromLinear(double v) => v <= 0.0031308 ? v * 12.92 : 1.055 * math.pow(v, 1 / 2.4).toDouble() - 0.055;
+double _toLinear(double v) =>
+    v <= 0.04045 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+double _fromLinear(double v) => v <= 0.0031308
+    ? v * 12.92
+    : 1.055 * math.pow(v, 1 / 2.4).toDouble() - 0.055;
 
 Oklch toOklch(Color color) {
   final r = _toLinear(color.r), g = _toLinear(color.g), b = _toLinear(color.b);
-  final l = math.pow(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 1 / 3).toDouble();
-  final m = math.pow(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 1 / 3).toDouble();
-  final s = math.pow(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b, 1 / 3).toDouble();
+  final l = math
+      .pow(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 1 / 3)
+      .toDouble();
+  final m = math
+      .pow(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 1 / 3)
+      .toDouble();
+  final s = math
+      .pow(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b, 1 / 3)
+      .toDouble();
   final lab = (
     0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s,
     1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s,
@@ -60,7 +69,8 @@ Color fromOklch(double l, double c, double h) {
     final g = -1.2684380046 * lc + 2.6097574011 * mc - 0.3413193965 * sc;
     final bl = -0.0041960863 * lc - 0.7034186147 * mc + 1.7076147010 * sc;
     const e = 0.0005;
-    if (r < -e || r > 1 + e || g < -e || g > 1 + e || bl < -e || bl > 1 + e) return null;
+    if (r < -e || r > 1 + e || g < -e || g > 1 + e || bl < -e || bl > 1 + e)
+      return null;
     double q(double v) => _fromLinear(v.clamp(0.0, 1.0));
     return Color.from(alpha: 1, red: q(r), green: q(g), blue: q(bl));
   }
@@ -98,7 +108,8 @@ Color ensureContrast(Color fg, List<Color> bgs, double min) {
   bool ok(Color c) => bgs.every((b) => contrastRatio(c, b) >= min);
   if (ok(fg)) return fg;
   final o = toOklch(fg);
-  final lighten = bgs.map((b) => b.computeLuminance()).reduce((a, b) => (a + b) / 2) < 0.35;
+  final lighten =
+      bgs.map((b) => b.computeLuminance()).reduce((a, b) => (a + b) / 2) < 0.35;
   var l = o.l;
   for (var i = 0; i < 100; i++) {
     l += lighten ? 0.01 : -0.01;
@@ -110,8 +121,11 @@ Color ensureContrast(Color fg, List<Color> bgs, double min) {
 }
 
 /// Preto ou branco (levemente tingido) conforme o que contrasta mais com [bg].
-Color onColor(Color bg, {Color light = const Color(0xFFFFFFFF), Color dark = const Color(0xFF0A0A0A)}) =>
-    contrastRatio(light, bg) >= contrastRatio(dark, bg) ? light : dark;
+Color onColor(
+  Color bg, {
+  Color light = const Color(0xFFFFFFFF),
+  Color dark = const Color(0xFF0A0A0A),
+}) => contrastRatio(light, bg) >= contrastRatio(dark, bg) ? light : dark;
 
 double hueDistance(double a, double b) {
   final d = (a - b).abs() % 360;
@@ -143,7 +157,19 @@ class TonalScale {
   Color operator [](int tone) => tones[tone]!;
 
   static const steps = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
-  static const _lightness = [0.975, 0.935, 0.87, 0.80, 0.72, 0.64, 0.55, 0.46, 0.37, 0.29, 0.21];
+  static const _lightness = [
+    0.975,
+    0.935,
+    0.87,
+    0.80,
+    0.72,
+    0.64,
+    0.55,
+    0.46,
+    0.37,
+    0.29,
+    0.21,
+  ];
 
   /// Escala gerada a partir de qualquer cor. O croma segue uma curva em sino:
   /// máximo nos tons médios, suave nos extremos (evita 50 "rosado" e 950 "lama").
@@ -153,13 +179,16 @@ class TonalScale {
     final map = <int, Color>{};
     for (var i = 0; i < steps.length; i++) {
       final l = _lightness[i];
-      final bell = (1 - math.pow((l - 0.64) / 0.50, 2)).clamp(0.18, 1.0).toDouble();
+      final bell = (1 - math.pow((l - 0.64) / 0.50, 2))
+          .clamp(0.18, 1.0)
+          .toDouble();
       map[steps[i]] = fromOklch(l, peak * bell, o.h);
     }
     // O tom mais próximo da cor original passa a ser exatamente ela.
     var nearest = 0;
     for (var i = 1; i < steps.length; i++) {
-      if ((_lightness[i] - o.l).abs() < (_lightness[nearest] - o.l).abs()) nearest = i;
+      if ((_lightness[i] - o.l).abs() < (_lightness[nearest] - o.l).abs())
+        nearest = i;
     }
     map[steps[nearest]] = seed;
     return TonalScale(map);
@@ -208,9 +237,20 @@ class PaletteSet {
   final TonalScale companion;
   final List<double> companionHues;
 
-  const PaletteSet._(this.seed, this.harmony, this.hue, this.primary, this.companion, this.companionHues);
+  const PaletteSet._(
+    this.seed,
+    this.harmony,
+    this.hue,
+    this.primary,
+    this.companion,
+    this.companionHues,
+  );
 
-  factory PaletteSet.build(Color seed, {Harmony harmony = Harmony.complementary, bool snapToFigma = true}) {
+  factory PaletteSet.build(
+    Color seed, {
+    Harmony harmony = Harmony.complementary,
+    bool snapToFigma = true,
+  }) {
     final o = toOklch(seed);
     final hue = o.h;
 
@@ -219,10 +259,13 @@ class PaletteSet {
     for (final s in Palette.allScales) {
       if (s.s500.toARGB32() == seed.toARGB32()) official = s;
     }
-    final primary = official != null ? TonalScale.fromFigma(official) : TonalScale.generate(seed);
+    final primary = official != null
+        ? TonalScale.fromFigma(official)
+        : TonalScale.generate(seed);
 
     final hues = harmony.hues(hue);
-    if (hues.isEmpty) return PaletteSet._(seed, harmony, hue, primary, primary, hues);
+    if (hues.isEmpty)
+      return PaletteSet._(seed, harmony, hue, primary, primary, hues);
 
     // Companheira: primeiro matiz da harmonia que não colida com a própria
     // família nem com as cores semânticas (vermelho = erro, verde = ok).
@@ -240,7 +283,9 @@ class PaletteSet {
         break;
       }
     }
-    comp ??= TonalScale.fromFigma(nearestFigmaScale(hues.first, exclude: banned));
+    comp ??= TonalScale.fromFigma(
+      nearestFigmaScale(hues.first, exclude: banned),
+    );
     return PaletteSet._(seed, harmony, hue, primary, comp, hues);
   }
 }

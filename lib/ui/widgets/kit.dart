@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
+import '../../data/brands.dart';
 import '../../core/color_engine.dart';
 import '../../core/theme.dart';
 import 'motion.dart' show easeOutExpo;
@@ -60,7 +61,11 @@ class _PressableState extends State<Pressable> {
           scale: _down ? widget.scale : 1,
           duration: const Duration(milliseconds: 80),
           curve: Curves.easeOut,
-          child: AnimatedOpacity(opacity: enabled ? 1 : 0.45, duration: const Duration(milliseconds: 120), child: widget.child),
+          child: AnimatedOpacity(
+            opacity: enabled ? 1 : 0.45,
+            duration: const Duration(milliseconds: 120),
+            child: widget.child,
+          ),
         ),
       ),
     );
@@ -100,7 +105,11 @@ class PillButton extends StatelessWidget {
       BtnKind.primary => (c.primary, c.onPrimary, null),
       BtnKind.secondary => (c.secondary, c.onSecondary, null),
       BtnKind.ghost => (c.card, c.text, null),
-      BtnKind.outline => (const Color(0x00000000), c.primary, Border.all(color: c.primary.withValues(alpha: 0.4), width: 1.5)),
+      BtnKind.outline => (
+        const Color(0x00000000),
+        c.primary,
+        Border.all(color: c.primary.withValues(alpha: 0.4), width: 1.5),
+      ),
       // Invertido: fundo saturado, texto dessaturado (vermelho 50).
       BtnKind.danger => (dangerFill(), Palette.red.s50, null),
     };
@@ -109,13 +118,21 @@ class PillButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (icon != null) ...[
-          Icon(icon, size: 18, color: kind == BtnKind.secondary ? c.accentWarm : fg),
+          Icon(
+            icon,
+            size: 18,
+            color: kind == BtnKind.secondary ? c.accentWarm : fg,
+          ),
           const SizedBox(width: Space.sm),
         ],
         Flexible(
           child: Text(
             label,
-            style: T.label.copyWith(fontSize: 15, fontWeight: FontWeight.w600, color: fg),
+            style: T.label.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: fg,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -131,7 +148,11 @@ class PillButton extends StatelessWidget {
       child: Container(
         height: height,
         padding: const EdgeInsets.symmetric(horizontal: Space.base),
-        decoration: BoxDecoration(color: bg, border: border, borderRadius: BorderRadius.circular(height / 2)),
+        decoration: BoxDecoration(
+          color: bg,
+          border: border,
+          borderRadius: BorderRadius.circular(height / 2),
+        ),
         child: content,
       ),
     );
@@ -145,7 +166,15 @@ class RoundIconButton extends StatelessWidget {
   final Color? bg;
   final Color? fg;
   final String? label;
-  const RoundIconButton(this.icon, {super.key, this.onTap, this.size = 48, this.bg, this.fg, this.label});
+  const RoundIconButton(
+    this.icon, {
+    super.key,
+    this.onTap,
+    this.size = 48,
+    this.bg,
+    this.fg,
+    this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +200,11 @@ class BackChevron extends StatelessWidget {
   Widget build(BuildContext context) => Pressable(
     semanticLabel: 'Voltar',
     onTap: onTap ?? () => Navigator.of(context).maybePop(),
-    child: SizedBox(width: 44, height: 44, child: Icon(LucideIcons.chevronLeft, color: context.c.text, size: 28)),
+    child: SizedBox(
+      width: 44,
+      height: 44,
+      child: Icon(LucideIcons.chevronLeft, color: context.c.text, size: 28),
+    ),
   );
 }
 
@@ -183,7 +216,14 @@ class ChipButton extends StatelessWidget {
   final bool selected;
   final IconData? icon;
   final Color? dot;
-  const ChipButton(this.label, {super.key, this.onTap, this.selected = false, this.icon, this.dot});
+  const ChipButton(
+    this.label, {
+    super.key,
+    this.onTap,
+    this.selected = false,
+    this.icon,
+    this.dot,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -194,7 +234,10 @@ class ChipButton extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: selected ? c.primary : c.card, borderRadius: BorderRadius.circular(20)),
+        decoration: BoxDecoration(
+          color: selected ? c.primary : c.card,
+          borderRadius: BorderRadius.circular(20),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -206,10 +249,16 @@ class ChipButton extends StatelessWidget {
               ),
               const SizedBox(width: 8),
             ],
-            if (icon != null) ...[Icon(icon, size: 16, color: selected ? c.onPrimary : c.text), const SizedBox(width: 6)],
+            if (icon != null) ...[
+              Icon(icon, size: 16, color: selected ? c.onPrimary : c.text),
+              const SizedBox(width: 6),
+            ],
             Text(
               label,
-              style: T.label.copyWith(fontWeight: FontWeight.w600, color: selected ? c.onPrimary : c.text),
+              style: T.label.copyWith(
+                fontWeight: FontWeight.w600,
+                color: selected ? c.onPrimary : c.text,
+              ),
             ),
           ],
         ),
@@ -231,11 +280,17 @@ class Tag extends StatelessWidget {
     final color = fg ?? c.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: bg ?? c.cardAlt, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: bg ?? c.cardAlt,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (icon != null) ...[Icon(icon, size: 13, color: color), const SizedBox(width: 4)],
+          if (icon != null) ...[
+            Icon(icon, size: 13, color: color),
+            const SizedBox(width: 4),
+          ],
           Text(
             label,
             style: T.small.copyWith(color: color, fontWeight: FontWeight.w500),
@@ -278,8 +333,18 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? c.card,
         borderRadius: BorderRadius.circular(Space.radiusCard),
-        border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65)),
-        boxShadow: c.isDark ? null : const [BoxShadow(color: Color(0x0A0A0D12), blurRadius: 8, offset: Offset(0, 2))],
+        border: Border.all(
+          color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
+        ),
+        boxShadow: c.isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x0A0A0D12),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,12 +358,20 @@ class AppCard extends StatelessWidget {
                       titleWidget ??
                       Text(
                         title!,
-                        style: T.label.copyWith(color: c.text, fontWeight: FontWeight.w500),
+                        style: T.label.copyWith(
+                          color: c.text,
+                          fontWeight: FontWeight.w500,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                 ),
-                if (onTap != null) Icon(LucideIcons.arrowUpRight, size: 18, color: c.textSecondary),
+                if (onTap != null)
+                  Icon(
+                    LucideIcons.arrowUpRight,
+                    size: 18,
+                    color: c.textSecondary,
+                  ),
               ],
             ),
           if (hasHeader) const SizedBox(height: Space.md),
@@ -306,7 +379,9 @@ class AppCard extends StatelessWidget {
         ],
       ),
     );
-    return onTap == null ? body : Pressable(onTap: onTap, scale: 0.985, child: body);
+    return onTap == null
+        ? body
+        : Pressable(onTap: onTap, scale: 0.985, child: body);
   }
 }
 
@@ -317,7 +392,14 @@ class MoneyText extends StatelessWidget {
   final bool hidden;
   final Color? color;
   final bool signed;
-  const MoneyText(this.cents, {super.key, required this.style, this.hidden = false, this.color, this.signed = false});
+  const MoneyText(
+    this.cents, {
+    super.key,
+    required this.style,
+    this.hidden = false,
+    this.color,
+    this.signed = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -333,7 +415,10 @@ class MoneyText extends StatelessWidget {
         alignment: Alignment.centerLeft,
         child: Text(
           formatted,
-          style: style.copyWith(color: col, fontFeatures: const [ui.FontFeature.tabularFigures()]),
+          style: style.copyWith(
+            color: col,
+            fontFeatures: const [ui.FontFeature.tabularFigures()],
+          ),
           maxLines: 1,
         ),
       ),
@@ -347,7 +432,12 @@ class Segmented<V extends Object> extends StatelessWidget {
   final V value;
   final Map<V, String> options;
   final ValueChanged<V> onChanged;
-  const Segmented({super.key, required this.value, required this.options, required this.onChanged});
+  const Segmented({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +462,9 @@ class Segmented<V extends Object> extends StatelessWidget {
                 e.value,
                 style: T.label.copyWith(
                   color: e.key == value ? c.onPrimary : c.textSecondary,
-                  fontWeight: e.key == value ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: e.key == value
+                      ? FontWeight.w600
+                      : FontWeight.w400,
                 ),
               ),
             ),
@@ -444,13 +536,28 @@ class AppField extends StatelessWidget {
       cursorColor: c.accent,
       style: T.body.copyWith(color: c.text),
       placeholderStyle: T.body.copyWith(color: c.textTertiary),
-      padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
-      prefix: prefix == null ? null : Padding(padding: const EdgeInsets.only(left: Space.base), child: prefix),
-      suffix: suffix == null ? null : Padding(padding: const EdgeInsets.only(right: Space.md), child: suffix),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.base,
+        vertical: Space.base,
+      ),
+      prefix: prefix == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(left: Space.base),
+              child: prefix,
+            ),
+      suffix: suffix == null
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(right: Space.md),
+              child: suffix,
+            ),
       decoration: BoxDecoration(
         color: c.card,
         borderRadius: BorderRadius.circular(Space.radiusField),
-        border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.55 : 0.75)),
+        border: Border.all(
+          color: c.border.withValues(alpha: c.isDark ? 0.55 : 0.75),
+        ),
       ),
     );
   }
@@ -462,7 +569,13 @@ class SelectField extends StatelessWidget {
   final String placeholder;
   final VoidCallback onTap;
   final Widget? leading;
-  const SelectField({super.key, this.value, required this.placeholder, required this.onTap, this.leading});
+  const SelectField({
+    super.key,
+    this.value,
+    required this.placeholder,
+    required this.onTap,
+    this.leading,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -473,14 +586,19 @@ class SelectField extends StatelessWidget {
       child: Container(
         height: 56,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(Space.radiusField)),
+        decoration: BoxDecoration(
+          color: c.card,
+          borderRadius: BorderRadius.circular(Space.radiusField),
+        ),
         child: Row(
           children: [
             if (leading != null) ...[leading!, const SizedBox(width: 12)],
             Expanded(
               child: Text(
                 value ?? placeholder,
-                style: T.body.copyWith(color: value == null ? c.textTertiary : c.text),
+                style: T.body.copyWith(
+                  color: value == null ? c.textTertiary : c.text,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -495,23 +613,84 @@ class SelectField extends StatelessWidget {
 
 // ── Ícone de categoria / caixinha ───────────────────────────
 
+/// Ícone num círculo de cor saturada, com o glifo em branco ou preto (o que
+/// contrastar mais). Com `solid: false` volta ao fundo suave tingido.
 class IconBadge extends StatelessWidget {
   final IconData icon;
   final Color color;
   final double size;
   final bool solid;
-  const IconBadge(this.icon, this.color, {super.key, this.size = 44, this.solid = false});
+  const IconBadge(
+    this.icon,
+    this.color, {
+    super.key,
+    this.size = 44,
+    this.solid = true,
+  });
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: size,
-    height: size,
-    decoration: BoxDecoration(
-      color: solid ? color : color.withValues(alpha: context.c.isDark ? 0.18 : 0.14),
-      borderRadius: BorderRadius.circular(size * 0.32),
-    ),
-    child: Icon(icon, size: size * 0.48, color: solid ? Palette.neutral0 : context.c.tone(color)),
-  );
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final fill = solid
+        ? color
+        : color.withValues(alpha: c.isDark ? 0.18 : 0.14);
+    final fg = solid
+        ? onColor(color, light: Palette.neutral0, dark: const Color(0xFF0A0A0A))
+        : c.tone(color);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+      child: Icon(icon, size: size * 0.5, color: fg),
+    );
+  }
+}
+
+/// Logo da marca (quando o nome do gasto cita uma conhecida) num círculo claro;
+/// senão, o ícone saturado da categoria. Também cai no ícone se estiver sem rede.
+class BrandLogo extends StatelessWidget {
+  final String name;
+  final IconData icon;
+  final Color color;
+  final double size;
+  const BrandLogo({
+    super.key,
+    required this.name,
+    required this.icon,
+    required this.color,
+    this.size = 40,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = IconBadge(icon, color, size: size);
+    final domain = brandDomainFor(name);
+    if (domain == null) return fallback;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Container(
+        padding: EdgeInsets.all(size * 0.2),
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFFFFF),
+          shape: BoxShape.circle,
+        ),
+        child: Image.network(
+          brandLogoUrl(domain),
+          fit: BoxFit.contain,
+          gaplessPlayback: true,
+          errorBuilder: (_, _, _) => fallback,
+          frameBuilder: (ctx, child, frame, sync) => frame == null && !sync
+              ? fallback
+              : AnimatedOpacity(
+                  opacity: 1,
+                  duration: const Duration(milliseconds: 200),
+                  child: child,
+                ),
+        ),
+      ),
+    );
+  }
 }
 
 // ── Avatar ──────────────────────────────────────────────────
@@ -526,22 +705,37 @@ class Avatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final initials = name.trim().isEmpty
         ? ''
-        : name.trim().split(RegExp(r'\s+')).take(2).map((p) => p.characters.first.toUpperCase()).join();
+        : name
+              .trim()
+              .split(RegExp(r'\s+'))
+              .take(2)
+              .map((p) => p.characters.first.toUpperCase())
+              .join();
     final file = path == null ? null : File(path!);
     final hasImg = file != null && file.existsSync();
     return Container(
       width: size,
       height: size,
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: Palette.brandDeep),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Palette.brandDeep,
+      ),
       child: hasImg
           ? Image.file(file, fit: BoxFit.cover, width: size, height: size)
           : Center(
               child: initials.isEmpty
-                  ? Icon(LucideIcons.user, color: Palette.brandSky, size: size * 0.45)
+                  ? Icon(
+                      LucideIcons.user,
+                      color: Palette.brandSky,
+                      size: size * 0.45,
+                    )
                   : Text(
                       initials,
-                      style: T.bodyStrong.copyWith(fontSize: size * 0.36, color: Palette.brandSky),
+                      style: T.bodyStrong.copyWith(
+                        fontSize: size * 0.36,
+                        color: Palette.brandSky,
+                      ),
                     ),
             ),
     );
@@ -556,7 +750,8 @@ class MareMark extends StatelessWidget {
   final bool onDark;
   const MareMark({super.key, this.size = 32, this.onDark = true});
   @override
-  Widget build(BuildContext context) => CustomPaint(size: Size.square(size), painter: _MarkPainter(onDark));
+  Widget build(BuildContext context) =>
+      CustomPaint(size: Size.square(size), painter: _MarkPainter(onDark));
 }
 
 class _MarkPainter extends CustomPainter {
@@ -565,20 +760,42 @@ class _MarkPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size s) {
     final r = s.width / 2;
-    final circle = Path()..addOval(Rect.fromCircle(center: Offset(r, r), radius: r));
+    final circle = Path()
+      ..addOval(Rect.fromCircle(center: Offset(r, r), radius: r));
     canvas.save();
     canvas.clipPath(circle);
-    canvas.drawRect(Offset.zero & s, Paint()..color = onDark ? Palette.brandMist.withValues(alpha: 0.85) : Palette.brandDeep);
+    canvas.drawRect(
+      Offset.zero & s,
+      Paint()
+        ..color = onDark
+            ? Palette.brandMist.withValues(alpha: 0.85)
+            : Palette.brandDeep,
+    );
     final y = s.height * 0.52;
     Path wave(double dy) => Path()
       ..moveTo(0, y + dy)
-      ..cubicTo(s.width * 0.25, y - s.height * 0.12 + dy, s.width * 0.5, y + s.height * 0.12 + dy, s.width * 0.75, y + dy)
-      ..quadraticBezierTo(s.width * 0.9, y - s.height * 0.08 + dy, s.width, y - s.height * 0.02 + dy)
+      ..cubicTo(
+        s.width * 0.25,
+        y - s.height * 0.12 + dy,
+        s.width * 0.5,
+        y + s.height * 0.12 + dy,
+        s.width * 0.75,
+        y + dy,
+      )
+      ..quadraticBezierTo(
+        s.width * 0.9,
+        y - s.height * 0.08 + dy,
+        s.width,
+        y - s.height * 0.02 + dy,
+      )
       ..lineTo(s.width, s.height)
       ..lineTo(0, s.height)
       ..close();
     canvas.drawPath(wave(-s.height * 0.03), Paint()..color = Palette.brandDot);
-    canvas.drawPath(wave(s.height * 0.02), Paint()..color = onDark ? Palette.brandDeep : Palette.brandSky);
+    canvas.drawPath(
+      wave(s.height * 0.02),
+      Paint()..color = onDark ? Palette.brandDeep : Palette.brandSky,
+    );
     canvas.restore();
   }
 
@@ -600,11 +817,20 @@ class MareWordmark extends StatelessWidget {
         children: [
           TextSpan(
             text: 'maré',
-            style: T.headline.copyWith(fontSize: size, fontWeight: FontWeight.w700, color: color ?? context.c.text, letterSpacing: -0.3),
+            style: T.headline.copyWith(
+              fontSize: size,
+              fontWeight: FontWeight.w700,
+              color: color ?? context.c.text,
+              letterSpacing: -0.3,
+            ),
           ),
           TextSpan(
             text: '.',
-            style: T.headline.copyWith(fontSize: size, fontWeight: FontWeight.w700, color: Palette.brandDot),
+            style: T.headline.copyWith(
+              fontSize: size,
+              fontWeight: FontWeight.w700,
+              color: Palette.brandDot,
+            ),
           ),
         ],
       ),
@@ -617,49 +843,50 @@ class MareWordmark extends StatelessWidget {
 class GlowBackground extends StatelessWidget {
   final double height;
   final Color? tint;
-  const GlowBackground({super.key, this.height = 540, this.tint});
+  const GlowBackground({super.key, this.height = 420, this.tint});
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final a = tint ?? c.primary;
+    // No escuro usa o tom profundo da cor (primarySoft) em vez do tom 500 vivo: o
+    // brilho vira um "ar" da cor, sem competir com o texto branco. O degradê
+    // termina exatamente em c.bg, então emenda sem linha com o resto da tela e
+    // com o blur progressivo da barra de cima.
+    final base = tint ?? (c.isDark ? c.primarySoft : c.primary);
+    final warm = c.isDark ? c.secondary : c.accentWarm;
     return IgnorePointer(
-      child: ShaderMask(
-        shaderCallback: (bounds) => const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFFFFF),
-            Color(0xD9FFFFFF),
-            Color(0x73FFFFFF),
-            Color(0x1FFFFFFF),
-            Color(0x00FFFFFF),
-          ],
-          stops: [0.0, 0.28, 0.56, 0.80, 1.0],
-        ).createShader(bounds),
-        blendMode: BlendMode.dstIn,
-        child: Container(
-          height: height,
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: const Alignment(0.75, -1.05),
-              radius: 1.45,
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [
-                a.withValues(alpha: c.isDark ? 0.44 : 0.28),
-                a.withValues(alpha: c.isDark ? 0.18 : 0.10),
-                a.withValues(alpha: 0),
+                Color.alphaBlend(
+                  base.withValues(alpha: c.isDark ? 0.80 : 0.22),
+                  c.bg,
+                ),
+                Color.alphaBlend(
+                  base.withValues(alpha: c.isDark ? 0.34 : 0.09),
+                  c.bg,
+                ),
+                c.bg,
               ],
               stops: const [0.0, 0.55, 1.0],
             ),
           ),
-          foregroundDecoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: const Alignment(-1.0, -0.7),
-              radius: 1.25,
-              colors: [
-                c.accentWarm.withValues(alpha: c.isDark ? 0.18 : 0.12),
-                c.accentWarm.withValues(alpha: 0),
-              ],
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-1.05, -0.9),
+                radius: 1.0,
+                colors: [
+                  warm.withValues(alpha: c.isDark ? 0.28 : 0.12),
+                  warm.withValues(alpha: 0),
+                ],
+              ),
             ),
           ),
         ),
@@ -695,7 +922,9 @@ class ProgressiveBlur extends StatefulWidget {
     _loadAttempted = true;
     if (!ui.ImageFilter.isShaderFilterSupported) return;
     try {
-      _program = await ui.FragmentProgram.fromAsset('shaders/progressive_blur.frag');
+      _program = await ui.FragmentProgram.fromAsset(
+        'shaders/progressive_blur.frag',
+      );
     } catch (_) {
       _program = null;
     }
@@ -767,32 +996,40 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              LayoutBuilder(builder: (context, box) {
-                final h = box.maxHeight;
-                final stripH = h / strips;
-                return Stack(children: [
-                  for (var i = 0; i < strips; i++)
-                    () {
-                      // t = 1 na borda externa, 0 na interna
-                      final centre = (i + 0.5) / strips;
-                      final t = fromTop ? 1 - centre : centre;
-                      final sigma = widget.maxSigma * 0.8 * t * t * t;
-                      if (sigma < 0.4) return const SizedBox.shrink();
-                      return Positioned(
-                        left: 0,
-                        right: 0,
-                        top: i * stripH,
-                        height: stripH + 0.5,
-                        child: ClipRect(
-                          child: BackdropFilter(
-                            filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp),
-                            child: const SizedBox.expand(),
-                          ),
-                        ),
-                      );
-                    }(),
-                ]);
-              }),
+              LayoutBuilder(
+                builder: (context, box) {
+                  final h = box.maxHeight;
+                  final stripH = h / strips;
+                  return Stack(
+                    children: [
+                      for (var i = 0; i < strips; i++)
+                        () {
+                          // t = 1 na borda externa, 0 na interna
+                          final centre = (i + 0.5) / strips;
+                          final t = fromTop ? 1 - centre : centre;
+                          final sigma = widget.maxSigma * 0.8 * t * t * t;
+                          if (sigma < 0.4) return const SizedBox.shrink();
+                          return Positioned(
+                            left: 0,
+                            right: 0,
+                            top: i * stripH,
+                            height: stripH + 0.5,
+                            child: ClipRect(
+                              child: BackdropFilter(
+                                filter: ui.ImageFilter.blur(
+                                  sigmaX: sigma,
+                                  sigmaY: sigma,
+                                  tileMode: TileMode.clamp,
+                                ),
+                                child: const SizedBox.expand(),
+                              ),
+                            ),
+                          );
+                        }(),
+                    ],
+                  );
+                },
+              ),
               scrim,
             ],
           ),
@@ -823,14 +1060,24 @@ class PinnedCupertinoBar extends StatelessWidget {
   final double height;
   final double? maxWidth;
   final Widget Function(BuildContext context, double progress) builder;
-  const PinnedCupertinoBar({super.key, this.height = 64, this.maxWidth, required this.builder});
+  const PinnedCupertinoBar({
+    super.key,
+    this.height = 64,
+    this.maxWidth,
+    required this.builder,
+  });
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     return SliverPersistentHeader(
       pinned: true,
-      delegate: _PinnedBarDelegate(top: top, height: height, maxWidth: maxWidth, builder: builder),
+      delegate: _PinnedBarDelegate(
+        top: top,
+        height: height,
+        maxWidth: maxWidth,
+        builder: builder,
+      ),
     );
   }
 }
@@ -840,7 +1087,12 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
   final double height;
   final double? maxWidth;
   final Widget Function(BuildContext context, double progress) builder;
-  _PinnedBarDelegate({required this.top, required this.height, this.maxWidth, required this.builder});
+  _PinnedBarDelegate({
+    required this.top,
+    required this.height,
+    this.maxWidth,
+    required this.builder,
+  });
 
   @override
   double get minExtent => top + height;
@@ -849,10 +1101,18 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => top + height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     final c = context.c;
-    final progress = overlapsContent ? 1.0 : (shrinkOffset / 24).clamp(0.0, 1.0);
-    final pad = maxWidth == null ? sidePadding(context) : sidePadding(context, maxWidth: maxWidth!);
+    final progress = overlapsContent
+        ? 1.0
+        : (shrinkOffset / 24).clamp(0.0, 1.0);
+    final pad = maxWidth == null
+        ? sidePadding(context)
+        : sidePadding(context, maxWidth: maxWidth!);
     return Stack(
       fit: StackFit.expand,
       clipBehavior: Clip.none,
@@ -879,7 +1139,8 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
   }
 
   @override
-  bool shouldRebuild(_PinnedBarDelegate old) => old.top != top || old.height != height || old.maxWidth != maxWidth;
+  bool shouldRebuild(_PinnedBarDelegate old) =>
+      old.top != top || old.height != height || old.maxWidth != maxWidth;
 }
 
 // ── Estado vazio ────────────────────────────────────────────
@@ -890,18 +1151,30 @@ class EmptyState extends StatelessWidget {
   final String? message;
   final String? action;
   final VoidCallback? onAction;
-  const EmptyState({super.key, required this.icon, required this.title, this.message, this.action, this.onAction});
+  const EmptyState({
+    super.key,
+    required this.icon,
+    required this.title,
+    this.message,
+    this.action,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: Space.xl, horizontal: Space.lg),
+      padding: const EdgeInsets.symmetric(
+        vertical: Space.xl,
+        horizontal: Space.lg,
+      ),
       decoration: BoxDecoration(
         color: c.card,
         borderRadius: BorderRadius.circular(Space.radiusCard),
-        border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7)),
+        border: Border.all(
+          color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -909,7 +1182,10 @@ class EmptyState extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
-            decoration: BoxDecoration(color: c.primarySoft, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: c.primarySoft,
+              shape: BoxShape.circle,
+            ),
             child: Icon(icon, color: c.accent, size: 24),
           ),
           const SizedBox(height: Space.base),
@@ -951,19 +1227,37 @@ Future<bool> confirm(
       final c = ctx.c;
       final bottom = MediaQuery.paddingOf(ctx).bottom;
       return Padding(
-        padding: EdgeInsets.fromLTRB(Space.md, 0, Space.md, (bottom > 0 ? bottom : Space.md) + Space.xs),
+        padding: EdgeInsets.fromLTRB(
+          Space.md,
+          0,
+          Space.md,
+          (bottom > 0 ? bottom : Space.md) + Space.xs,
+        ),
         child: Center(
           heightFactor: 1,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.lg),
+              padding: const EdgeInsets.fromLTRB(
+                Space.lg,
+                Space.md,
+                Space.lg,
+                Space.lg,
+              ),
               decoration: BoxDecoration(
                 color: c.card,
                 borderRadius: BorderRadius.circular(32),
-                border: c.isDark ? Border.all(color: c.border.withValues(alpha: 0.6)) : null,
-                boxShadow: const [BoxShadow(color: Color(0x28000000), blurRadius: 32, offset: Offset(0, 12))],
+                border: c.isDark
+                    ? Border.all(color: c.border.withValues(alpha: 0.6))
+                    : null,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x28000000),
+                    blurRadius: 32,
+                    offset: Offset(0, 12),
+                  ),
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -973,19 +1267,28 @@ Future<bool> confirm(
                     child: Container(
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: c.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                   const SizedBox(height: Space.lg),
                   Text(
                     title,
-                    style: T.headline.copyWith(color: c.text, decoration: TextDecoration.none),
+                    style: T.headline.copyWith(
+                      color: c.text,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                   if (message != null) ...[
                     const SizedBox(height: Space.sm),
                     Text(
                       message,
-                      style: T.label.copyWith(color: c.textSecondary, decoration: TextDecoration.none),
+                      style: T.label.copyWith(
+                        color: c.textSecondary,
+                        decoration: TextDecoration.none,
+                      ),
                     ),
                   ],
                   const SizedBox(height: Space.lg),
@@ -1026,13 +1329,24 @@ class SheetAction<V> {
   final V value;
   final bool destructive;
   final IconData? icon;
-  const SheetAction(this.label, this.value, {this.destructive = false, this.icon});
+  const SheetAction(
+    this.label,
+    this.value, {
+    this.destructive = false,
+    this.icon,
+  });
 }
 
 /// Rota modal flutuante com blur progressivo rápido na entrada (220ms) e saída (150ms),
 /// garantindo que o blur do fundo desapareça imediatamente junto com o sheet.
-Future<V?> _showFloatingModal<V>(BuildContext context, {required WidgetBuilder builder}) {
-  return Navigator.of(context, rootNavigator: true).push<V>(_FloatingModalRoute<V>(builder: builder));
+Future<V?> _showFloatingModal<V>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) {
+  return Navigator.of(
+    context,
+    rootNavigator: true,
+  ).push<V>(_FloatingModalRoute<V>(builder: builder));
 }
 
 class _FloatingModalRoute<V> extends PopupRoute<V> {
@@ -1055,16 +1369,29 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
   Duration get reverseTransitionDuration => const Duration(milliseconds: 280);
 
   @override
-  Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
+  Widget buildPage(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+  ) {
     return Align(alignment: Alignment.bottomCenter, child: builder(context));
   }
 
   @override
-  Widget buildTransitions(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation, Widget child) {
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
     // Entrada em ease-out expo (rápida no início, assenta devagar); saída mais
     // curta em ease-in. O blur do fundo acompanha o MESMO valor da animação: sai de
     // 0 e volta a 0, em vez de ficar num sigma fixo só esmaecendo.
-    final curve = CurvedAnimation(parent: animation, curve: easeOutExpo, reverseCurve: Curves.easeInCubic);
+    final curve = CurvedAnimation(
+      parent: animation,
+      curve: easeOutExpo,
+      reverseCurve: Curves.easeInCubic,
+    );
     return Stack(
       children: [
         Positioned.fill(
@@ -1076,18 +1403,34 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
               builder: (_, _) {
                 final t = curve.value.clamp(0.0, 1.0);
                 final sigma = 7.0 * t;
-                final scrim = ColoredBox(color: const Color(0xFF000000).withValues(alpha: 0.34 * t));
+                final scrim = ColoredBox(
+                  color: const Color(0xFF000000).withValues(alpha: 0.34 * t),
+                );
                 if (sigma < 0.3) return scrim;
-                return BackdropFilter(filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma, tileMode: TileMode.clamp), child: scrim);
+                return BackdropFilter(
+                  filter: ui.ImageFilter.blur(
+                    sigmaX: sigma,
+                    sigmaY: sigma,
+                    tileMode: TileMode.clamp,
+                  ),
+                  child: scrim,
+                );
               },
             ),
           ),
         ),
         RepaintBoundary(
           child: SlideTransition(
-            position: Tween(begin: const Offset(0, 0.32), end: Offset.zero).animate(curve),
+            position: Tween(
+              begin: const Offset(0, 0.32),
+              end: Offset.zero,
+            ).animate(curve),
             child: FadeTransition(
-              opacity: CurvedAnimation(parent: animation, curve: const Interval(0, 0.45, curve: Curves.easeOut), reverseCurve: const Interval(0.35, 1, curve: Curves.easeIn)),
+              opacity: CurvedAnimation(
+                parent: animation,
+                curve: const Interval(0, 0.45, curve: Curves.easeOut),
+                reverseCurve: const Interval(0.35, 1, curve: Curves.easeIn),
+              ),
               child: ScaleTransition(
                 scale: Tween(begin: 0.97, end: 1.0).animate(curve),
                 alignment: Alignment.bottomCenter,
@@ -1102,26 +1445,49 @@ class _FloatingModalRoute<V> extends PopupRoute<V> {
 }
 
 /// Bottom sheet flutuante e arredondado (com blur progressivo no fundo, opções limpas sem linhas e botão pill na base).
-Future<V?> actionSheet<V>(BuildContext context, {String? title, String? message, required List<SheetAction<V>> actions}) {
+Future<V?> actionSheet<V>(
+  BuildContext context, {
+  String? title,
+  String? message,
+  required List<SheetAction<V>> actions,
+}) {
   return _showFloatingModal<V>(
     context,
     builder: (ctx) {
       final c = ctx.c;
       final bottom = MediaQuery.paddingOf(ctx).bottom;
       return Padding(
-        padding: EdgeInsets.fromLTRB(Space.md, 0, Space.md, (bottom > 0 ? bottom : Space.md) + Space.xs),
+        padding: EdgeInsets.fromLTRB(
+          Space.md,
+          0,
+          Space.md,
+          (bottom > 0 ? bottom : Space.md) + Space.xs,
+        ),
         child: Center(
           heightFactor: 1,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(Space.lg, Space.md, Space.lg, Space.lg),
+              padding: const EdgeInsets.fromLTRB(
+                Space.lg,
+                Space.md,
+                Space.lg,
+                Space.lg,
+              ),
               decoration: BoxDecoration(
                 color: c.card,
                 borderRadius: BorderRadius.circular(32),
-                border: c.isDark ? Border.all(color: c.border.withValues(alpha: 0.6)) : null,
-                boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 32, offset: Offset(0, 12))],
+                border: c.isDark
+                    ? Border.all(color: c.border.withValues(alpha: 0.6))
+                    : null,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    blurRadius: 32,
+                    offset: Offset(0, 12),
+                  ),
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1131,7 +1497,10 @@ Future<V?> actionSheet<V>(BuildContext context, {String? title, String? message,
                     child: Container(
                       width: 40,
                       height: 4,
-                      decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)),
+                      decoration: BoxDecoration(
+                        color: c.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
                   if (title != null || message != null) ...[
@@ -1139,13 +1508,19 @@ Future<V?> actionSheet<V>(BuildContext context, {String? title, String? message,
                     if (title != null)
                       Text(
                         title,
-                        style: T.headline.copyWith(color: c.text, decoration: TextDecoration.none),
+                        style: T.headline.copyWith(
+                          color: c.text,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     if (message != null) ...[
                       const SizedBox(height: Space.xs),
                       Text(
                         message,
-                        style: T.label.copyWith(color: c.textSecondary, decoration: TextDecoration.none),
+                        style: T.label.copyWith(
+                          color: c.textSecondary,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
                     ],
                     const SizedBox(height: Space.md),
@@ -1210,7 +1585,11 @@ class _FloatingSheetRow<V> extends StatelessWidget {
             Expanded(
               child: Text(
                 action.label,
-                style: T.body.copyWith(color: fg, fontWeight: FontWeight.w500, decoration: TextDecoration.none),
+                style: T.body.copyWith(
+                  color: fg,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.none,
+                ),
               ),
             ),
           ],
@@ -1237,21 +1616,37 @@ Future<V?> showSheet<V>(
         return Center(
           heightFactor: 1,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 640, maxHeight: mq.size.height * 0.92),
+            constraints: BoxConstraints(
+              maxWidth: 640,
+              maxHeight: mq.size.height * 0.92,
+            ),
             child: Container(
               width: double.infinity,
-              padding: EdgeInsets.only(bottom: mq.viewInsets.bottom + mq.padding.bottom),
+              padding: EdgeInsets.only(
+                bottom: mq.viewInsets.bottom + mq.padding.bottom,
+              ),
               decoration: BoxDecoration(
                 color: color ?? c.bg,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                border: Border(top: BorderSide(color: c.border.withValues(alpha: 0.6))),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(32),
+                ),
+                border: Border(
+                  top: BorderSide(color: c.border.withValues(alpha: 0.6)),
+                ),
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(height: Space.md),
-                  Container(width: 40, height: 4, decoration: BoxDecoration(color: c.borderStrong, borderRadius: BorderRadius.circular(2))),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: c.borderStrong,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                   Flexible(child: builder(ctx)),
                 ],
               ),
@@ -1269,17 +1664,33 @@ Future<V?> showSheet<V>(
       final mq = MediaQuery.of(ctx);
       final bottom = mq.padding.bottom;
       return Padding(
-        padding: EdgeInsets.fromLTRB(Space.md, Space.xl, Space.md, mq.viewInsets.bottom + (bottom > 0 ? bottom : Space.md)),
+        padding: EdgeInsets.fromLTRB(
+          Space.md,
+          Space.xl,
+          Space.md,
+          mq.viewInsets.bottom + (bottom > 0 ? bottom : Space.md),
+        ),
         child: Center(
           heightFactor: 1,
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: 480, maxHeight: mq.size.height * 0.86),
+            constraints: BoxConstraints(
+              maxWidth: 480,
+              maxHeight: mq.size.height * 0.86,
+            ),
             child: Container(
               decoration: BoxDecoration(
                 color: color ?? c.bg,
                 borderRadius: BorderRadius.circular(32),
-                border: c.isDark ? Border.all(color: c.border.withValues(alpha: 0.6)) : null,
-                boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 32, offset: Offset(0, 12))],
+                border: c.isDark
+                    ? Border.all(color: c.border.withValues(alpha: 0.6))
+                    : null,
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    blurRadius: 32,
+                    offset: Offset(0, 12),
+                  ),
+                ],
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -1289,7 +1700,10 @@ Future<V?> showSheet<V>(
                   Container(
                     width: 40,
                     height: 4,
-                    decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)),
+                    decoration: BoxDecoration(
+                      color: c.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                   Flexible(child: builder(ctx)),
                 ],
@@ -1302,12 +1716,21 @@ Future<V?> showSheet<V>(
   );
 }
 
-void toast(BuildContext context, String message, {IconData icon = LucideIcons.check}) {
+void toast(
+  BuildContext context,
+  String message, {
+  IconData icon = LucideIcons.check,
+}) {
   final overlay = Overlay.of(context, rootOverlay: true);
   final c = context.c;
   late OverlayEntry entry;
   entry = OverlayEntry(
-    builder: (ctx) => _Toast(message: message, icon: icon, colors: c, onDone: () => entry.remove()),
+    builder: (ctx) => _Toast(
+      message: message,
+      icon: icon,
+      colors: c,
+      onDone: () => entry.remove(),
+    ),
   );
   overlay.insert(entry);
 }
@@ -1317,13 +1740,21 @@ class _Toast extends StatefulWidget {
   final IconData icon;
   final AppColors colors;
   final VoidCallback onDone;
-  const _Toast({required this.message, required this.icon, required this.colors, required this.onDone});
+  const _Toast({
+    required this.message,
+    required this.icon,
+    required this.colors,
+    required this.onDone,
+  });
   @override
   State<_Toast> createState() => _ToastState();
 }
 
 class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
-  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(milliseconds: 260));
+  late final AnimationController _a = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 260),
+  );
 
   @override
   void initState() {
@@ -1352,16 +1783,28 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
       child: FadeTransition(
         opacity: _a,
         child: SlideTransition(
-          position: Tween(begin: const Offset(0, -0.4), end: Offset.zero).animate(CurvedAnimation(parent: _a, curve: Curves.easeOutCubic)),
+          position: Tween(
+            begin: const Offset(0, -0.4),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: _a, curve: Curves.easeOutCubic)),
           child: Semantics(
             liveRegion: true,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: c.isDark ? c.surfaceHigh : c.text,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 6))],
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 16,
+                      offset: Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1371,7 +1814,10 @@ class _ToastState extends State<_Toast> with SingleTickerProviderStateMixin {
                     Flexible(
                       child: Text(
                         widget.message,
-                        style: T.label.copyWith(color: Palette.neutral0, decoration: TextDecoration.none),
+                        style: T.label.copyWith(
+                          color: Palette.neutral0,
+                          decoration: TextDecoration.none,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -1393,11 +1839,23 @@ class SectionHeader extends StatelessWidget {
   const SectionHeader(this.text, {super.key, this.trailing});
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(Space.xs, Space.lg, Space.xs, Space.sm),
+    padding: const EdgeInsets.fromLTRB(
+      Space.base,
+      Space.lg,
+      Space.base,
+      Space.md,
+    ),
     child: Row(
       children: [
         Expanded(
-          child: Text(text, style: T.label.copyWith(color: context.c.textSecondary, fontWeight: FontWeight.w600)),
+          child: Text(
+            text,
+            style: T.bodyStrong.copyWith(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: context.c.textSecondary,
+            ),
+          ),
         ),
         ?trailing,
       ],
@@ -1420,4 +1878,159 @@ double sidePadding(BuildContext context, {double maxWidth = 760}) {
   return math.max(Space.gutter, (w - maxWidth) / 2);
 }
 
-bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
+bool isWide(BuildContext context) =>
+    MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
+
+// ── Lista agrupada (Figma 460:2951) ─────────────────────────
+
+/// Um cartão único com linhas de 40px, ícone circular, nome à esquerda e valor
+/// ou seta à direita. Sem divisórias: o respiro de 20px separa as linhas.
+class ListGroup extends StatelessWidget {
+  final String? title;
+  final Widget? trailing;
+  final List<Widget> children;
+  const ListGroup({
+    super.key,
+    this.title,
+    this.trailing,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (title != null) SectionHeader(title!, trailing: trailing),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: c.card,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const SizedBox(height: 20),
+                children[i],
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class ListRow extends StatelessWidget {
+  final Widget leading;
+  final String title;
+  final String? subtitle;
+  final String? value;
+  final Color? valueColor;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool arrow;
+  const ListRow({
+    super.key,
+    required this.leading,
+    required this.title,
+    this.subtitle,
+    this.value,
+    this.valueColor,
+    this.trailing,
+    this.onTap,
+    this.arrow = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final row = SizedBox(
+      width: double.infinity,
+      child: Row(
+        children: [
+          leading,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: T.body.copyWith(fontSize: 15, color: c.text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: T.small.copyWith(color: c.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          if (value != null) ...[
+            const SizedBox(width: 10),
+            Text(
+              value!,
+              style: T.bodyStrong.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: valueColor ?? c.text,
+              ),
+            ),
+          ],
+          if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+          if (arrow) ...[
+            const SizedBox(width: 10),
+            Icon(LucideIcons.arrowUpRight, size: 21, color: c.textSecondary),
+          ],
+        ],
+      ),
+    );
+    return onTap == null
+        ? row
+        : Pressable(scale: 0.985, onTap: onTap, child: row);
+  }
+}
+
+
+/// Ação rápida: círculo com o ícone dentro e o nome embaixo. A principal vem
+/// preenchida (cor de destaque); as demais em cinza neutro.
+class CircleAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool primary;
+  const CircleAction({super.key, required this.icon, required this.label, required this.onTap, this.primary = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final fill = primary ? c.primary : c.cardAlt;
+    final fg = primary ? c.onPrimary : c.text;
+    return Pressable(
+      onTap: onTap,
+      semanticLabel: label,
+      scale: 0.94,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+            child: Icon(icon, size: 26, color: fg),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: T.small.copyWith(color: c.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+}

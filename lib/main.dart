@@ -37,15 +37,22 @@ class MareApp extends StatelessWidget {
           final dark =
               pref == ThemePref.dark ||
               (pref == ThemePref.auto && platform == Brightness.dark);
-          final seed = d.accentColor == null ? accentPresets.first.$2 : Color(d.accentColor!);
-          final colors = AppColors.fromSeed(seed, dark ? Brightness.dark : Brightness.light);
+          final seed = d.accentColor == null
+              ? accentPresets.first.$2
+              : Color(d.accentColor!);
+          final colors = AppColors.fromSeed(
+            seed,
+            dark ? Brightness.dark : Brightness.light,
+          );
           final overlay = SystemUiOverlayStyle(
             statusBarColor: const Color(0x00000000),
             statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
             statusBarBrightness: dark ? Brightness.dark : Brightness.light,
             systemNavigationBarColor: const Color(0x00000000),
             systemNavigationBarDividerColor: const Color(0x00000000),
-            systemNavigationBarIconBrightness: dark ? Brightness.light : Brightness.dark,
+            systemNavigationBarIconBrightness: dark
+                ? Brightness.light
+                : Brightness.dark,
             systemNavigationBarContrastEnforced: false,
           );
           SystemChrome.setSystemUIOverlayStyle(overlay);

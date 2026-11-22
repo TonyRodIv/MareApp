@@ -25,9 +25,14 @@ Future<void> exportBackupFlow(BuildContext context) async {
   final way = await actionSheet<_ExportWay>(
     context,
     title: 'Exportar backup',
-    message: 'Gera um arquivo com todos os seus dados. Guarde num lugar seguro.',
+    message:
+        'Gera um arquivo com todos os seus dados. Guarde num lugar seguro.',
     actions: const [
-      SheetAction('Salvar em arquivo', _ExportWay.save, icon: LucideIcons.download),
+      SheetAction(
+        'Salvar em arquivo',
+        _ExportWay.save,
+        icon: LucideIcons.download,
+      ),
       SheetAction('Compartilhar…', _ExportWay.share, icon: LucideIcons.share),
       SheetAction('Copiar como texto', _ExportWay.copy, icon: LucideIcons.copy),
     ],
@@ -54,7 +59,9 @@ Future<void> exportBackupFlow(BuildContext context) async {
           ShareParams(
             files: [XFile(file.path, mimeType: 'application/json')],
             subject: 'Backup do maré',
-            sharePositionOrigin: box == null ? null : box.localToGlobal(Offset.zero) & box.size,
+            sharePositionOrigin: box == null
+                ? null
+                : box.localToGlobal(Offset.zero) & box.size,
           ),
         );
       case _ExportWay.copy:
@@ -62,7 +69,12 @@ Future<void> exportBackupFlow(BuildContext context) async {
         if (context.mounted) toast(context, 'Backup copiado');
     }
   } catch (e) {
-    if (context.mounted) toast(context, 'Não foi possível exportar agora', icon: LucideIcons.triangleAlert);
+    if (context.mounted)
+      toast(
+        context,
+        'Não foi possível exportar agora',
+        icon: LucideIcons.triangleAlert,
+      );
   }
 }
 
@@ -71,7 +83,10 @@ enum _ImportWay { file, paste }
 /// Importa backup do maré (ou do FinApp web antigo) a partir de arquivo ou texto.
 Future<void> importBackupFlow(BuildContext context) async {
   final store = context.storeRead;
-  final hasData = store.data.expenses.isNotEmpty || store.data.boxes.isNotEmpty || store.data.salaries.isNotEmpty;
+  final hasData =
+      store.data.expenses.isNotEmpty ||
+      store.data.boxes.isNotEmpty ||
+      store.data.salaries.isNotEmpty;
   final way = await actionSheet<_ImportWay>(
     context,
     title: 'Importar backup',
@@ -79,8 +94,16 @@ Future<void> importBackupFlow(BuildContext context) async {
         ? 'Os dados atuais deste celular serão substituídos pelos do backup.'
         : 'Aceita backups do maré e do FinApp (versão web).',
     actions: const [
-      SheetAction('Escolher arquivo', _ImportWay.file, icon: LucideIcons.fileUp),
-      SheetAction('Colar texto copiado', _ImportWay.paste, icon: LucideIcons.clipboardPaste),
+      SheetAction(
+        'Escolher arquivo',
+        _ImportWay.file,
+        icon: LucideIcons.fileUp,
+      ),
+      SheetAction(
+        'Colar texto copiado',
+        _ImportWay.paste,
+        icon: LucideIcons.clipboardPaste,
+      ),
     ],
   );
   if (way == null || !context.mounted) return;
@@ -88,7 +111,10 @@ Future<void> importBackupFlow(BuildContext context) async {
   String? raw;
   try {
     if (way == _ImportWay.file) {
-      final picked = await FilePicker.pickFile(type: FileType.any, dialogTitle: 'Escolher backup');
+      final picked = await FilePicker.pickFile(
+        type: FileType.any,
+        dialogTitle: 'Escolher backup',
+      );
       if (picked == null) return;
       raw = utf8.decode(await picked.readAsBytes(), allowMalformed: true);
     } else {
@@ -99,7 +125,13 @@ Future<void> importBackupFlow(BuildContext context) async {
   }
   if (!context.mounted) return;
   if (raw == null || raw.trim().isEmpty) {
-    toast(context, way == _ImportWay.paste ? 'Nada copiado para colar' : 'Não consegui abrir o arquivo', icon: LucideIcons.triangleAlert);
+    toast(
+      context,
+      way == _ImportWay.paste
+          ? 'Nada copiado para colar'
+          : 'Não consegui abrir o arquivo',
+      icon: LucideIcons.triangleAlert,
+    );
     return;
   }
   if (hasData) {
@@ -113,5 +145,9 @@ Future<void> importBackupFlow(BuildContext context) async {
   }
   final err = store.importJson(raw);
   if (!context.mounted) return;
-  toast(context, err ?? 'Backup importado', icon: err == null ? LucideIcons.check : LucideIcons.triangleAlert);
+  toast(
+    context,
+    err ?? 'Backup importado',
+    icon: err == null ? LucideIcons.check : LucideIcons.triangleAlert,
+  );
 }

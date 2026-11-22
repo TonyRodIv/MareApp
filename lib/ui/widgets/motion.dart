@@ -10,7 +10,8 @@ import '../../core/theme.dart';
 /// Movimento "fluido": molas físicas definidas por frequência (w) e
 /// amortecimento (z), como em fluidui. stiffness = w², damping = 2·z·w.
 class Springs {
-  static SpringDescription of(double w, double z) => SpringDescription(mass: 1, stiffness: w * w, damping: 2 * z * w);
+  static SpringDescription of(double w, double z) =>
+      SpringDescription(mass: 1, stiffness: w * w, damping: 2 * z * w);
 
   /// Morph de corpos (pílulas, cards que crescem).
   static final body = of(26, 0.85);
@@ -27,7 +28,8 @@ class Springs {
 
 const easeOutExpo = Cubic(0.22, 1, 0.36, 1);
 
-bool reduceMotion(BuildContext context) => MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+bool reduceMotion(BuildContext context) =>
+    MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
 // ── Valor que persegue o alvo com mola (interrompível) ──────
 
@@ -36,19 +38,30 @@ class SpringBuilder extends StatefulWidget {
   final SpringDescription? spring;
   final Widget Function(BuildContext, double value, double velocity) builder;
   final double? from;
-  const SpringBuilder({super.key, required this.value, required this.builder, this.spring, this.from});
+  const SpringBuilder({
+    super.key,
+    required this.value,
+    required this.builder,
+    this.spring,
+    this.from,
+  });
 
   @override
   State<SpringBuilder> createState() => _SpringBuilderState();
 }
 
-class _SpringBuilderState extends State<SpringBuilder> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController.unbounded(vsync: this, value: widget.from ?? widget.value);
+class _SpringBuilderState extends State<SpringBuilder>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController.unbounded(
+    vsync: this,
+    value: widget.from ?? widget.value,
+  );
 
   @override
   void initState() {
     super.initState();
-    if (widget.from != null) WidgetsBinding.instance.addPostFrameCallback((_) => _go());
+    if (widget.from != null)
+      WidgetsBinding.instance.addPostFrameCallback((_) => _go());
   }
 
   void _go() {
@@ -57,7 +70,14 @@ class _SpringBuilderState extends State<SpringBuilder> with SingleTickerProvider
       _c.value = widget.value;
       return;
     }
-    _c.animateWith(SpringSimulation(widget.spring ?? Springs.settle, _c.value, widget.value, _c.velocity));
+    _c.animateWith(
+      SpringSimulation(
+        widget.spring ?? Springs.settle,
+        _c.value,
+        widget.value,
+        _c.velocity,
+      ),
+    );
   }
 
   @override
@@ -73,7 +93,10 @@ class _SpringBuilderState extends State<SpringBuilder> with SingleTickerProvider
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(animation: _c, builder: (ctx, _) => widget.builder(ctx, _c.value, _c.velocity));
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (ctx, _) => widget.builder(ctx, _c.value, _c.velocity),
+  );
 }
 
 // ── Entrada sutil e consistente (sem excesso de blur/delay) ─
@@ -98,12 +121,17 @@ class Reveal extends StatefulWidget {
 }
 
 class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
-  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(milliseconds: 160));
+  late final AnimationController _a = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 160),
+  );
 
   @override
   void initState() {
     super.initState();
-    final delay = widget.baseDelay + Duration(milliseconds: 16 * widget.index.clamp(0, 3));
+    final delay =
+        widget.baseDelay +
+        Duration(milliseconds: 16 * widget.index.clamp(0, 3));
     if (delay == Duration.zero) {
       _a.forward();
     } else {
@@ -130,7 +158,10 @@ class _RevealState extends State<Reveal> with SingleTickerProviderStateMixin {
         final v = t.value;
         return Opacity(
           opacity: clampOpacity(v),
-          child: Transform.translate(offset: Offset(0, widget.dy * (1 - v)), child: child),
+          child: Transform.translate(
+            offset: Offset(0, widget.dy * (1 - v)),
+            child: child,
+          ),
         );
       },
     );
@@ -157,7 +188,8 @@ class BlurSwitcher extends StatelessWidget {
     duration: duration,
     switchInCurve: easeOutExpo,
     switchOutCurve: Curves.easeOut,
-    layoutBuilder: (cur, prev) => Stack(alignment: alignment, children: [...prev, ?cur]),
+    layoutBuilder: (cur, prev) =>
+        Stack(alignment: alignment, children: [...prev, ?cur]),
     transitionBuilder: (child, anim) => FadeTransition(
       opacity: anim,
       child: ScaleTransition(
@@ -179,8 +211,11 @@ class CountingMoney extends StatelessWidget {
   const CountingMoney({super.key, required this.cents, required this.builder});
 
   @override
-  Widget build(BuildContext context) =>
-      SpringBuilder(value: cents.toDouble(), spring: Springs.settle, builder: (_, v, _) => builder(v.round()));
+  Widget build(BuildContext context) => SpringBuilder(
+    value: cents.toDouble(),
+    spring: Springs.settle,
+    builder: (_, v, _) => builder(v.round()),
+  );
 }
 
 // ── Switch com mola e "esticada" pela velocidade ────────────
@@ -189,7 +224,12 @@ class SpringSwitch extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   final String? label;
-  const SpringSwitch({super.key, required this.value, required this.onChanged, this.label});
+  const SpringSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +260,10 @@ class SpringSwitch extends StatelessWidget {
                 value: value ? 1 : 0,
                 spring: Springs.snappy,
                 builder: (_, t, v) {
-                  final stretch = math.min(0.45, (v * travel).abs() * 0.0016 * 10);
+                  final stretch = math.min(
+                    0.45,
+                    (v * travel).abs() * 0.0016 * 10,
+                  );
                   return Stack(
                     children: [
                       Positioned(
@@ -233,9 +276,19 @@ class SpringSwitch extends StatelessWidget {
                             width: 26,
                             height: 26,
                             decoration: BoxDecoration(
-                              color: value ? c.onPrimary : (c.isDark ? Palette.neutral300 : Palette.neutral0),
+                              color: value
+                                  ? c.onPrimary
+                                  : (c.isDark
+                                        ? Palette.neutral300
+                                        : Palette.neutral0),
                               shape: BoxShape.circle,
-                              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 4, offset: Offset(0, 1))],
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x33000000),
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -259,7 +312,13 @@ class SpringBar extends StatelessWidget {
   final Color color;
   final Color track;
   final double height;
-  const SpringBar({super.key, required this.fraction, required this.color, required this.track, this.height = 8});
+  const SpringBar({
+    super.key,
+    required this.fraction,
+    required this.color,
+    required this.track,
+    this.height = 8,
+  });
 
   @override
   Widget build(BuildContext context) => SpringBuilder(
@@ -268,12 +327,18 @@ class SpringBar extends StatelessWidget {
     spring: Springs.settle,
     builder: (_, v, _) => Container(
       height: height,
-      decoration: BoxDecoration(color: track, borderRadius: BorderRadius.circular(height)),
+      decoration: BoxDecoration(
+        color: track,
+        borderRadius: BorderRadius.circular(height),
+      ),
       alignment: Alignment.centerLeft,
       child: FractionallySizedBox(
         widthFactor: v.clamp(0.0, 1.0),
         child: Container(
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(height)),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(height),
+          ),
         ),
       ),
     ),
@@ -291,9 +356,16 @@ class FluidModalRoute<V> extends PageRouteBuilder<V> {
         reverseTransitionDuration: const Duration(milliseconds: 160),
         pageBuilder: (ctx, _, _) => builder(ctx),
         transitionsBuilder: (ctx, a, _, child) {
-          final t = CurvedAnimation(parent: a, curve: Curves.easeOutCubic, reverseCurve: Curves.easeInCubic);
+          final t = CurvedAnimation(
+            parent: a,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
           return SlideTransition(
-            position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(t),
+            position: Tween(
+              begin: const Offset(0, 0.12),
+              end: Offset.zero,
+            ).animate(t),
             child: child,
           );
         },

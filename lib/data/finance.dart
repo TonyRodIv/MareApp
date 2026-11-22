@@ -19,7 +19,12 @@ class Finance {
 
   // ── Vigência ──────────────────────────────────────────────
 
-  bool _activeIn({required DateTime date, required Recurrence rec, DateTime? end, required Cycle c}) {
+  bool _activeIn({
+    required DateTime date,
+    required Recurrence rec,
+    DateTime? end,
+    required Cycle c,
+  }) {
     final startKey = cycleOf(date).key;
     if (rec == Recurrence.once) return startKey == c.key;
     if (c.key < startKey) return false;
@@ -27,15 +32,18 @@ class Finance {
     return c.key <= cycleOf(end).key;
   }
 
-  bool expenseActive(Expense e, Cycle c) => _activeIn(date: e.date, rec: e.recurrence, end: e.endDate, c: c);
-  bool movementActive(Movement m, Cycle c) => _activeIn(date: m.date, rec: m.recurrence, end: m.endDate, c: c);
+  bool expenseActive(Expense e, Cycle c) =>
+      _activeIn(date: e.date, rec: e.recurrence, end: e.endDate, c: c);
+  bool movementActive(Movement m, Cycle c) =>
+      _activeIn(date: m.date, rec: m.recurrence, end: m.endDate, c: c);
 
   // ── Salário ───────────────────────────────────────────────
 
   Cents salaryFor(Cycle c) {
     SalaryEntry? found;
     for (final s in d.salaries) {
-      if (s.fromKey <= c.key && (found == null || s.fromKey >= found.fromKey)) found = s;
+      if (s.fromKey <= c.key && (found == null || s.fromKey >= found.fromKey))
+        found = s;
     }
     return found?.cents ?? 0;
   }
@@ -44,14 +52,19 @@ class Finance {
 
   // ── Gastos ────────────────────────────────────────────────
 
-  List<Expense> expensesIn(Cycle c) => d.expenses.where((e) => expenseActive(e, c)).toList();
+  List<Expense> expensesIn(Cycle c) =>
+      d.expenses.where((e) => expenseActive(e, c)).toList();
 
   Cents expensesTotal(Cycle c) => expensesIn(c).fold(0, (s, e) => s + e.cents);
-  Cents fixedTotal(Cycle c) => expensesIn(c).where((e) => e.isRecurring).fold(0, (s, e) => s + e.cents);
-  Cents variableTotal(Cycle c) => expensesIn(c).where((e) => !e.isRecurring).fold(0, (s, e) => s + e.cents);
+  Cents fixedTotal(Cycle c) =>
+      expensesIn(c).where((e) => e.isRecurring).fold(0, (s, e) => s + e.cents);
+  Cents variableTotal(Cycle c) =>
+      expensesIn(c).where((e) => !e.isRecurring).fold(0, (s, e) => s + e.cents);
 
   /// Gastos únicos lançados num dia específico.
-  Cents spentOn(DateTime day) => d.expenses.where((e) => !e.isRecurring && sameDay(e.date, day)).fold(0, (s, e) => s + e.cents);
+  Cents spentOn(DateTime day) => d.expenses
+      .where((e) => !e.isRecurring && sameDay(e.date, day))
+      .fold(0, (s, e) => s + e.cents);
 
   // ── Caixinhas ─────────────────────────────────────────────
 
@@ -64,10 +77,12 @@ class Finance {
     return (salaryFor(c) * p.amount / 10000).round();
   }
 
-  Cents contributionsTotal(Cycle c) => d.boxes.fold(0, (s, b) => s + contributionFor(b, c));
+  Cents contributionsTotal(Cycle c) =>
+      d.boxes.fold(0, (s, b) => s + contributionFor(b, c));
 
-  Cents _movementsIn(Caixinha b, Cycle c, MovementType t) =>
-      b.movements.where((m) => m.type == t && movementActive(m, c)).fold(0, (s, m) => s + m.cents);
+  Cents _movementsIn(Caixinha b, Cycle c, MovementType t) => b.movements
+      .where((m) => m.type == t && movementActive(m, c))
+      .fold(0, (s, m) => s + m.cents);
 
   /// Saldo acumulado da caixinha até o fim do ciclo [upTo] (inclusivo).
   /// Correção central: no original o saldo era só o aporte do mês atual —
@@ -76,7 +91,9 @@ class Finance {
   Cents boxBalance(Caixinha b, {Cycle? upTo}) {
     final last = (upTo ?? current).key;
     var total = 0;
-    final firstMove = b.movements.isEmpty ? b.createdKey : b.movements.map((m) => cycleOf(m.date).key).reduce(min);
+    final firstMove = b.movements.isEmpty
+        ? b.createdKey
+        : b.movements.map((m) => cycleOf(m.date).key).reduce(min);
     for (var k = min(b.createdKey, firstMove); k <= last; k++) {
       final c = fromKey(k);
       total += contributionFor(b, c);
@@ -121,11 +138,13 @@ class Finance {
   Cents variableBudget(Cycle c) => salaryFor(c) - committed(c);
 
   /// Meta diária "ideal" do ciclo, usada para pintar o calendário e a sequência.
-  Cents idealDaily(Cycle c) => max(0, variableBudget(c)) ~/ max(1, c.lengthInDays);
+  Cents idealDaily(Cycle c) =>
+      max(0, variableBudget(c)) ~/ max(1, c.lengthInDays);
 
   // ── Ritmo do dia ──────────────────────────────────────────
 
-  int get daysLeftInclToday => current.end.difference(dateOnly(now)).inDays.clamp(1, 31);
+  int get daysLeftInclToday =>
+      current.end.difference(dateOnly(now)).inDays.clamp(1, 31);
 
   /// Quanto ainda dá para gastar hoje mantendo o ritmo até o fim do ciclo.
   Cents get todayAllowance {
@@ -158,7 +177,8 @@ class Finance {
     if (days.isEmpty) return 0;
     final today = dateOnly(now);
     final spentToday = spentOn(today);
-    final perDay = max(0, freeBalance(current) + spentToday) ~/ daysLeftInclToday;
+    final perDay =
+        max(0, freeBalance(current) + spentToday) ~/ daysLeftInclToday;
     var total = perDay * days.length;
     if (days.any((x) => sameDay(x, today))) total -= spentToday;
     return total;
@@ -204,13 +224,17 @@ class Finance {
     for (final e in expensesIn(c)) {
       m[e.category.id] = (m[e.category.id] ?? 0) + e.cents;
     }
-    final list = m.entries.map((e) => MapEntry(categoryById(e.key), e.value)).toList()..sort((a, b) => b.value.compareTo(a.value));
+    final list =
+        m.entries.map((e) => MapEntry(categoryById(e.key), e.value)).toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
     return list;
   }
 
   List<Expense> subscriptions(Cycle c) =>
-      expensesIn(c).where((e) => e.categoryId == 'assinaturas').toList()..sort((a, b) => b.cents.compareTo(a.cents));
+      expensesIn(c).where((e) => e.categoryId == 'assinaturas').toList()
+        ..sort((a, b) => b.cents.compareTo(a.cents));
 
   /// Últimos [n] ciclos (mais antigo primeiro).
-  List<Cycle> lastCycles(int n) => List.generate(n, (i) => fromKey(current.key - (n - 1 - i)));
+  List<Cycle> lastCycles(int n) =>
+      List.generate(n, (i) => fromKey(current.key - (n - 1 - i)));
 }

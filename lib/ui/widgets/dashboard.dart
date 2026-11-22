@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme.dart';
@@ -9,8 +10,13 @@ import 'motion.dart';
 class DashTile {
   final String id;
   final int defaultSpan;
-  final Widget Function(BuildContext context, double innerWidth, int span) builder;
-  const DashTile({required this.id, required this.builder, this.defaultSpan = 1});
+  final Widget Function(BuildContext context, double innerWidth, int span)
+  builder;
+  const DashTile({
+    required this.id,
+    required this.builder,
+    this.defaultSpan = 1,
+  });
 }
 
 /// Grade adaptável: 2 colunas no celular, 4 no tablet, 6 em telas grandes.
@@ -30,7 +36,8 @@ class DashboardGrid extends StatelessWidget {
     this.startIndex = 0,
   });
 
-  static int columnsFor(double width) => width >= 1000 ? 6 : (width >= 560 ? 4 : 2);
+  static int columnsFor(double width) =>
+      width >= 1000 ? 6 : (width >= 560 ? 4 : 2);
 
   @override
   Widget build(BuildContext context) {
@@ -41,48 +48,32 @@ class DashboardGrid extends StatelessWidget {
         final unit = (w - gap * (cols - 1)) / cols;
         double widthOf(int span) => unit * span + gap * (span - 1);
 
-        // Empacota os cards em linhas, mantendo a ordem.
-        final rows = <List<(DashTile, int)>>[];
-        var current = <(DashTile, int)>[];
-        var used = 0;
-        for (final t in tiles) {
-          final span = (spans[t.id] ?? t.defaultSpan).clamp(1, 2);
-          if (used + span > cols) {
-            rows.add(current);
-            current = [];
-            used = 0;
-          }
-          current.add((t, span));
-          used += span;
-        }
-        if (current.isNotEmpty) rows.add(current);
-
-        return Column(
+        // Alvenaria: cada card vai para a faixa de colunas mais baixa naquele
+        // momento, mantendo a ordem. Cada card tem a altura que o conteúdo pede,
+        // então nada estica nem sobra espaço vazio dentro dos cards.
+        final spanOf = [
+          for (final t in tiles)
+            (spans[t.id] ?? t.defaultSpan).clamp(1, 2).clamp(1, cols),
+        ];
+        return _Masonry(
+          columns: cols,
+          gap: gap,
+          spans: spanOf,
           children: [
-            for (final row in rows) ...[
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < row.length; i++) ...[
-                      if (i > 0) SizedBox(width: gap),
-                      SizedBox(
-                        width: widthOf(row[i].$2),
-                        child: RepaintBoundary(
-                          child: _Resizable(
-                            key: ValueKey(row[i].$1.id),
-                            span: row[i].$2,
-                            onToggle: () => onSpanChanged(row[i].$1.id, row[i].$2 == 1 ? 2 : 1),
-                            child: row[i].$1.builder(ctx, widthOf(row[i].$2) - 32, row[i].$2),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+            for (var i = 0; i < tiles.length; i++)
+              RepaintBoundary(
+                key: ValueKey('tile-${tiles[i].id}'),
+                child: _Resizable(
+                  span: spanOf[i],
+                  onToggle: () =>
+                      onSpanChanged(tiles[i].id, spanOf[i] == 1 ? 2 : 1),
+                  child: tiles[i].builder(
+                    ctx,
+                    widthOf(spanOf[i]) - 32,
+                    spanOf[i],
+                  ),
                 ),
               ),
-              SizedBox(height: gap),
-            ],
           ],
         );
       },
@@ -90,12 +81,128 @@ class DashboardGrid extends StatelessWidget {
   }
 }
 
+class _Masonry extends MultiChildRenderObjectWidget {
+  final int columns;
+  final double gap;
+  final List<int> spans;
+  const _Masonry({
+    required this.columns,
+    required this.gap,
+    required this.spans,
+    required super.children,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMasonry(columns, gap, spans);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderMasonry renderObject) {
+    renderObject
+      ..columns = columns
+      ..gap = gap
+      ..spans = spans;
+  }
+}
+
+class _MasonryParentData extends ContainerBoxParentData<RenderBox> {}
+
+class _RenderMasonry extends RenderBox
+    with
+        ContainerRenderObjectMixin<RenderBox, _MasonryParentData>,
+        RenderBoxContainerDefaultsMixin<RenderBox, _MasonryParentData> {
+  _RenderMasonry(this._columns, this._gap, this._spans);
+
+  int _columns;
+  double _gap;
+  List<int> _spans;
+
+  set columns(int v) {
+    if (v == _columns) return;
+    _columns = v;
+    markNeedsLayout();
+  }
+
+  set gap(double v) {
+    if (v == _gap) return;
+    _gap = v;
+    markNeedsLayout();
+  }
+
+  set spans(List<int> v) {
+    _spans = v;
+    markNeedsLayout();
+  }
+
+  @override
+  void setupParentData(RenderBox child) {
+    if (child.parentData is! _MasonryParentData)
+      child.parentData = _MasonryParentData();
+  }
+
+  @override
+  void performLayout() {
+    final w = constraints.maxWidth;
+    final unit = (w - _gap * (_columns - 1)) / _columns;
+    final heights = List<double>.filled(_columns, 0);
+    var child = firstChild;
+    var i = 0;
+    while (child != null) {
+      final span = (i < _spans.length ? _spans[i] : 1).clamp(1, _columns);
+      var bestCol = 0;
+      var bestY = double.infinity;
+      for (var j = 0; j <= _columns - span; j++) {
+        var y = 0.0;
+        for (var k = j; k < j + span; k++) {
+          if (heights[k] > y) y = heights[k];
+        }
+        if (y < bestY - 0.5) {
+          bestY = y;
+          bestCol = j;
+        }
+      }
+      final cw = unit * span + _gap * (span - 1);
+      child.layout(BoxConstraints.tightFor(width: cw), parentUsesSize: true);
+      (child.parentData! as _MasonryParentData).offset = Offset(
+        bestCol * (unit + _gap),
+        bestY,
+      );
+      for (var k = bestCol; k < bestCol + span; k++) {
+        heights[k] = bestY + child.size.height + _gap;
+      }
+      child = childAfter(child);
+      i++;
+    }
+    var h = 0.0;
+    for (final x in heights) {
+      if (x > h) h = x;
+    }
+    size = constraints.constrain(Size(w, h > 0 ? h - _gap : 0));
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      Size(constraints.maxWidth, 0);
+
+  @override
+  void paint(PaintingContext context, Offset offset) =>
+      defaultPaint(context, offset);
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
+      defaultHitTestChildren(result, position: position);
+}
+
 /// Envolve o card: segurar → háptico + "respiração" com mola ao trocar o tamanho.
 class _Resizable extends StatefulWidget {
   final int span;
   final VoidCallback onToggle;
   final Widget child;
-  const _Resizable({super.key, required this.span, required this.onToggle, required this.child});
+  const _Resizable({
+    required this.span,
+    required this.onToggle,
+    required this.child,
+  });
   @override
   State<_Resizable> createState() => _ResizableState();
 }
@@ -133,12 +240,22 @@ class _ResizableState extends State<_Resizable> {
             duration: const Duration(milliseconds: 160),
             child: Transform.scale(
               scaleX: t,
-              scaleY: 1 - (1 - t) * 0.4, // estica na horizontal, como a gota do fluid
+              scaleY:
+                  1 -
+                  (1 - t) * 0.4, // estica na horizontal, como a gota do fluid
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(Space.radiusCard),
-                  boxShadow: _holding ? [BoxShadow(color: c.accent.withValues(alpha: 0.25), blurRadius: 18, spreadRadius: 1)] : null,
+                  boxShadow: _holding
+                      ? [
+                          BoxShadow(
+                            color: c.accent.withValues(alpha: 0.25),
+                            blurRadius: 18,
+                            spreadRadius: 1,
+                          ),
+                        ]
+                      : null,
                 ),
                 child: widget.child,
               ),

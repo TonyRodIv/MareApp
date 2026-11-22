@@ -66,7 +66,10 @@ class _OnboardingState extends State<Onboarding> {
       _step = next;
     });
     if (next == 1) {
-      Future.delayed(const Duration(milliseconds: 220), () => mounted ? _nameFocus.requestFocus() : null);
+      Future.delayed(
+        const Duration(milliseconds: 220),
+        () => mounted ? _nameFocus.requestFocus() : null,
+      );
     }
   }
 
@@ -82,16 +85,28 @@ class _OnboardingState extends State<Onboarding> {
 
   Future<void> _pickPhoto(ImageSource src) async {
     try {
-      final x = await ImagePicker().pickImage(source: src, maxWidth: 512, maxHeight: 512, imageQuality: 82);
+      final x = await ImagePicker().pickImage(
+        source: src,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 82,
+      );
       if (x == null) return;
       final dir = await getApplicationDocumentsDirectory();
-      final dest = File('${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final dest = File(
+        '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       await File(x.path).copy(dest.path);
       if (!mounted) return;
       HapticFeedback.mediumImpact();
       setState(() => _avatarPath = dest.path);
     } catch (_) {
-      if (mounted) toast(context, 'Não foi possível usar essa foto', icon: LucideIcons.triangleAlert);
+      if (mounted)
+        toast(
+          context,
+          'Não foi possível usar essa foto',
+          icon: LucideIcons.triangleAlert,
+        );
     }
   }
 
@@ -100,9 +115,19 @@ class _OnboardingState extends State<Onboarding> {
       context,
       title: 'Foto de perfil',
       actions: [
-        const SheetAction('Escolher da galeria', 'gallery', icon: LucideIcons.image),
+        const SheetAction(
+          'Escolher da galeria',
+          'gallery',
+          icon: LucideIcons.image,
+        ),
         const SheetAction('Tirar foto', 'camera', icon: LucideIcons.camera),
-        if (_avatarPath != null) const SheetAction('Remover foto', 'remove', destructive: true, icon: LucideIcons.trash2),
+        if (_avatarPath != null)
+          const SheetAction(
+            'Remover foto',
+            'remove',
+            destructive: true,
+            icon: LucideIcons.trash2,
+          ),
       ],
     );
     if (a == 'gallery') _pickPhoto(ImageSource.gallery);
@@ -115,7 +140,8 @@ class _OnboardingState extends State<Onboarding> {
     final c = context.c;
     final bg = c.isDark ? c.bg : Palette.neutral0;
     final progress = _step == 0 ? 0.0 : _step / (_steps - 1);
-    final showGlow = _step == 0 || _step == 2 || _step == 3 || _step == _steps - 1;
+    final showGlow =
+        _step == 0 || _step == 2 || _step == 3 || _step == _steps - 1;
 
     return CupertinoPageScaffold(
       backgroundColor: bg,
@@ -145,9 +171,14 @@ class _OnboardingState extends State<Onboarding> {
                           const Spacer(),
                           if (_canSkip)
                             CupertinoButton(
-                              padding: const EdgeInsets.symmetric(horizontal: Space.sm),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Space.sm,
+                              ),
                               onPressed: () => _go(1),
-                              child: Text('Pular', style: T.bodyStrong.copyWith(color: c.primary)),
+                              child: Text(
+                                'Pular',
+                                style: T.bodyStrong.copyWith(color: c.primary),
+                              ),
                             ),
                         ],
                       ),
@@ -174,13 +205,19 @@ class _OnboardingState extends State<Onboarding> {
                               opacity: clampOpacity(t * 1.4),
                               child: Transform.translate(
                                 offset: Offset(64.0 * dir * (1 - t), 0),
-                                child: Transform.scale(scale: 0.96 + 0.04 * t, child: ch),
+                                child: Transform.scale(
+                                  scale: 0.96 + 0.04 * t,
+                                  child: ch,
+                                ),
                               ),
                             );
                           },
                         );
                       },
-                      child: KeyedSubtree(key: ValueKey(_step), child: _stepBody(context)),
+                      child: KeyedSubtree(
+                        key: ValueKey(_step),
+                        child: _stepBody(context),
+                      ),
                     ),
                   ),
                   AnimatedSwitcher(
@@ -189,7 +226,13 @@ class _OnboardingState extends State<Onboarding> {
                     switchInCurve: easeOutExpo,
                     transitionBuilder: (child, anim) => FadeTransition(
                       opacity: anim,
-                      child: SlideTransition(position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(anim), child: child),
+                      child: SlideTransition(
+                        position: Tween(
+                          begin: const Offset(0, 0.12),
+                          end: Offset.zero,
+                        ).animate(anim),
+                        child: child,
+                      ),
                     ),
                     child: KeyedSubtree(
                       key: ValueKey('bar-$_step-${_avatarPath != null}'),
@@ -210,7 +253,11 @@ class _OnboardingState extends State<Onboarding> {
     if (_step == 0) {
       return Column(
         children: [
-          PillButton('Começar', trailingIcon: LucideIcons.arrowRight, onTap: () => _go(1)),
+          PillButton(
+            'Começar',
+            trailingIcon: LucideIcons.arrowRight,
+            onTap: () => _go(1),
+          ),
           const SizedBox(height: Space.md),
           PillButton(
             'Já uso o maré: importar backup',
@@ -222,7 +269,11 @@ class _OnboardingState extends State<Onboarding> {
       );
     }
     if (_step == _steps - 1) {
-      return PillButton('Entrar no app', trailingIcon: LucideIcons.arrowRight, onTap: _finish);
+      return PillButton(
+        'Entrar no app',
+        trailingIcon: LucideIcons.arrowRight,
+        onTap: _finish,
+      );
     }
     if (_step == 2) {
       final hasPhoto = _avatarPath != null;
@@ -236,7 +287,12 @@ class _OnboardingState extends State<Onboarding> {
           ),
           if (!hasPhoto) ...[
             const SizedBox(height: Space.md),
-            PillButton('Agora não', kind: BtnKind.outline, height: 52, onTap: () => _go(1)),
+            PillButton(
+              'Agora não',
+              kind: BtnKind.outline,
+              height: 52,
+              onTap: () => _go(1),
+            ),
           ],
         ],
       );
@@ -267,7 +323,11 @@ class _OnboardingState extends State<Onboarding> {
               child: Text(
                 'Seu dinheiro no\nritmo certo',
                 textAlign: TextAlign.center,
-                style: T.display.copyWith(color: c.text, fontSize: 32, height: 1.15),
+                style: T.display.copyWith(
+                  color: c.text,
+                  fontSize: 32,
+                  height: 1.15,
+                ),
               ),
             ),
             const SizedBox(height: Space.md),
@@ -298,13 +358,22 @@ class _OnboardingState extends State<Onboarding> {
             placeholder: 'Seu nome',
             keyboardAppearance: c.brightness,
             cursorColor: c.primary,
-            padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.base,
+              vertical: Space.base,
+            ),
             style: T.title.copyWith(color: c.text, fontSize: 28),
-            placeholderStyle: T.title.copyWith(color: c.textTertiary, fontSize: 28),
+            placeholderStyle: T.title.copyWith(
+              color: c.textTertiary,
+              fontSize: 28,
+            ),
             decoration: BoxDecoration(
               color: c.cardAlt,
               borderRadius: BorderRadius.circular(Space.radiusField),
-              border: Border.all(color: _name.text.trim().isNotEmpty ? c.primary : c.border, width: 1.5),
+              border: Border.all(
+                color: _name.text.trim().isNotEmpty ? c.primary : c.border,
+                width: 1.5,
+              ),
             ),
           ),
         );
@@ -334,8 +403,13 @@ class _OnboardingState extends State<Onboarding> {
                           height: 148,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: c.primary.withValues(alpha: c.isDark ? 0.14 : 0.10),
-                            border: Border.all(color: c.primary.withValues(alpha: 0.35), width: 2),
+                            color: c.primary.withValues(
+                              alpha: c.isDark ? 0.14 : 0.10,
+                            ),
+                            border: Border.all(
+                              color: c.primary.withValues(alpha: 0.35),
+                              width: 2,
+                            ),
                           ),
                         ),
                         Avatar(path: _avatarPath, name: _name.text, size: 124),
@@ -348,10 +422,15 @@ class _OnboardingState extends State<Onboarding> {
                             decoration: BoxDecoration(
                               color: c.primary,
                               shape: BoxShape.circle,
-                              border: Border.all(color: c.isDark ? c.bg : Palette.neutral0, width: 3),
+                              border: Border.all(
+                                color: c.isDark ? c.bg : Palette.neutral0,
+                                width: 3,
+                              ),
                             ),
                             child: Icon(
-                              _avatarPath == null ? LucideIcons.camera : LucideIcons.pencil,
+                              _avatarPath == null
+                                  ? LucideIcons.camera
+                                  : LucideIcons.pencil,
                               size: 18,
                               color: c.onPrimary,
                             ),
@@ -364,7 +443,9 @@ class _OnboardingState extends State<Onboarding> {
               ),
               const SizedBox(height: Space.base),
               Text(
-                _avatarPath == null ? 'Toque no círculo para escolher' : 'Toque para trocar',
+                _avatarPath == null
+                    ? 'Toque no círculo para escolher'
+                    : 'Toque para trocar',
                 style: T.small.copyWith(color: c.textSecondary),
               ),
             ],
@@ -373,7 +454,8 @@ class _OnboardingState extends State<Onboarding> {
 
       case 3:
         final s = context.store;
-        final currentSeed = s.data.accentColor ?? accentPresets.first.$2.toARGB32();
+        final currentSeed =
+            s.data.accentColor ?? accentPresets.first.$2.toARGB32();
         return _question(
           context,
           'Qual cor combina com você?',
@@ -390,12 +472,19 @@ class _OnboardingState extends State<Onboarding> {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     width: 100,
-                    padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.md),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.md,
+                      vertical: Space.md,
+                    ),
                     decoration: BoxDecoration(
-                      color: currentSeed == col.toARGB32() ? c.primarySoft : c.cardAlt,
+                      color: currentSeed == col.toARGB32()
+                          ? c.primarySoft
+                          : c.cardAlt,
                       borderRadius: BorderRadius.circular(Space.radiusField),
                       border: Border.all(
-                        color: currentSeed == col.toARGB32() ? c.primary : c.border,
+                        color: currentSeed == col.toARGB32()
+                            ? c.primary
+                            : c.border,
                         width: currentSeed == col.toARGB32() ? 2 : 1,
                       ),
                     ),
@@ -417,12 +506,20 @@ class _OnboardingState extends State<Onboarding> {
                                   child: DecoratedBox(
                                     decoration: BoxDecoration(
                                       color: complementaryOf(col),
-                                      borderRadius: const BorderRadius.only(topLeft: Radius.circular(10)),
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(10),
+                                      ),
                                     ),
                                   ),
                                 ),
                                 if (currentSeed == col.toARGB32())
-                                  const Center(child: Icon(LucideIcons.check, size: 16, color: Palette.neutral0)),
+                                  const Center(
+                                    child: Icon(
+                                      LucideIcons.check,
+                                      size: 16,
+                                      color: Palette.neutral0,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
@@ -430,7 +527,11 @@ class _OnboardingState extends State<Onboarding> {
                         const SizedBox(height: Space.sm),
                         Text(
                           label,
-                          style: T.smallStrong.copyWith(color: currentSeed == col.toARGB32() ? c.primary : c.text),
+                          style: T.smallStrong.copyWith(
+                            color: currentSeed == col.toARGB32()
+                                ? c.primary
+                                : c.text,
+                          ),
                           maxLines: 1,
                         ),
                       ],
@@ -472,11 +573,17 @@ class _OnboardingState extends State<Onboarding> {
                   bg: c.cardAlt,
                   fg: c.text,
                   label: 'Diminuir 100 reais',
-                  onTap: _salary.value >= 10000 ? () => _salary.value -= 10000 : null,
+                  onTap: _salary.value >= 10000
+                      ? () => _salary.value -= 10000
+                      : null,
                 ),
                 const SizedBox(width: Space.base),
                 Flexible(
-                  child: AmountDisplay(cents: _salary.value, size: 44, color: c.primary),
+                  child: AmountDisplay(
+                    cents: _salary.value,
+                    size: 44,
+                    color: c.primary,
+                  ),
                 ),
                 const SizedBox(width: Space.base),
                 RoundIconButton(
@@ -507,15 +614,22 @@ class _OnboardingState extends State<Onboarding> {
               SizedBox(
                 height: 224,
                 child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(initialItem: _startDay - 1),
+                  scrollController: FixedExtentScrollController(
+                    initialItem: _startDay - 1,
+                  ),
                   itemExtent: 56,
                   selectionOverlay: IgnorePointer(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: Space.xl),
                       decoration: BoxDecoration(
-                        color: c.primary.withValues(alpha: c.isDark ? 0.16 : 0.12),
+                        color: c.primary.withValues(
+                          alpha: c.isDark ? 0.16 : 0.12,
+                        ),
                         borderRadius: BorderRadius.circular(Space.radiusField),
-                        border: Border.all(color: c.primary.withValues(alpha: 0.65), width: 1.5),
+                        border: Border.all(
+                          color: c.primary.withValues(alpha: 0.65),
+                          width: 1.5,
+                        ),
                       ),
                     ),
                   ),
@@ -531,7 +645,9 @@ class _OnboardingState extends State<Onboarding> {
                           style: T.title.copyWith(
                             fontSize: d == _startDay ? 26 : 18,
                             color: d == _startDay ? c.primary : c.textSecondary,
-                            fontWeight: d == _startDay ? FontWeight.w700 : FontWeight.w500,
+                            fontWeight: d == _startDay
+                                ? FontWeight.w700
+                                : FontWeight.w500,
                           ),
                         ),
                       ),
@@ -568,7 +684,10 @@ class _OnboardingState extends State<Onboarding> {
   Widget _summary(BuildContext context) {
     final c = context.c;
     final cy = Cycle.of(DateTime.now(), _startDay);
-    final daysLeft = cy.end.difference(dateOnly(DateTime.now())).inDays.clamp(1, 31);
+    final daysLeft = cy.end
+        .difference(dateOnly(DateTime.now()))
+        .inDays
+        .clamp(1, 31);
     final perDay = _salary.value ~/ math.max(1, daysLeft);
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -588,8 +707,15 @@ class _OnboardingState extends State<Onboarding> {
                       Container(
                         width: 30,
                         height: 30,
-                        decoration: BoxDecoration(color: c.primary, shape: BoxShape.circle),
-                        child: Icon(LucideIcons.check, color: c.onPrimary, size: 16),
+                        decoration: BoxDecoration(
+                          color: c.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          LucideIcons.check,
+                          color: c.onPrimary,
+                          size: 16,
+                        ),
                       ),
                     ],
                   )
@@ -599,7 +725,10 @@ class _OnboardingState extends State<Onboarding> {
                     decoration: BoxDecoration(
                       color: c.primarySoft,
                       shape: BoxShape.circle,
-                      border: Border.all(color: c.primary.withValues(alpha: 0.35), width: 2),
+                      border: Border.all(
+                        color: c.primary.withValues(alpha: 0.35),
+                        width: 2,
+                      ),
                     ),
                     child: Icon(LucideIcons.check, color: c.primary, size: 36),
                   ),
@@ -618,19 +747,29 @@ class _OnboardingState extends State<Onboarding> {
         if (_salary.value > 0) ...[
           Reveal(
             index: 2,
-            child: Text('Você pode usar até', style: T.label.copyWith(color: c.textSecondary)),
+            child: Text(
+              'Você pode usar até',
+              style: T.label.copyWith(color: c.textSecondary),
+            ),
           ),
           const SizedBox(height: Space.sm),
           SpringBuilder(
             value: perDay.toDouble(),
             from: 0,
             spring: Springs.settle,
-            builder: (_, v, _) => MoneyText(v.round(), style: T.display.copyWith(fontSize: 40), color: c.primary),
+            builder: (_, v, _) => MoneyText(
+              v.round(),
+              style: T.display.copyWith(fontSize: 40),
+              color: c.primary,
+            ),
           ),
           const SizedBox(height: Space.xs),
           Reveal(
             index: 3,
-            child: Text('por dia até o fim deste ciclo', style: T.label.copyWith(color: c.textSecondary)),
+            child: Text(
+              'por dia até o fim deste ciclo',
+              style: T.label.copyWith(color: c.textSecondary),
+            ),
           ),
         ] else
           Reveal(
@@ -646,7 +785,12 @@ class _OnboardingState extends State<Onboarding> {
     );
   }
 
-  Widget _question(BuildContext context, String title, {String? subtitle, required Widget child}) {
+  Widget _question(
+    BuildContext context,
+    String title, {
+    String? subtitle,
+    required Widget child,
+  }) {
     final c = context.c;
     return SingleChildScrollView(
       child: Column(
@@ -719,18 +863,34 @@ class _WelcomeShowcase extends StatelessWidget {
                 child: Transform.rotate(
                   angle: -0.06,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.md,
+                      vertical: Space.sm,
+                    ),
                     decoration: BoxDecoration(
                       color: c.primary,
                       borderRadius: BorderRadius.circular(Space.radiusField),
-                      boxShadow: [BoxShadow(color: c.primary.withValues(alpha: 0.32), blurRadius: 16, offset: const Offset(0, 6))],
+                      boxShadow: [
+                        BoxShadow(
+                          color: c.primary.withValues(alpha: 0.32),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.piggyBank, size: 16, color: c.onPrimary),
+                        Icon(
+                          LucideIcons.piggyBank,
+                          size: 16,
+                          color: c.onPrimary,
+                        ),
                         const SizedBox(width: Space.sm),
-                        Text('Viagem · +R\$ 300', style: T.smallStrong.copyWith(color: c.onPrimary)),
+                        Text(
+                          'Viagem · +R\$ 300',
+                          style: T.smallStrong.copyWith(color: c.onPrimary),
+                        ),
                       ],
                     ),
                   ),
@@ -750,9 +910,19 @@ class _WelcomeShowcase extends StatelessWidget {
                     color: c.card,
                     shape: BoxShape.circle,
                     border: Border.all(color: c.border),
-                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 4))],
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: Icon(LucideIcons.trendingUp, size: 20, color: c.positive),
+                  child: Icon(
+                    LucideIcons.trendingUp,
+                    size: 20,
+                    color: c.positive,
+                  ),
                 ),
               ),
             ),
@@ -771,7 +941,9 @@ class _WelcomeShowcase extends StatelessWidget {
                     border: Border.all(color: c.border.withValues(alpha: 0.8)),
                     boxShadow: [
                       BoxShadow(
-                        color: Palette.neutral950.withValues(alpha: c.isDark ? 0.45 : 0.08),
+                        color: Palette.neutral950.withValues(
+                          alpha: c.isDark ? 0.45 : 0.08,
+                        ),
                         blurRadius: 24,
                         offset: const Offset(0, 10),
                       ),
@@ -795,9 +967,20 @@ class _WelcomeShowcase extends StatelessWidget {
                           ),
                           const SizedBox(width: Space.sm),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: Space.sm, vertical: 2),
-                            decoration: BoxDecoration(color: c.positiveSoft, borderRadius: BorderRadius.circular(Space.radiusSm)),
-                            child: Text('No ritmo', style: T.smallStrong.copyWith(color: c.positive)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Space.sm,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: c.positiveSoft,
+                              borderRadius: BorderRadius.circular(
+                                Space.radiusSm,
+                              ),
+                            ),
+                            child: Text(
+                              'No ritmo',
+                              style: T.smallStrong.copyWith(color: c.positive),
+                            ),
                           ),
                         ],
                       ),
@@ -805,7 +988,10 @@ class _WelcomeShowcase extends StatelessWidget {
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
-                        child: Text('R\$ 2.450,00', style: T.title.copyWith(color: c.text, fontSize: 26)),
+                        child: Text(
+                          'R\$ 2.450,00',
+                          style: T.title.copyWith(color: c.text, fontSize: 26),
+                        ),
                       ),
                     ],
                   ),
@@ -821,18 +1007,26 @@ class _WelcomeShowcase extends StatelessWidget {
                 child: Transform.rotate(
                   angle: 0.04,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: Space.md, vertical: Space.sm),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Space.md,
+                      vertical: Space.sm,
+                    ),
                     decoration: BoxDecoration(
                       color: c.secondary,
                       borderRadius: BorderRadius.circular(Space.radiusField),
-                      border: Border.all(color: c.accentWarm.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: c.accentWarm.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(LucideIcons.zap, size: 16, color: c.accentWarm),
                         const SizedBox(width: Space.sm),
-                        Text('Hoje · R\$ 82,00', style: T.smallStrong.copyWith(color: c.onSecondary)),
+                        Text(
+                          'Hoje · R\$ 82,00',
+                          style: T.smallStrong.copyWith(color: c.onSecondary),
+                        ),
                       ],
                     ),
                   ),
@@ -852,7 +1046,13 @@ class _WelcomeShowcase extends StatelessWidget {
                     color: c.card,
                     shape: BoxShape.circle,
                     border: Border.all(color: c.border),
-                    boxShadow: const [BoxShadow(color: Color(0x14000000), blurRadius: 12, offset: Offset(0, 4))],
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x14000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Icon(LucideIcons.receipt, size: 18, color: c.accent),
                 ),
@@ -878,7 +1078,10 @@ class _LinearProgress extends StatelessWidget {
       child: Container(
         height: 4,
         width: double.infinity,
-        decoration: BoxDecoration(color: c.border, borderRadius: BorderRadius.circular(2)),
+        decoration: BoxDecoration(
+          color: c.border,
+          borderRadius: BorderRadius.circular(2),
+        ),
         alignment: Alignment.centerLeft,
         child: TweenAnimationBuilder<double>(
           tween: Tween(end: progress.clamp(0.0, 1.0)),
@@ -887,7 +1090,10 @@ class _LinearProgress extends StatelessWidget {
           builder: (_, v, _) => FractionallySizedBox(
             widthFactor: v,
             child: Container(
-              decoration: BoxDecoration(color: c.primary, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                color: c.primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
         ),

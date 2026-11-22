@@ -22,11 +22,17 @@ class Store extends ChangeNotifier {
     AppData d;
     try {
       final raw = prefs.getString(_key);
-      d = raw == null ? AppData() : AppData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      d = raw == null
+          ? AppData()
+          : AppData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       // Nunca travar o app por causa de dado corrompido: guarda uma cópia e recomeça.
       final raw = prefs.getString(_key);
-      if (raw != null) await prefs.setString('${_key}_corrupt_${DateTime.now().millisecondsSinceEpoch}', raw);
+      if (raw != null)
+        await prefs.setString(
+          '${_key}_corrupt_${DateTime.now().millisecondsSinceEpoch}',
+          raw,
+        );
       d = AppData();
     }
     return Store._(prefs, d);
@@ -44,7 +50,11 @@ class Store extends ChangeNotifier {
 
   // ── Perfil / preferências ─────────────────────────────────
 
-  void setProfile({String? name, String? avatarPath, bool clearAvatar = false}) {
+  void setProfile({
+    String? name,
+    String? avatarPath,
+    bool clearAvatar = false,
+  }) {
     if (name != null) data.userName = name.trim();
     if (clearAvatar) data.avatarPath = null;
     if (avatarPath != null) data.avatarPath = avatarPath;
@@ -99,7 +109,12 @@ class Store extends ChangeNotifier {
     _commit();
   }
 
-  void finishOnboarding({required String name, required Cents salary, required int startDay, String? avatarPath}) {
+  void finishOnboarding({
+    required String name,
+    required Cents salary,
+    required int startDay,
+    String? avatarPath,
+  }) {
     data
       ..userName = name.trim()
       ..avatarPath = avatarPath ?? data.avatarPath
@@ -127,7 +142,10 @@ class Store extends ChangeNotifier {
     final old = data.expenses[i];
     final cur = cycle;
     final startedBefore = Cycle.of(old.date, data.cycleStartDay).key < cur.key;
-    if (old.isRecurring && edited.isRecurring && startedBefore && old.cents != edited.cents) {
+    if (old.isRecurring &&
+        edited.isRecurring &&
+        startedBefore &&
+        old.cents != edited.cents) {
       old.endDate = cur.start.subtract(const Duration(days: 1));
       data.expenses.add(
         Expense(
@@ -163,7 +181,8 @@ class Store extends ChangeNotifier {
   List<MapEntry<String, String>> recentNames({int limit = 8}) {
     final seen = <String>{};
     final out = <MapEntry<String, String>>[];
-    final sorted = [...data.expenses]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final sorted = [...data.expenses]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     for (final e in sorted) {
       final k = e.name.trim().toLowerCase();
       if (k.isEmpty || !seen.add(k)) continue;
@@ -177,10 +196,24 @@ class Store extends ChangeNotifier {
 
   Caixinha? box(String id) => data.boxes.where((b) => b.id == id).firstOrNull;
 
-  void addBox({required String name, required String icon, required int color, required PlanMode mode, required int amount, Cents? goal}) {
+  void addBox({
+    required String name,
+    required String icon,
+    required int color,
+    required PlanMode mode,
+    required int amount,
+    Cents? goal,
+  }) {
     final k = cycle.key;
     data.boxes.add(
-      Caixinha(name: name.trim(), icon: icon, color: color, goalCents: goal, createdKey: k, plans: [ContributionPlan(k, mode, amount)]),
+      Caixinha(
+        name: name.trim(),
+        icon: icon,
+        color: color,
+        goalCents: goal,
+        createdKey: k,
+        plans: [ContributionPlan(k, mode, amount)],
+      ),
     );
     _commit();
   }
@@ -224,7 +257,14 @@ class Store extends ChangeNotifier {
     if (b == null) return;
     final bal = f.boxBalance(b);
     if (bal > 0) {
-      b.movements.add(Movement(name: 'Resgate ao encerrar', cents: bal, type: MovementType.redeem, date: DateTime.now()));
+      b.movements.add(
+        Movement(
+          name: 'Resgate ao encerrar',
+          cents: bal,
+          type: MovementType.redeem,
+          date: DateTime.now(),
+        ),
+      );
     }
     b.closedKey = cycle.key;
     _commit();
@@ -249,7 +289,9 @@ class Store extends ChangeNotifier {
   }
 
   void endMovement(String boxId, String movementId) {
-    final m = box(boxId)?.movements.where((m) => m.id == movementId).firstOrNull;
+    final m = box(
+      boxId,
+    )?.movements.where((m) => m.id == movementId).firstOrNull;
     if (m == null) return;
     m.endDate = cycle.end.subtract(const Duration(days: 1));
     _commit();
@@ -257,7 +299,8 @@ class Store extends ChangeNotifier {
 
   // ── Cartões ───────────────────────────────────────────────
 
-  PayCard? card(String? id) => id == null ? null : data.cards.where((c) => c.id == id).firstOrNull;
+  PayCard? card(String? id) =>
+      id == null ? null : data.cards.where((c) => c.id == id).firstOrNull;
 
   void saveCard(PayCard c) {
     final i = data.cards.indexWhere((x) => x.id == c.id);
@@ -279,7 +322,8 @@ class Store extends ChangeNotifier {
 
   // ── Backup ────────────────────────────────────────────────
 
-  String exportJson() => const JsonEncoder.withIndent('  ').convert(data.toJson());
+  String exportJson() =>
+      const JsonEncoder.withIndent('  ').convert(data.toJson());
 
   /// Aceita backup do maré ou do app web antigo (finapp). Retorna mensagem de erro ou null.
   String? importJson(String raw) {
@@ -289,7 +333,9 @@ class Store extends ChangeNotifier {
       final map = Map<String, dynamic>.from(j);
       if (map.containsKey('mareVersion')) {
         data = AppData.fromJson(map);
-      } else if (map.containsKey('finappBackupVersion') || map.containsKey('expenses') || map.containsKey('caixinhas')) {
+      } else if (map.containsKey('finappBackupVersion') ||
+          map.containsKey('expenses') ||
+          map.containsKey('caixinhas')) {
         data = AppData.fromLegacy(map, keyOf: _keyOf);
       } else {
         return 'Não reconheci esse formato de backup.';
@@ -309,10 +355,13 @@ class Store extends ChangeNotifier {
 }
 
 class StoreScope extends InheritedNotifier<Store> {
-  const StoreScope({super.key, required Store store, required super.child}) : super(notifier: store);
+  const StoreScope({super.key, required Store store, required super.child})
+    : super(notifier: store);
 
-  static Store of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<StoreScope>()!.notifier!;
-  static Store read(BuildContext context) => context.getInheritedWidgetOfExactType<StoreScope>()!.notifier!;
+  static Store of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<StoreScope>()!.notifier!;
+  static Store read(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<StoreScope>()!.notifier!;
 }
 
 extension StoreX on BuildContext {

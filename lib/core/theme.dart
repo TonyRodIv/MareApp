@@ -179,7 +179,18 @@ class Palette {
     s900: Color(0xFF4A225D),
   );
 
-  static const allScales = <ColorScale>[teal, cyan, blue, indigo, purple, mint, green, orange, red, yellow];
+  static const allScales = <ColorScale>[
+    teal,
+    cyan,
+    blue,
+    indigo,
+    purple,
+    mint,
+    green,
+    orange,
+    red,
+    yellow,
+  ];
 
   // Aliases de compatibilidade para gráficos e marca maré.
   static const teal50 = Color(0xFFEAF7F9);
@@ -217,7 +228,16 @@ class Palette {
 /// Cores de destaque oferecidas. Ciano, índigo e menta ficaram de fora por serem
 /// quase iguais a Maré, Azul e Roxo/Verde: sobra uma de cada "família" visual.
 final accentPresets = <(String, Color)>[
-  for (final s in [Palette.teal, Palette.blue, Palette.purple, Palette.green, Palette.orange, Palette.red, Palette.yellow]) (s.name, s.s500),
+  for (final s in [
+    Palette.teal,
+    Palette.blue,
+    Palette.purple,
+    Palette.green,
+    Palette.orange,
+    Palette.red,
+    Palette.yellow,
+  ])
+    (s.name, s.s500),
 ];
 
 /// Família do Figma mais próxima da cor [seed] (em OKLCH).
@@ -254,7 +274,8 @@ class AppColors {
   final Color secondary; // ação secundária complementar (ex.: gastos)
   final Color onSecondary;
   final Color accent; // cor principal de destaque (ícones, links, gráficos)
-  final Color accentWarm; // cor complementar de destaque (ritmo, streak, alertas)
+  final Color
+  accentWarm; // cor complementar de destaque (ritmo, streak, alertas)
   final Color positive;
   final Color negative;
   final Color positiveSoft;
@@ -297,17 +318,23 @@ class AppColors {
 
   /// Adapta uma cor fixa (categoria, caixinha) ao tema: no escuro clareia, no
   /// claro escurece, só o necessário para ter [min]:1 de contraste.
-  Color tone(Color base, {double min = 3.4}) => ensureContrast(base, [card, bg], min);
+  Color tone(Color base, {double min = 3.4}) =>
+      ensureContrast(base, [card, bg], min);
 
   /// Cor suave para ícone/texto sobre um fundo [fill] colorido (caixinhas).
-  Color softOn(Color fill) => ensureContrast(TonalScale.generate(fill)[200], [fill], 4.5);
+  Color softOn(Color fill) =>
+      ensureContrast(TonalScale.generate(fill)[200], [fill], 4.5);
 
   /// Monta o tema completo a partir de uma cor-semente, em três passos:
   /// 1. [PaletteSet] cria as escalas da primária e da companheira (harmonia);
   /// 2. neutros e superfícies saem do mesmo matiz, com croma quase nulo;
   /// 3. cada par texto/fundo passa por [ensureContrast], então nenhuma combinação
   ///    de semente × tema × harmonia fica abaixo do mínimo WCAG.
-  factory AppColors.fromSeed(Color seed, Brightness brightness, {Harmony harmony = Harmony.complementary}) {
+  factory AppColors.fromSeed(
+    Color seed,
+    Brightness brightness, {
+    Harmony harmony = Harmony.complementary,
+  }) {
     final pal = PaletteSet.build(seed, harmony: harmony);
     final dark = brightness == Brightness.dark;
     final h = pal.hue;
@@ -320,20 +347,54 @@ class AppColors {
     final cardAlt = dark ? tint(0.245) : tint(0.945, 0.007);
     final surfaces = [bg, card, cardAlt];
 
-    final text = ensureContrast(dark ? tint(0.985, 0.003) : tint(0.20, 0.012), surfaces, 12);
-    final textSecondary = ensureContrast(dark ? tint(0.76, 0.010) : tint(0.45, 0.012), surfaces, 7);
-    final textTertiary = ensureContrast(dark ? tint(0.64, 0.010) : tint(0.52, 0.012), surfaces, 4.5);
+    final text = ensureContrast(
+      dark ? tint(0.985, 0.003) : tint(0.20, 0.012),
+      surfaces,
+      12,
+    );
+    final textSecondary = ensureContrast(
+      dark ? tint(0.76, 0.010) : tint(0.45, 0.012),
+      surfaces,
+      7,
+    );
+    final textTertiary = ensureContrast(
+      dark ? tint(0.64, 0.010) : tint(0.52, 0.012),
+      surfaces,
+      4.5,
+    );
 
-    final primary = dark ? pal.primary[500] : ensureContrast(pal.primary[600], const [Color(0xFFFFFFFF)], 4.5);
+    final primary = dark
+        ? pal.primary[500]
+        : ensureContrast(pal.primary[600], const [Color(0xFFFFFFFF)], 4.5);
     final onPrimary = onColor(primary);
     final secondary = dark ? pal.companion[900] : pal.companion[50];
-    final onSecondary = ensureContrast(dark ? pal.companion[50] : pal.companion[800], [secondary], 4.5);
+    final onSecondary = ensureContrast(
+      dark ? pal.companion[50] : pal.companion[800],
+      [secondary],
+      4.5,
+    );
 
-    final accent = ensureContrast(dark ? pal.primary[400] : pal.primary[600], surfaces, 4.5);
-    final accentWarm = ensureContrast(dark ? pal.companion[400] : pal.companion[600], surfaces, 3.0);
+    final accent = ensureContrast(
+      dark ? pal.primary[400] : pal.primary[600],
+      surfaces,
+      4.5,
+    );
+    final accentWarm = ensureContrast(
+      dark ? pal.companion[400] : pal.companion[600],
+      surfaces,
+      3.0,
+    );
 
-    final positive = ensureContrast(harmonize(dark ? Palette.green.s400 : Palette.green.s600, h), surfaces, 4.5);
-    final negative = ensureContrast(harmonize(dark ? Palette.red.s400 : Palette.red.s600, h), surfaces, 4.5);
+    final positive = ensureContrast(
+      harmonize(dark ? Palette.green.s400 : Palette.green.s600, h),
+      surfaces,
+      4.5,
+    );
+    final negative = ensureContrast(
+      harmonize(dark ? Palette.red.s400 : Palette.red.s600, h),
+      surfaces,
+      4.5,
+    );
 
     return AppColors(
       brightness: brightness,
@@ -358,11 +419,19 @@ class AppColors {
       accentWarm: accentWarm,
       positive: positive,
       negative: negative,
-      positiveSoft: dark ? TonalScale.generate(positive)[900] : TonalScale.generate(positive)[50],
-      negativeSoft: dark ? TonalScale.generate(negative)[900] : TonalScale.generate(negative)[50],
+      positiveSoft: dark
+          ? TonalScale.generate(positive)[900]
+          : TonalScale.generate(positive)[50],
+      negativeSoft: dark
+          ? TonalScale.generate(negative)[900]
+          : TonalScale.generate(negative)[50],
       emptyCell: dark ? tint(0.27) : tint(0.915),
-      navBg: dark ? tint(0.20).withValues(alpha: 0.62) : const Color(0xFFFFFFFF).withValues(alpha: 0.70),
-      navActive: dark ? const Color(0xFFFFFFFF).withValues(alpha: 0.10) : tint(0.30).withValues(alpha: 0.07),
+      navBg: dark
+          ? tint(0.20).withValues(alpha: 0.62)
+          : const Color(0xFFFFFFFF).withValues(alpha: 0.70),
+      navActive: dark
+          ? const Color(0xFFFFFFFF).withValues(alpha: 0.10)
+          : tint(0.30).withValues(alpha: 0.07),
     );
   }
 
@@ -370,7 +439,11 @@ class AppColors {
   static final light = AppColors.fromSeed(Palette.teal.s500, Brightness.light);
 
   @override
-  bool operator ==(Object other) => other is AppColors && other.brightness == brightness && other.seed == seed && other.harmony == harmony;
+  bool operator ==(Object other) =>
+      other is AppColors &&
+      other.brightness == brightness &&
+      other.seed == seed &&
+      other.harmony == harmony;
 
   @override
   int get hashCode => Object.hash(brightness, seed, harmony);
@@ -380,7 +453,9 @@ class AppTheme extends InheritedWidget {
   final AppColors colors;
   const AppTheme({super.key, required this.colors, required super.child});
 
-  static AppColors of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<AppTheme>()?.colors ?? AppColors.dark;
+  static AppColors of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppTheme>()?.colors ??
+      AppColors.dark;
 
   @override
   bool updateShouldNotify(AppTheme oldWidget) => oldWidget.colors != colors;
@@ -392,8 +467,17 @@ extension AppThemeX on BuildContext {
 
 /// Tipografia padronizada: Poppins em escala limpa de números pares.
 class T {
-  static TextStyle _p(double size, FontWeight w, {double? height, double? ls}) =>
-      GoogleFonts.poppins(fontSize: size, fontWeight: w, height: height, letterSpacing: ls);
+  static TextStyle _p(
+    double size,
+    FontWeight w, {
+    double? height,
+    double? ls,
+  }) => GoogleFonts.poppins(
+    fontSize: size,
+    fontWeight: w,
+    height: height,
+    letterSpacing: ls,
+  );
 
   static TextStyle display = _p(36, FontWeight.w600, height: 1.15, ls: -0.5);
   static TextStyle title = _p(24, FontWeight.w600, height: 1.25);
@@ -440,7 +524,13 @@ CupertinoThemeData cupertinoThemeFor(AppColors c) => CupertinoThemeData(
     navTitleTextStyle: T.bodyStrong.copyWith(color: c.text),
     navLargeTitleTextStyle: T.title.copyWith(color: c.text),
     actionTextStyle: T.body.copyWith(color: c.accent),
-    dateTimePickerTextStyle: T.headline.copyWith(color: c.text, fontWeight: FontWeight.w400),
-    pickerTextStyle: T.headline.copyWith(color: c.text, fontWeight: FontWeight.w400),
+    dateTimePickerTextStyle: T.headline.copyWith(
+      color: c.text,
+      fontWeight: FontWeight.w400,
+    ),
+    pickerTextStyle: T.headline.copyWith(
+      color: c.text,
+      fontWeight: FontWeight.w400,
+    ),
   ),
 );

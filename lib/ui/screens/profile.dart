@@ -37,7 +37,9 @@ class ProfileScreen extends StatelessWidget {
       children: [
         const GlowBackground(height: 480),
         CustomScrollView(
-          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             PinnedCupertinoBar(
               height: 56,
@@ -45,14 +47,23 @@ class ProfileScreen extends StatelessWidget {
               builder: (ctx, _) => const Center(child: MareWordmark(size: 20)),
             ),
             SliverPadding(
-              padding: EdgeInsets.fromLTRB(pad, Space.base, pad, navClearance(context)),
+              padding: EdgeInsets.fromLTRB(
+                pad,
+                Space.base,
+                pad,
+                navClearance(context),
+              ),
               sliver: SliverList.list(
                 children: [
                   Center(
                     child: Pressable(
                       semanticLabel: 'Editar perfil',
                       onTap: () => editProfile(context),
-                      child: Avatar(path: d.avatarPath, name: d.userName, size: 96),
+                      child: Avatar(
+                        path: d.avatarPath,
+                        name: d.userName,
+                        size: 96,
+                      ),
                     ),
                   ),
                   const SizedBox(height: Space.base),
@@ -69,7 +80,13 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: Space.base),
                   Center(
-                    child: PillButton('Editar perfil', kind: BtnKind.ghost, expand: false, height: 44, onTap: () => editProfile(context)),
+                    child: PillButton(
+                      'Editar perfil',
+                      kind: BtnKind.ghost,
+                      expand: false,
+                      height: 44,
+                      onTap: () => editProfile(context),
+                    ),
                   ),
                   const SectionHeader('Finanças'),
                   _Group(
@@ -77,7 +94,9 @@ class ProfileScreen extends StatelessWidget {
                       _Row(
                         icon: LucideIcons.banknote,
                         title: 'Salário',
-                        value: f.salary > 0 ? fmtMoney(f.salary, hidden: d.hideValues) : 'Não informado',
+                        value: f.salary > 0
+                            ? fmtMoney(f.salary, hidden: d.hideValues)
+                            : 'Não informado',
                         onTap: () => editSalary(context),
                       ),
                       _Row(
@@ -92,7 +111,9 @@ class ProfileScreen extends StatelessWidget {
                         icon: LucideIcons.landmark,
                         title: 'Contas e cartões',
                         subtitle: 'Separe gastos por banco ou cartão',
-                        value: d.cards.isEmpty ? 'Nenhuma' : '${d.cards.length}',
+                        value: d.cards.isEmpty
+                            ? 'Nenhuma'
+                            : '${d.cards.length}',
                         onTap: () => manageCards(context),
                       ),
                       _Row(
@@ -117,15 +138,26 @@ class ProfileScreen extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(LucideIcons.sunMoon, size: 20, color: c.accent),
+                                Icon(
+                                  LucideIcons.sunMoon,
+                                  size: 20,
+                                  color: c.accent,
+                                ),
                                 const SizedBox(width: Space.md),
-                                Text('Tema', style: T.body.copyWith(color: c.text)),
+                                Text(
+                                  'Tema',
+                                  style: T.body.copyWith(color: c.text),
+                                ),
                               ],
                             ),
                             const SizedBox(height: Space.md),
                             Segmented<ThemePref>(
                               value: d.theme,
-                              options: const {ThemePref.auto: 'Automático', ThemePref.light: 'Claro', ThemePref.dark: 'Escuro'},
+                              options: const {
+                                ThemePref.auto: 'Automático',
+                                ThemePref.light: 'Claro',
+                                ThemePref.dark: 'Escuro',
+                              },
                               onChanged: s.setTheme,
                             ),
                           ],
@@ -138,16 +170,26 @@ class ProfileScreen extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(LucideIcons.palette, size: 20, color: c.accent),
+                                Icon(
+                                  LucideIcons.palette,
+                                  size: 20,
+                                  color: c.accent,
+                                ),
                                 const SizedBox(width: Space.md),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Text('Cor destaque', style: T.body.copyWith(color: c.text)),
+                                      Text(
+                                        'Cor destaque',
+                                        style: T.body.copyWith(color: c.text),
+                                      ),
                                       Text(
                                         'Cor secundária ajustada no tema',
-                                        style: T.small.copyWith(color: c.textSecondary),
+                                        style: T.small.copyWith(
+                                          color: c.textSecondary,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -165,7 +207,8 @@ class ProfileScreen extends StatelessWidget {
                                     primary: col,
                                     complementary: complementaryOf(col),
                                     selected: currentSeed == col.toARGB32(),
-                                    onTap: () => s.setAccentColor(col.toARGB32()),
+                                    onTap: () =>
+                                        s.setAccentColor(col.toARGB32()),
                                   ),
                               ],
                             ),
@@ -173,10 +216,16 @@ class ProfileScreen extends StatelessWidget {
                         ),
                       ),
                       _Row(
-                        icon: d.hideValues ? LucideIcons.eyeOff : LucideIcons.eye,
+                        icon: d.hideValues
+                            ? LucideIcons.eyeOff
+                            : LucideIcons.eye,
                         title: 'Ocultar valores',
                         subtitle: 'Esconde os valores na tela',
-                        trailing: SpringSwitch(value: d.hideValues, label: 'Ocultar valores', onChanged: (_) => s.toggleHideValues()),
+                        trailing: SpringSwitch(
+                          value: d.hideValues,
+                          label: 'Ocultar valores',
+                          onChanged: (_) => s.toggleHideValues(),
+                        ),
                       ),
                     ],
                   ),
@@ -195,7 +244,12 @@ class ProfileScreen extends StatelessWidget {
                         subtitle: 'Restaurar cópia do maré ou FinApp',
                         onTap: () => importBackupFlow(context),
                       ),
-                      _Row(icon: LucideIcons.trash2, title: 'Apagar dados do aparelho', danger: true, onTap: () => _resetAll(context)),
+                      _Row(
+                        icon: LucideIcons.trash2,
+                        title: 'Apagar dados do aparelho',
+                        danger: true,
+                        onTap: () => _resetAll(context),
+                      ),
                     ],
                   ),
                 ],
@@ -211,11 +265,17 @@ class ProfileScreen extends StatelessWidget {
     final ok = await confirm(
       context,
       title: 'Apagar tudo?',
-      message: 'Gastos, caixinhas, cartões e perfil serão apagados deste celular. Exporte um backup antes se quiser guardar.',
+      message:
+          'Gastos, caixinhas, cartões e perfil serão apagados deste celular. Exporte um backup antes se quiser guardar.',
       action: 'Apagar tudo',
     );
     if (!ok || !context.mounted) return;
-    final ok2 = await confirm(context, title: 'Tem certeza?', message: 'Não dá para desfazer.', action: 'Sim, apagar');
+    final ok2 = await confirm(
+      context,
+      title: 'Tem certeza?',
+      message: 'Não dá para desfazer.',
+      action: 'Sim, apagar',
+    );
     if (!ok2 || !context.mounted) return;
     context.storeRead.resetAll();
   }
@@ -248,7 +308,10 @@ class _AccentSwatch extends StatelessWidget {
         padding: const EdgeInsets.all(2),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: selected ? c.text : c.border, width: selected ? 2.5 : 1),
+          border: Border.all(
+            color: selected ? c.text : c.border,
+            width: selected ? 2.5 : 1,
+          ),
         ),
         child: ClipOval(
           child: Stack(
@@ -262,12 +325,20 @@ class _AccentSwatch extends StatelessWidget {
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: complementary,
-                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(12)),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(12),
+                    ),
                   ),
                 ),
               ),
               if (selected)
-                const Center(child: Icon(LucideIcons.check, size: 16, color: Palette.neutral0)),
+                const Center(
+                  child: Icon(
+                    LucideIcons.check,
+                    size: 16,
+                    color: Palette.neutral0,
+                  ),
+                ),
             ],
           ),
         ),
@@ -282,30 +353,7 @@ class _Group extends StatelessWidget {
   final List<Widget> children;
   const _Group({required this.children});
   @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    final n = children.length;
-    return Column(
-      children: [
-        for (var i = 0; i < n; i++) ...[
-          if (i > 0) const SizedBox(height: Space.xs),
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: c.card,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(i == 0 ? 22 : 8),
-                bottom: Radius.circular(i == n - 1 ? 22 : 8),
-              ),
-              border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.45 : 0.65)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: children[i],
-          ),
-        ],
-      ],
-    );
-  }
+  Widget build(BuildContext context) => ListGroup(children: children);
 }
 
 class _Row extends StatelessWidget {
@@ -316,51 +364,28 @@ class _Row extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final bool danger;
-  const _Row({required this.icon, required this.title, this.subtitle, this.value, this.trailing, this.onTap, this.danger = false});
+  const _Row({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.value,
+    this.trailing,
+    this.onTap,
+    this.danger = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final color = danger ? c.negative : c.text;
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.base),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: danger ? c.negativeSoft : c.primarySoft,
-              borderRadius: BorderRadius.circular(Space.radiusMd),
-            ),
-            child: Icon(icon, size: 18, color: danger ? c.negative : c.accent),
-          ),
-          const SizedBox(width: Space.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: T.body.copyWith(color: color, fontWeight: FontWeight.w500)),
-                if (subtitle != null) ...[
-                  const SizedBox(height: Space.xxs),
-                  Text(subtitle!, style: T.small.copyWith(color: c.textSecondary)),
-                ],
-              ],
-            ),
-          ),
-          if (value != null) ...[
-            const SizedBox(width: Space.md),
-            Text(value!, style: T.label.copyWith(color: c.textSecondary)),
-          ],
-          ?trailing,
-          if (onTap != null && trailing == null) ...[
-            const SizedBox(width: Space.xs),
-            Icon(LucideIcons.chevronRight, size: 18, color: c.textTertiary),
-          ],
-        ],
-      ),
+    return ListRow(
+      leading: IconBadge(icon, danger ? c.negative : c.accent, size: 40),
+      title: title,
+      subtitle: subtitle,
+      value: value,
+      trailing: trailing,
+      arrow: onTap != null && trailing == null,
+      onTap: onTap,
     );
-    return onTap == null ? row : Pressable(scale: 0.99, onTap: onTap, child: row);
   }
 }
 
@@ -376,11 +401,19 @@ Future<void> editSalary(BuildContext context) {
         ctl.addListener(() => set(() {}));
         final c = ctx.c;
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 16),
+          padding: const EdgeInsets.fromLTRB(
+            Space.gutter,
+            12,
+            Space.gutter,
+            16,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Salário', style: T.title.copyWith(color: c.text, fontSize: 24)),
+              Text(
+                'Salário',
+                style: T.title.copyWith(color: c.text, fontSize: 24),
+              ),
               Text(
                 'Valor líquido que entra por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
                 style: T.small.copyWith(color: c.textSecondary),
@@ -417,12 +450,20 @@ Future<void> editCycleDay(BuildContext context) {
         final cy = Cycle.of(DateTime.now(), day);
         final last = cy.end.subtract(const Duration(days: 1));
         return Padding(
-          padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 16),
+          padding: const EdgeInsets.fromLTRB(
+            Space.gutter,
+            12,
+            Space.gutter,
+            16,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Virada do ciclo', style: T.title.copyWith(color: c.text, fontSize: 24)),
+              Text(
+                'Virada do ciclo',
+                style: T.title.copyWith(color: c.text, fontSize: 24),
+              ),
               Text(
                 'Use o dia em que o salário cai. Em meses mais curtos, a virada acontece no último dia.',
                 style: T.small.copyWith(color: c.textSecondary),
@@ -430,7 +471,9 @@ Future<void> editCycleDay(BuildContext context) {
               SizedBox(
                 height: 180,
                 child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(initialItem: day - 1),
+                  scrollController: FixedExtentScrollController(
+                    initialItem: day - 1,
+                  ),
                   itemExtent: 44,
                   onSelectedItemChanged: (i) {
                     HapticFeedback.selectionClick();
@@ -441,7 +484,10 @@ Future<void> editCycleDay(BuildContext context) {
                       Center(
                         child: Text(
                           'Dia $d',
-                          style: T.headline.copyWith(color: c.text, fontWeight: FontWeight.w400),
+                          style: T.headline.copyWith(
+                            color: c.text,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
                       ),
                   ],
@@ -484,7 +530,10 @@ Future<void> manageCards(BuildContext context) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Contas e cartões', style: T.title.copyWith(color: c.text, fontSize: 24)),
+            Text(
+              'Contas e cartões',
+              style: T.title.copyWith(color: c.text, fontSize: 24),
+            ),
             Text(
               'Adicione bancos ou cartões para filtrar seus gastos no extrato. Segure um item na Carteira para editar.',
               style: T.small.copyWith(color: c.textSecondary),
@@ -497,7 +546,10 @@ Future<void> manageCards(BuildContext context) {
                   onTap: () => editCard(ctx, card: k),
                   child: Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(18)),
+                    decoration: BoxDecoration(
+                      color: c.card,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                     child: Row(
                       children: [
                         CardChip(card: k, width: 76),
@@ -506,20 +558,36 @@ Future<void> manageCards(BuildContext context) {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(k.name, style: T.bodyStrong.copyWith(color: c.text)),
+                              Text(
+                                k.name,
+                                style: T.bodyStrong.copyWith(color: c.text),
+                              ),
                               if (k.last4.isNotEmpty)
-                                Text('Final ${k.last4}', style: T.small.copyWith(color: c.textSecondary)),
+                                Text(
+                                  'Final ${k.last4}',
+                                  style: T.small.copyWith(
+                                    color: c.textSecondary,
+                                  ),
+                                ),
                             ],
                           ),
                         ),
-                        Icon(LucideIcons.pencil, size: 18, color: c.textSecondary),
+                        Icon(
+                          LucideIcons.pencil,
+                          size: 18,
+                          color: c.textSecondary,
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
             const SizedBox(height: 8),
-            PillButton('Adicionar conta ou cartão', icon: LucideIcons.plus, onTap: () => editCard(ctx)),
+            PillButton(
+              'Adicionar conta ou cartão',
+              icon: LucideIcons.plus,
+              onTap: () => editCard(ctx),
+            ),
           ],
         ),
       );
@@ -527,7 +595,8 @@ Future<void> manageCards(BuildContext context) {
   );
 }
 
-Future<void> editProfile(BuildContext context) => showSheet(context, builder: (_) => const _ProfileForm());
+Future<void> editProfile(BuildContext context) =>
+    showSheet(context, builder: (_) => const _ProfileForm());
 
 class _ProfileForm extends StatefulWidget {
   const _ProfileForm();
@@ -536,7 +605,9 @@ class _ProfileForm extends StatefulWidget {
 }
 
 class _ProfileFormState extends State<_ProfileForm> {
-  late final _name = TextEditingController(text: context.storeRead.data.userName);
+  late final _name = TextEditingController(
+    text: context.storeRead.data.userName,
+  );
   late String? _avatar = context.storeRead.data.avatarPath;
   bool _removed = false;
 
@@ -548,18 +619,30 @@ class _ProfileFormState extends State<_ProfileForm> {
 
   Future<void> _pick(ImageSource src) async {
     try {
-      final x = await ImagePicker().pickImage(source: src, maxWidth: 512, maxHeight: 512, imageQuality: 82);
+      final x = await ImagePicker().pickImage(
+        source: src,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 82,
+      );
       if (x == null) return;
       // Copia para a pasta do app: o arquivo temporário do picker pode sumir.
       final dir = await getApplicationDocumentsDirectory();
-      final dest = File('${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      final dest = File(
+        '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
       await File(x.path).copy(dest.path);
       setState(() {
         _avatar = dest.path;
         _removed = false;
       });
     } catch (_) {
-      if (mounted) toast(context, 'Não foi possível usar essa foto', icon: LucideIcons.triangleAlert);
+      if (mounted)
+        toast(
+          context,
+          'Não foi possível usar essa foto',
+          icon: LucideIcons.triangleAlert,
+        );
     }
   }
 
@@ -571,7 +654,10 @@ class _ProfileFormState extends State<_ProfileForm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Editar perfil', style: T.title.copyWith(color: c.text, fontSize: 24)),
+          Text(
+            'Editar perfil',
+            style: T.title.copyWith(color: c.text, fontSize: 24),
+          ),
           const SizedBox(height: 20),
           Center(
             child: Pressable(
@@ -579,9 +665,23 @@ class _ProfileFormState extends State<_ProfileForm> {
                 final a = await actionSheet<String>(
                   context,
                   actions: [
-                    const SheetAction('Escolher da galeria', 'gallery', icon: LucideIcons.image),
-                    const SheetAction('Tirar foto', 'camera', icon: LucideIcons.camera),
-                    if (_avatar != null) const SheetAction('Remover foto', 'remove', destructive: true, icon: LucideIcons.trash2),
+                    const SheetAction(
+                      'Escolher da galeria',
+                      'gallery',
+                      icon: LucideIcons.image,
+                    ),
+                    const SheetAction(
+                      'Tirar foto',
+                      'camera',
+                      icon: LucideIcons.camera,
+                    ),
+                    if (_avatar != null)
+                      const SheetAction(
+                        'Remover foto',
+                        'remove',
+                        destructive: true,
+                        icon: LucideIcons.trash2,
+                      ),
                   ],
                 );
                 if (a == 'gallery') _pick(ImageSource.gallery);
@@ -607,7 +707,11 @@ class _ProfileFormState extends State<_ProfileForm> {
                         shape: BoxShape.circle,
                         border: Border.all(color: c.bg, width: 2),
                       ),
-                      child: Icon(LucideIcons.camera, size: 16, color: c.onPrimary),
+                      child: Icon(
+                        LucideIcons.camera,
+                        size: 16,
+                        color: c.onPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -627,7 +731,11 @@ class _ProfileFormState extends State<_ProfileForm> {
           PillButton(
             'Salvar',
             onTap: () {
-              context.storeRead.setProfile(name: _name.text, avatarPath: _removed ? null : _avatar, clearAvatar: _removed);
+              context.storeRead.setProfile(
+                name: _name.text,
+                avatarPath: _removed ? null : _avatar,
+                clearAvatar: _removed,
+              );
               Navigator.pop(context);
             },
           ),

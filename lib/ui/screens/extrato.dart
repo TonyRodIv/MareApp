@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import '../../data/finance.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
+import '../widgets/charts.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
@@ -34,6 +35,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
   String? _cat;
   String? _card;
   String _q = '';
+  int _kind = 0; // 0 todos, 1 recorrentes, 2 únicos
   final _search = TextEditingController();
 
   @override
@@ -73,11 +75,21 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     if (_card != null) items = items.where((e) => e.cardId == _card).toList();
     if (_q.isNotEmpty) {
       final q = _q.toLowerCase();
-      items = items.where((e) => e.name.toLowerCase().contains(q) || e.category.label.toLowerCase().contains(q)).toList();
+      items = items
+          .where(
+            (e) =>
+                e.name.toLowerCase().contains(q) ||
+                e.category.label.toLowerCase().contains(q),
+          )
+          .toList();
     }
 
-    final recurring = items.where((e) => e.isRecurring).toList()..sort((a, b) => b.cents.compareTo(a.cents));
-    final once = items.where((e) => !e.isRecurring).toList()..sort((a, b) => b.date.compareTo(a.date));
+    if (_kind == 1) items = items.where((e) => e.isRecurring).toList();
+    if (_kind == 2) items = items.where((e) => !e.isRecurring).toList();
+    final recurring = items.where((e) => e.isRecurring).toList()
+      ..sort((a, b) => b.cents.compareTo(a.cents));
+    final once = items.where((e) => !e.isRecurring).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
     final byDay = <DateTime, List<Expense>>{};
     for (final e in once) {
       byDay.putIfAbsent(dateOnly(e.date), () => []).add(e);
@@ -86,24 +98,26 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final total = items.fold<int>(0, (t, e) => t + e.cents);
     final salary = f.salaryFor(cy);
     final pad = sidePadding(context);
+    final weekly = List<int>.filled(7, 0);
+    for (final e in items.where((e) => !e.isRecurring)) {
+      weekly[e.date.weekday % 7] += e.cents;
+    }
     final usedCats = allInCycle.map((e) => e.categoryId).toSet();
 
-    // Agrupa categorias do recorte atual para a barra segmentada no topo.
-    final catTotals = <String, int>{};
-    for (final e in items) {
-      catTotals[e.categoryId] = (catTotals[e.categoryId] ?? 0) + e.cents;
-    }
-    final topCats = catTotals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-
     return CustomScrollView(
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       slivers: [
         PinnedCupertinoBar(
           height: 60,
           builder: (ctx, _) => Row(
             children: [
               Expanded(
-                child: Text('Extrato', style: T.title.copyWith(color: c.text, fontSize: 26)),
+                child: Text(
+                  'Extrato',
+                  style: T.title.copyWith(color: c.text, fontSize: 26),
+                ),
               ),
               RoundIconButton(
                 LucideIcons.plus,
@@ -120,131 +134,97 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
           padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, 0),
           sliver: SliverList.list(
             children: [
-              // ── Card de consumo do ciclo (inspirado no design de barra segmentada)
-              Container(
-                padding: const EdgeInsets.all(Space.base),
-                decoration: BoxDecoration(
-                  color: c.card,
-                  borderRadius: BorderRadius.circular(Space.radiusCard),
-                  border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.7)),
-                ),
+              // Tipo de lançamento: pílula segmentada, como na referência
+              Segmented<int>(
+                value: _kind,
+                options: const {0: 'Todos', 1: 'Recorrentes', 2: 'Únicos'},
+                onChanged: (v) => setState(() => _kind = v),
+              ),
+              const SizedBox(height: Space.base),
+              // Ciclo: navegação compacta e centralizada
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  RoundIconButton(
+                    LucideIcons.chevronLeft,
+                    size: 36,
+                    bg: c.cardAlt,
+                    label: 'Ciclo anterior',
+                    onTap: () => setState(() => _offset--),
+                  ),
+                  const SizedBox(width: Space.md),
+                  BlurSwitcher(
+                    alignment: Alignment.center,
+                    child: Column(
+                      key: ValueKey(cy.key),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          cy.label(),
+                          style: T.bodyStrong.copyWith(color: c.text),
+                        ),
+                        Text(
+                          _range(cy),
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: Space.md),
+                  RoundIconButton(
+                    LucideIcons.chevronRight,
+                    size: 36,
+                    bg: c.cardAlt,
+                    label: 'Próximo ciclo',
+                    onTap: _offset >= 12
+                        ? null
+                        : () => setState(() => _offset++),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.lg),
+              // Total do recorte, grande e centralizado
+              Center(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Navegador de ciclo compacto no topo do card
-                    Row(
-                      children: [
-                        RoundIconButton(
-                          LucideIcons.chevronLeft,
-                          size: 44,
-                          bg: c.cardAlt,
-                          label: 'Ciclo anterior',
-                          onTap: () => setState(() => _offset--),
-                        ),
-                        Expanded(
-                          child: BlurSwitcher(
-                            alignment: Alignment.center,
-                            child: Column(
-                              key: ValueKey(cy.key),
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(cy.label(), style: T.bodyStrong.copyWith(color: c.text)),
-                                Text(_range(cy), style: T.small.copyWith(color: c.textSecondary)),
-                              ],
-                            ),
-                          ),
-                        ),
-                        RoundIconButton(
-                          LucideIcons.chevronRight,
-                          size: 44,
-                          bg: c.cardAlt,
-                          label: 'Próximo ciclo',
-                          onTap: _offset >= 12 ? null : () => setState(() => _offset++),
-                        ),
-                      ],
+                    Text(
+                      'Total do ciclo',
+                      style: T.label.copyWith(color: c.textSecondary),
                     ),
-                    const SizedBox(height: Space.base),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        CountingMoney(
-                          cents: total,
-                          builder: (v) => MoneyText(v, hidden: hidden, style: T.title.copyWith(fontSize: 28)),
-                        ),
-                        if (salary > 0) ...[
-                          const SizedBox(width: Space.sm),
-                          Flexible(
-                            child: Text(
-                              'de ${fmtMoney(salary, hidden: hidden)}',
-                              style: T.label.copyWith(color: c.textSecondary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ],
+                    const SizedBox(height: Space.xs),
+                    CountingMoney(
+                      cents: total,
+                      builder: (v) => MoneyText(
+                        v,
+                        hidden: hidden,
+                        style: T.display.copyWith(fontSize: 40),
+                      ),
                     ),
-                    if (total > 0 && topCats.isNotEmpty) ...[
-                      const SizedBox(height: Space.md),
-                      // Barra segmentada em pílulas arredondadas por categoria
-                      SizedBox(
-                        height: 10,
-                        child: Row(
-                          children: [
-                            for (var k = 0; k < topCats.length && k < 4; k++) ...[
-                              if (k > 0) const SizedBox(width: Space.xs),
-                              Expanded(
-                                flex: (topCats[k].value * 100 ~/ total).clamp(6, 100),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: c.tone(categoryById(topCats[k].key).color),
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: Space.md),
-                      Wrap(
-                        spacing: Space.md,
-                        runSpacing: Space.xs,
-                        children: [
-                          for (var k = 0; k < topCats.length && k < 3; k++)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(color: c.tone(categoryById(topCats[k].key).color), shape: BoxShape.circle),
-                                ),
-                                const SizedBox(width: Space.xs),
-                                Text(
-                                  '${categoryById(topCats[k].key).label} ${(topCats[k].value / total * 100).round()}%',
-                                  style: T.small.copyWith(color: c.textSecondary),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ] else ...[
-                      const SizedBox(height: Space.xs),
+                    if (salary > 0)
                       Text(
-                        '${items.length} lançamentos neste ciclo',
+                        'de ${fmtMoney(salary, hidden: hidden)}',
                         style: T.small.copyWith(color: c.textSecondary),
                       ),
-                    ],
                   ],
                 ),
               ),
+              const SizedBox(height: Space.lg),
+              if (weekly.any((x) => x > 0)) ...[
+                AppCard(
+                  title: 'Gastos por dia da semana',
+                  child: WeekdayBars(values: weekly, hidden: hidden),
+                ),
+                const SizedBox(height: Space.base),
+              ],
               const SizedBox(height: Space.md),
               AppField(
                 controller: _search,
                 placeholder: 'Buscar gasto ou categoria',
-                prefix: Icon(LucideIcons.search, size: 18, color: c.textSecondary),
+                prefix: Icon(
+                  LucideIcons.search,
+                  size: 18,
+                  color: c.textSecondary,
+                ),
                 suffix: _q.isEmpty
                     ? null
                     : Pressable(
@@ -252,7 +232,11 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                           _search.clear();
                           setState(() => _q = '');
                         },
-                        child: Icon(LucideIcons.x, size: 18, color: c.textSecondary),
+                        child: Icon(
+                          LucideIcons.x,
+                          size: 18,
+                          color: c.textSecondary,
+                        ),
                       ),
                 onChanged: (v) => setState(() => _q = v.trim()),
                 action: TextInputAction.search,
@@ -269,23 +253,31 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
               physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(pad, Space.md, pad, Space.xs),
               children: [
-                ChipButton('Todos', selected: _cat == null && _card == null, onTap: () => setState(() => _cat = _card = null)),
+                ChipButton(
+                  'Todos',
+                  selected: _cat == null && _card == null,
+                  onTap: () => setState(() => _cat = _card = null),
+                ),
                 for (final k in s.data.cards) ...[
                   const SizedBox(width: Space.sm),
                   ChipButton(
                     k.last4.isNotEmpty ? '${k.name} •${k.last4}' : k.name,
                     dot: Color(k.color),
                     selected: _card == k.id,
-                    onTap: () => setState(() => _card = _card == k.id ? null : k.id),
+                    onTap: () =>
+                        setState(() => _card = _card == k.id ? null : k.id),
                   ),
                 ],
-                for (final cat in categories.where((x) => usedCats.contains(x.id) || x.id == _cat)) ...[
+                for (final cat in categories.where(
+                  (x) => usedCats.contains(x.id) || x.id == _cat,
+                )) ...[
                   const SizedBox(width: Space.sm),
                   ChipButton(
                     cat.label,
                     icon: cat.icon,
                     selected: _cat == cat.id,
-                    onTap: () => setState(() => _cat = _cat == cat.id ? null : cat.id),
+                    onTap: () =>
+                        setState(() => _cat = _cat == cat.id ? null : cat.id),
                   ),
                 ],
               ],
@@ -293,14 +285,21 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
           ),
         ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, navClearance(context)),
+          padding: EdgeInsets.fromLTRB(
+            pad,
+            Space.sm,
+            pad,
+            navClearance(context),
+          ),
           sliver: SliverList.list(
             children: [
               if (items.isEmpty) ...[
                 const SizedBox(height: Space.sm),
                 EmptyState(
                   icon: LucideIcons.receipt,
-                  title: _q.isNotEmpty || _cat != null || _card != null ? 'Nenhum gasto com esse filtro' : 'Sem gastos neste ciclo',
+                  title: _q.isNotEmpty || _cat != null || _card != null
+                      ? 'Nenhum gasto com esse filtro'
+                      : 'Sem gastos neste ciclo',
                   message: _q.isNotEmpty || _cat != null || _card != null
                       ? 'Remova os filtros para ver todos os lançamentos'
                       : 'Os gastos registrados aparecem aqui por dia',
@@ -320,52 +319,40 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                 ),
               ],
               if (recurring.isNotEmpty) ...[
-                SectionHeader(
-                  'Recorrentes',
+                ListGroup(
+                  title: 'Recorrentes',
                   trailing: Text(
-                    fmtMoney(recurring.fold(0, (t, e) => t + e.cents), hidden: hidden),
+                    fmtMoney(
+                      recurring.fold(0, (t, e) => t + e.cents),
+                      hidden: hidden,
+                    ),
                     style: T.smallStrong.copyWith(color: c.textSecondary),
                   ),
+                  children: [
+                    for (final e in recurring)
+                      ExpenseRow(e: e, f: f, hidden: hidden),
+                  ],
                 ),
-                _group(context, [for (final e in recurring) ExpenseRow(e: e, f: f, hidden: hidden)]),
               ],
               for (final day in byDay.keys) ...[
-                SectionHeader(
-                  _dayLabel(day),
+                ListGroup(
+                  title: _dayLabel(day),
                   trailing: Text(
-                    fmtMoney(byDay[day]!.fold(0, (t, e) => t + e.cents), hidden: hidden),
+                    fmtMoney(
+                      byDay[day]!.fold(0, (t, e) => t + e.cents),
+                      hidden: hidden,
+                    ),
                     style: T.smallStrong.copyWith(color: c.textSecondary),
                   ),
+                  children: [
+                    for (final e in byDay[day]!)
+                      ExpenseRow(e: e, f: f, hidden: hidden),
+                  ],
                 ),
-                _group(context, [for (final e in byDay[day]!) ExpenseRow(e: e, f: f, hidden: hidden)]),
               ],
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _group(BuildContext context, List<Widget> rows) {
-    final c = context.c;
-    final n = rows.length;
-    return Column(
-      children: [
-        for (var i = 0; i < n; i++) ...[
-          if (i > 0) const SizedBox(height: Space.xs),
-          Container(
-            decoration: BoxDecoration(
-              color: c.card,
-              borderRadius: BorderRadius.vertical(
-                top: Radius.circular(i == 0 ? 22 : 8),
-                bottom: Radius.circular(i == n - 1 ? 22 : 8),
-              ),
-              border: Border.all(color: c.border.withValues(alpha: c.isDark ? 0.45 : 0.65)),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: rows[i],
-          ),
-        ],
       ],
     );
   }
@@ -388,76 +375,38 @@ class ExpenseRow extends StatelessWidget {
   final Expense e;
   final Finance f;
   final bool hidden;
-  const ExpenseRow({super.key, required this.e, required this.f, required this.hidden});
+  const ExpenseRow({
+    super.key,
+    required this.e,
+    required this.f,
+    required this.hidden,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final s = context.storeRead;
-    final card = s.card(e.cardId);
+    final card = context.storeRead.card(e.cardId);
     final meta = [
       e.category.label,
-      if (e.isRecurring) e.endDate == null ? 'todo mês' : 'até ${DateFormat('MM/yy').format(e.endDate!)}',
-      if (card != null) card.last4.isNotEmpty ? '${card.name} •${card.last4}' : card.name,
+      if (e.isRecurring)
+        e.endDate == null
+            ? 'todo mês'
+            : 'até ${DateFormat('MM/yy').format(e.endDate!)}',
+      if (card != null)
+        card.last4.isNotEmpty ? '${card.name} •${card.last4}' : card.name,
     ].join(' · ');
-    return Dismissible(
-      key: ValueKey(e.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        color: c.negativeSoft,
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: Space.lg),
-        child: Icon(LucideIcons.trash2, color: c.negative),
+    return ListRow(
+      leading: BrandLogo(
+        name: e.name,
+        icon: e.category.icon,
+        color: e.category.color,
+        size: 40,
       ),
-      confirmDismiss: (_) => confirm(
-        context,
-        title: 'Excluir "${e.name}"?',
-        message: e.isRecurring ? 'Some de todos os ciclos, inclusive os anteriores.' : null,
-        action: 'Excluir',
-      ),
-      onDismissed: (_) {
-        s.deleteExpense(e.id);
-        toast(context, 'Gasto excluído', icon: LucideIcons.trash2);
-      },
-      child: Pressable(
-        scale: 0.985,
-        onTap: () => showExpenseActions(context, e),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: Space.base, vertical: Space.md),
-          child: Row(
-            children: [
-              IconBadge(e.category.icon, e.category.color, size: 42),
-              const SizedBox(width: Space.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      e.name,
-                      style: T.bodyStrong.copyWith(color: c.text),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: Space.xxs),
-                    Text(
-                      meta,
-                      style: T.small.copyWith(color: c.textSecondary),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: Space.sm),
-              Text(
-                fmtMoney(e.cents, hidden: hidden),
-                style: T.bodyStrong.copyWith(color: e.cents < 0 ? c.positive : c.text),
-              ),
-            ],
-          ),
-        ),
-      ),
+      title: e.name,
+      subtitle: meta,
+      value: fmtMoney(e.cents, hidden: hidden),
+      valueColor: e.cents < 0 ? c.positive : null,
+      onTap: () => showExpenseActions(context, e),
     );
   }
 }
-

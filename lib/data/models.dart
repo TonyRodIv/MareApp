@@ -8,7 +8,8 @@ import '../core/money.dart';
 final _rnd = Random();
 
 /// IDs únicos de verdade (compatível com VM 64-bit e Web JS 32-bit).
-String newId() => '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_rnd.nextInt(0x3FFFFFFF).toRadixString(36)}';
+String newId() =>
+    '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_rnd.nextInt(0x3FFFFFFF).toRadixString(36)}';
 
 DateTime? _date(dynamic v) => v is String ? DateTime.tryParse(v) : null;
 String? _iso(DateTime? d) => d?.toIso8601String();
@@ -25,22 +26,28 @@ class Category {
 }
 
 const categories = <Category>[
-  Category('alimentacao', 'Alimentação', LucideIcons.utensils, Color(0xFFFF6259), [
-    'mercado',
-    'super',
-    'ifood',
-    'restaurante',
-    'lanche',
-    'padaria',
-    'almoço',
-    'almoco',
-    'jantar',
-    'café',
-    'cafe',
-    'pizza',
-    'açougue',
-    'feira',
-  ]),
+  Category(
+    'alimentacao',
+    'Alimentação',
+    LucideIcons.utensils,
+    Color(0xFFFF6259),
+    [
+      'mercado',
+      'super',
+      'ifood',
+      'restaurante',
+      'lanche',
+      'padaria',
+      'almoço',
+      'almoco',
+      'jantar',
+      'café',
+      'cafe',
+      'pizza',
+      'açougue',
+      'feira',
+    ],
+  ),
   Category('transporte', 'Transporte', LucideIcons.car, Color(0xFF3395FF), [
     'uber',
     '99',
@@ -92,15 +99,13 @@ const categories = <Category>[
     'dentista',
     'academia',
   ]),
-  Category('educacao', 'Educação', LucideIcons.graduationCap, Color(0xFF7978DE), [
-    'curso',
-    'faculdade',
-    'escola',
-    'livro',
-    'mensalidade',
-    'udemy',
-    'alura',
-  ]),
+  Category(
+    'educacao',
+    'Educação',
+    LucideIcons.graduationCap,
+    Color(0xFF7978DE),
+    ['curso', 'faculdade', 'escola', 'livro', 'mensalidade', 'udemy', 'alura'],
+  ),
   Category('lazer', 'Lazer', LucideIcons.ticket, Color(0xFFFFAA33), [
     'lazer',
     'cinema',
@@ -154,7 +159,10 @@ const categories = <Category>[
 Category categoryById(String? id) {
   const legacy = {'vestuario': 'moda'};
   final key = legacy[id] ?? id;
-  return categories.firstWhere((c) => c.id == key, orElse: () => categories.last);
+  return categories.firstWhere(
+    (c) => c.id == key,
+    orElse: () => categories.last,
+  );
 }
 
 /// Sugere a categoria a partir do nome digitado ("Uber pra casa" → Transporte).
@@ -173,7 +181,8 @@ Category? guessCategory(String name) {
 
 enum Recurrence { once, monthly }
 
-Recurrence _rec(dynamic v) => v == 'monthly' || v == 'until' ? Recurrence.monthly : Recurrence.once;
+Recurrence _rec(dynamic v) =>
+    v == 'monthly' || v == 'until' ? Recurrence.monthly : Recurrence.once;
 
 // ── Gasto ───────────────────────────────────────────────────
 
@@ -229,7 +238,9 @@ class Expense {
     categoryId: j['categoryId'] as String? ?? 'outros',
     cardId: j['cardId'] as String?,
     date: _date(j['date']) ?? DateTime.now(),
-    recurrence: j['recurrence'] == 'monthly' ? Recurrence.monthly : Recurrence.once,
+    recurrence: j['recurrence'] == 'monthly'
+        ? Recurrence.monthly
+        : Recurrence.once,
     endDate: _date(j['endDate']),
     createdAt: _date(j['createdAt']),
   );
@@ -250,7 +261,11 @@ class ContributionPlan {
   final int amount;
   const ContributionPlan(this.fromKey, this.mode, this.amount);
 
-  Map<String, dynamic> toJson() => {'fromKey': fromKey, 'mode': mode.name, 'amount': amount};
+  Map<String, dynamic> toJson() => {
+    'fromKey': fromKey,
+    'mode': mode.name,
+    'amount': amount,
+  };
   factory ContributionPlan.fromJson(Map<String, dynamic> j) => ContributionPlan(
     (j['fromKey'] as num).toInt(),
     j['mode'] == 'percent' ? PlanMode.percent : PlanMode.fixed,
@@ -305,9 +320,14 @@ class Movement {
     id: j['id'] as String?,
     name: j['name'] as String? ?? '',
     cents: (j['cents'] as num?)?.toInt() ?? 0,
-    type: MovementType.values.firstWhere((t) => t.name == j['type'], orElse: () => MovementType.deposit),
+    type: MovementType.values.firstWhere(
+      (t) => t.name == j['type'],
+      orElse: () => MovementType.deposit,
+    ),
     date: _date(j['date']) ?? DateTime.now(),
-    recurrence: j['recurrence'] == 'monthly' ? Recurrence.monthly : Recurrence.once,
+    recurrence: j['recurrence'] == 'monthly'
+        ? Recurrence.monthly
+        : Recurrence.once,
     endDate: _date(j['endDate']),
   );
 }
@@ -385,12 +405,14 @@ class Caixinha {
   ContributionPlan? planFor(int key) {
     ContributionPlan? found;
     for (final p in plans) {
-      if (p.fromKey <= key && (found == null || p.fromKey >= found.fromKey)) found = p;
+      if (p.fromKey <= key && (found == null || p.fromKey >= found.fromKey))
+        found = p;
     }
     return found;
   }
 
-  ContributionPlan get currentPlan => plans.reduce((a, b) => a.fromKey >= b.fromKey ? a : b);
+  ContributionPlan get currentPlan =>
+      plans.reduce((a, b) => a.fromKey >= b.fromKey ? a : b);
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -412,8 +434,12 @@ class Caixinha {
     goalCents: (j['goalCents'] as num?)?.toInt(),
     createdKey: (j['createdKey'] as num).toInt(),
     closedKey: (j['closedKey'] as num?)?.toInt(),
-    plans: ((j['plans'] as List?) ?? []).map((e) => ContributionPlan.fromJson(Map<String, dynamic>.from(e))).toList(),
-    movements: ((j['movements'] as List?) ?? []).map((e) => Movement.fromJson(Map<String, dynamic>.from(e))).toList(),
+    plans: ((j['plans'] as List?) ?? [])
+        .map((e) => ContributionPlan.fromJson(Map<String, dynamic>.from(e)))
+        .toList(),
+    movements: ((j['movements'] as List?) ?? [])
+        .map((e) => Movement.fromJson(Map<String, dynamic>.from(e)))
+        .toList(),
   );
 }
 
@@ -437,15 +463,30 @@ class PayCard {
   int color;
   CardBrand brand;
 
-  PayCard({String? id, required this.name, required this.last4, required this.color, this.brand = CardBrand.other}) : id = id ?? newId();
+  PayCard({
+    String? id,
+    required this.name,
+    required this.last4,
+    required this.color,
+    this.brand = CardBrand.other,
+  }) : id = id ?? newId();
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'last4': last4, 'color': color, 'brand': brand.name};
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'last4': last4,
+    'color': color,
+    'brand': brand.name,
+  };
   factory PayCard.fromJson(Map<String, dynamic> j) => PayCard(
     id: j['id'] as String?,
     name: j['name'] as String? ?? 'Cartão',
     last4: j['last4'] as String? ?? '',
     color: (j['color'] as num?)?.toInt() ?? cardColors.first.toARGB32(),
-    brand: CardBrand.values.firstWhere((b) => b.name == j['brand'], orElse: () => CardBrand.other),
+    brand: CardBrand.values.firstWhere(
+      (b) => b.name == j['brand'],
+      orElse: () => CardBrand.other,
+    ),
   );
 }
 
@@ -457,7 +498,8 @@ class SalaryEntry {
   final Cents cents;
   const SalaryEntry(this.fromKey, this.cents);
   Map<String, dynamic> toJson() => {'fromKey': fromKey, 'cents': cents};
-  factory SalaryEntry.fromJson(Map<String, dynamic> j) => SalaryEntry((j['fromKey'] as num).toInt(), (j['cents'] as num).toInt());
+  factory SalaryEntry.fromJson(Map<String, dynamic> j) =>
+      SalaryEntry((j['fromKey'] as num).toInt(), (j['cents'] as num).toInt());
 }
 
 enum ThemePref { auto, light, dark }
@@ -535,13 +577,18 @@ class AppData {
 
   factory AppData.fromJson(Map<String, dynamic> j) {
     List<T> list<T>(String k, T Function(Map<String, dynamic>) f) =>
-        ((j[k] as List?) ?? []).map((e) => f(Map<String, dynamic>.from(e as Map))).toList();
+        ((j[k] as List?) ?? [])
+            .map((e) => f(Map<String, dynamic>.from(e as Map)))
+            .toList();
     return AppData(
       userName: j['userName'] as String? ?? '',
       avatarPath: j['avatarPath'] as String?,
       userSince: (j['userSince'] as num?)?.toInt(),
       cycleStartDay: ((j['cycleStartDay'] as num?)?.toInt() ?? 1).clamp(1, 31),
-      theme: ThemePref.values.firstWhere((t) => t.name == j['theme'], orElse: () => ThemePref.auto),
+      theme: ThemePref.values.firstWhere(
+        (t) => t.name == j['theme'],
+        orElse: () => ThemePref.auto,
+      ),
       accentColor: (j['accentColor'] as num?)?.toInt(),
       hideValues: j['hideValues'] == true,
       onboardingDone: j['onboardingDone'] == true,
@@ -549,9 +596,17 @@ class AppData {
       expenses: list('expenses', Expense.fromJson),
       boxes: list('boxes', Caixinha.fromJson),
       cards: list('cards', PayCard.fromJson),
-      cardSpans: (j['cardSpans'] as Map?)?.map((k, v) => MapEntry('$k', (v as num).toInt().clamp(1, 2))) ?? {},
-      widgetOrder: ((j['widgetOrder'] as List?) ?? []).map((e) => '$e').toList(),
-      hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? []).map((e) => '$e').toList(),
+      cardSpans:
+          (j['cardSpans'] as Map?)?.map(
+            (k, v) => MapEntry('$k', (v as num).toInt().clamp(1, 2)),
+          ) ??
+          {},
+      widgetOrder: ((j['widgetOrder'] as List?) ?? [])
+          .map((e) => '$e')
+          .toList(),
+      hiddenWidgets: ((j['hiddenWidgets'] as List?) ?? [])
+          .map((e) => '$e')
+          .toList(),
     );
   }
 
@@ -560,17 +615,23 @@ class AppData {
   /// Conversões: reais (float) → centavos; 'until' → recorrente com data
   /// final; extras sem data → depósito no ciclo de criação da caixinha;
   /// dívidas → gastos pagos com a caixinha.
-  factory AppData.fromLegacy(Map<String, dynamic> raw, {required int Function(DateTime) keyOf}) {
+  factory AppData.fromLegacy(
+    Map<String, dynamic> raw, {
+    required int Function(DateTime) keyOf,
+  }) {
     final d = raw['data'] is Map ? Map<String, dynamic>.from(raw['data']) : raw;
     final now = DateTime.now();
     final nowKey = keyOf(now);
-    DateTime ts(dynamic v) => v is num ? DateTime.fromMillisecondsSinceEpoch(v.toInt()) : now;
+    DateTime ts(dynamic v) =>
+        v is num ? DateTime.fromMillisecondsSinceEpoch(v.toInt()) : now;
     DateTime? until(dynamic v) => v is String ? DateTime.tryParse(v) : null;
 
     final expenses = <Expense>[];
     for (final e in (d['expenses'] as List? ?? [])) {
       if (e is! Map) continue;
-      final legacyRecurring = e['recurrence'] == null && e['createdAt'] == null; // itens antigos valiam sempre
+      final legacyRecurring =
+          e['recurrence'] == null &&
+          e['createdAt'] == null; // itens antigos valiam sempre
       final rec = legacyRecurring ? Recurrence.monthly : _rec(e['recurrence']);
       final created = ts(e['createdAt'] ?? e['id']);
       expenses.add(
@@ -592,12 +653,19 @@ class AppData {
       if (b is! Map) continue;
       final created = b['id'] is num ? keyOf(ts(b['id'])) : nowKey;
       final percent = b['mode'] == 'percent';
-      final amount = percent ? ((b['amount'] as num? ?? 0) * 100).round() : centsFromLegacy(b['amount']);
+      final amount = percent
+          ? ((b['amount'] as num? ?? 0) * 100).round()
+          : centsFromLegacy(b['amount']);
       final moves = <Movement>[];
       for (final x in (b['extras'] as List? ?? [])) {
         if (x is! Map) continue;
         moves.add(
-          Movement(name: '${x['name'] ?? 'Extra'}', cents: centsFromLegacy(x['value']), type: MovementType.deposit, date: ts(x['id'])),
+          Movement(
+            name: '${x['name'] ?? 'Extra'}',
+            cents: centsFromLegacy(x['value']),
+            type: MovementType.deposit,
+            date: ts(x['id']),
+          ),
         );
       }
       for (final x in (b['debts'] as List? ?? [])) {
@@ -620,20 +688,33 @@ class AppData {
           icon: 'piggy',
           color: boxColors[colorIdx++ % boxColors.length].toARGB32(),
           createdKey: created,
-          plans: [ContributionPlan(created, percent ? PlanMode.percent : PlanMode.fixed, amount)],
+          plans: [
+            ContributionPlan(
+              created,
+              percent ? PlanMode.percent : PlanMode.fixed,
+              amount,
+            ),
+          ],
           movements: moves,
         ),
       );
     }
 
     final salary = centsFromLegacy(d['salary'] ?? 0);
-    final firstKey = [nowKey, ...expenses.map((e) => keyOf(e.date)), ...boxes.map((b) => b.createdKey)].reduce(min);
+    final firstKey = [
+      nowKey,
+      ...expenses.map((e) => keyOf(e.date)),
+      ...boxes.map((b) => b.createdKey),
+    ].reduce(min);
     final name = '${d['userName'] ?? ''}';
     return AppData(
       userName: name == 'Usuário' ? '' : name,
       userSince: (d['userSince'] as num?)?.toInt(),
       cycleStartDay: ((d['monthStartDay'] as num?)?.toInt() ?? 1).clamp(1, 31),
-      theme: ThemePref.values.firstWhere((t) => t.name == d['themePreference'], orElse: () => ThemePref.auto),
+      theme: ThemePref.values.firstWhere(
+        (t) => t.name == d['themePreference'],
+        orElse: () => ThemePref.auto,
+      ),
       onboardingDone: true,
       salaries: salary > 0 ? [SalaryEntry(firstKey, salary)] : [],
       expenses: expenses,
