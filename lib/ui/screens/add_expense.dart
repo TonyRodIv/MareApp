@@ -650,6 +650,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
 Future<String?> pickCategory(BuildContext context, String current) {
   return showSheet<String>(
     context,
+    edgeToEdge: true,
     builder: (ctx) {
       final c = ctx.c;
       return GridView.count(

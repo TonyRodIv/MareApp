@@ -214,7 +214,11 @@ class Palette {
 }
 
 /// Cores de destaque disponíveis para personalização (paleta completa de 10 famílias).
-final accentPresets = <(String, Color)>[for (final s in Palette.allScales) (s.name, s.s500)];
+/// Cores de destaque oferecidas. Ciano, índigo e menta ficaram de fora por serem
+/// quase iguais a Maré, Azul e Roxo/Verde: sobra uma de cada "família" visual.
+final accentPresets = <(String, Color)>[
+  for (final s in [Palette.teal, Palette.blue, Palette.purple, Palette.green, Palette.orange, Palette.red, Palette.yellow]) (s.name, s.s500),
+];
 
 /// Família do Figma mais próxima da cor [seed] (em OKLCH).
 ColorScale scaleFor(Color seed) {
@@ -307,7 +311,9 @@ class AppColors {
     final pal = PaletteSet.build(seed, harmony: harmony);
     final dark = brightness == Brightness.dark;
     final h = pal.hue;
-    Color tint(double l, [double c = 0.008]) => fromOklch(l, c, h);
+    // Superfícies, bordas e textos em escala de cinza pura: a cor do tema fica
+    // só nos botões, ícones e gráficos, nunca no fundo.
+    Color tint(double l, [double c = 0]) => fromOklch(l, 0, h);
 
     final bg = dark ? tint(0.145) : tint(0.968, 0.006);
     final card = dark ? tint(0.205) : const Color(0xFFFFFFFF);

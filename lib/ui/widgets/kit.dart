@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
+import '../../core/color_engine.dart';
 import '../../core/theme.dart';
 import 'motion.dart' show easeOutExpo;
 
@@ -70,6 +71,9 @@ class _PressableState extends State<Pressable> {
 
 enum BtnKind { primary, secondary, ghost, outline, danger }
 
+/// Vermelho saturado com contraste ≥ 4.5 contra o texto claro (vermelho 50).
+Color dangerFill() => ensureContrast(Palette.red.s600, [Palette.red.s50], 4.5);
+
 class PillButton extends StatelessWidget {
   final String label;
   final IconData? icon;
@@ -97,7 +101,8 @@ class PillButton extends StatelessWidget {
       BtnKind.secondary => (c.secondary, c.onSecondary, null),
       BtnKind.ghost => (c.card, c.text, null),
       BtnKind.outline => (const Color(0x00000000), c.primary, Border.all(color: c.primary.withValues(alpha: 0.4), width: 1.5)),
-      BtnKind.danger => (c.negativeSoft, c.negative, null),
+      // Invertido: fundo saturado, texto dessaturado (vermelho 50).
+      BtnKind.danger => (dangerFill(), Palette.red.s50, null),
     };
     final content = Row(
       mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
@@ -1216,7 +1221,47 @@ class _FloatingSheetRow<V> extends StatelessWidget {
 }
 
 /// Bottom sheet flutuante e arredondado para formulários e seletores.
-Future<V?> showSheet<V>(BuildContext context, {required Widget Function(BuildContext) builder}) {
+Future<V?> showSheet<V>(
+  BuildContext context, {
+  required Widget Function(BuildContext) builder,
+  bool edgeToEdge = false,
+  Color? color,
+}) {
+  if (edgeToEdge) {
+    // Colado nas laterais e na base: só os cantos de cima são arredondados.
+    return _showFloatingModal<V>(
+      context,
+      builder: (ctx) {
+        final c = ctx.c;
+        final mq = MediaQuery.of(ctx);
+        return Center(
+          heightFactor: 1,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: 640, maxHeight: mq.size.height * 0.92),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(bottom: mq.viewInsets.bottom + mq.padding.bottom),
+              decoration: BoxDecoration(
+                color: color ?? c.bg,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                border: Border(top: BorderSide(color: c.border.withValues(alpha: 0.6))),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: Space.md),
+                  Container(width: 40, height: 4, decoration: BoxDecoration(color: c.borderStrong, borderRadius: BorderRadius.circular(2))),
+                  Flexible(child: builder(ctx)),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   return _showFloatingModal<V>(
     context,
     builder: (ctx) {
@@ -1231,7 +1276,7 @@ Future<V?> showSheet<V>(BuildContext context, {required Widget Function(BuildCon
             constraints: BoxConstraints(maxWidth: 480, maxHeight: mq.size.height * 0.86),
             child: Container(
               decoration: BoxDecoration(
-                color: c.bg,
+                color: color ?? c.bg,
                 borderRadius: BorderRadius.circular(32),
                 border: c.isDark ? Border.all(color: c.border.withValues(alpha: 0.6)) : null,
                 boxShadow: const [BoxShadow(color: Color(0x26000000), blurRadius: 32, offset: Offset(0, 12))],

@@ -13,7 +13,12 @@ import 'cards.dart';
 /// Detalhe de um gasto em bottom sheet: cabeçalho com ícone e fechar, valor
 /// grande, três ações rápidas e a lista "Detalhes" (cartão, tipo, ciclo, situação).
 Future<void> showExpenseActions(BuildContext context, Expense e) =>
-    showSheet<void>(context, builder: (_) => ExpenseSheet(expenseId: e.id, host: context));
+    showSheet<void>(
+      context,
+      edgeToEdge: true,
+      color: context.c.card,
+      builder: (_) => ExpenseSheet(expenseId: e.id, host: context),
+    );
 
 class ExpenseSheet extends StatelessWidget {
   final String expenseId;
@@ -76,7 +81,7 @@ class ExpenseSheet extends StatelessWidget {
           index: 1,
           baseDelay: Duration.zero,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            MoneyText(-e.cents, hidden: hidden, style: T.display.copyWith(fontSize: 40), color: e.cents < 0 ? c.positive : null),
+            MoneyText(e.cents.abs(), hidden: hidden, style: T.display.copyWith(fontSize: 40), color: e.cents < 0 ? c.positive : null),
             const SizedBox(height: 4),
             Text(dateLabel, style: T.small.copyWith(color: c.textSecondary)),
           ]),
@@ -135,14 +140,14 @@ class ExpenseSheet extends StatelessWidget {
         // Peso no ciclo
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: c.card, borderRadius: BorderRadius.circular(18)),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), border: Border.all(color: c.borderStrong)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(child: Text('Peso nos gastos de ${cycle.label()}', style: T.small.copyWith(color: c.textSecondary))),
               Text('${(share * 100).round()}%', style: T.bodyStrong.copyWith(color: c.text)),
             ]),
             const SizedBox(height: 10),
-            SpringBar(fraction: share, color: c.tone(cat.color), track: c.cardAlt, height: 8),
+            SpringBar(fraction: share, color: c.tone(cat.color), track: c.surfaceLow, height: 8),
           ]),
         ),
         if (e.isRecurring) ...[
@@ -183,16 +188,17 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final fg = danger ? c.negative : c.text;
+    final fg = danger ? Palette.red.s50 : c.text;
     return Pressable(
       onTap: onTap,
       semanticLabel: label,
       child: Container(
         height: 76,
         decoration: BoxDecoration(
-          color: c.card,
+          // Só borda no neutro; o excluir inverte: fundo saturado, conteúdo claro.
+          color: danger ? dangerFill() : null,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: c.border),
+          border: danger ? null : Border.all(color: c.borderStrong),
         ),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(icon, size: 22, color: fg),
