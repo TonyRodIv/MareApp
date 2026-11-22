@@ -9,15 +9,18 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/cycle.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../data/drive_sync.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
 import 'backup.dart';
+import 'box_form.dart';
 import 'cards.dart';
 import 'insights.dart';
 import 'shell.dart';
+import 'sync.dart';
 
 /// Perfil (Figma 376:6832) + configurações.
 class ProfileScreen extends StatelessWidget {
@@ -27,6 +30,7 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final s = context.store;
+    final sync = context.sync;
     final d = s.data;
     final f = s.f;
     final pad = sidePadding(context, maxWidth: 640);
@@ -88,6 +92,42 @@ class ProfileScreen extends StatelessWidget {
                       onTap: () => editProfile(context),
                     ),
                   ),
+                  if (d.boxes.isEmpty) ...[
+                    const SectionHeader('Sugestão'),
+                    AppCard(
+                      onTap: () => pushFluid(context, const BoxForm()),
+                      child: Row(
+                        children: [
+                          IconBadge(LucideIcons.piggyBank, c.primary, size: 42),
+                          const SizedBox(width: Space.md),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Comece uma caixinha',
+                                  style: T.bodyStrong.copyWith(color: c.text),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Guarde um valor todo ciclo para metas ou reservas.',
+                                  style: T.small.copyWith(
+                                    color: c.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: Space.sm),
+                          Icon(
+                            LucideIcons.chevronRight,
+                            size: 18,
+                            color: c.textSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SectionHeader('Finanças'),
                   _Group(
                     children: [
@@ -128,110 +168,50 @@ class ProfileScreen extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SectionHeader('Aparência e privacidade'),
+                  const SectionHeader('Aparência'),
                   _Group(
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.all(Space.base),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.sunMoon,
-                                  size: 20,
-                                  color: c.accent,
-                                ),
-                                const SizedBox(width: Space.md),
-                                Text(
-                                  'Tema',
-                                  style: T.body.copyWith(color: c.text),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: Space.md),
-                            Segmented<ThemePref>(
-                              value: d.theme,
-                              options: const {
-                                ThemePref.auto: 'Automático',
-                                ThemePref.light: 'Claro',
-                                ThemePref.dark: 'Escuro',
-                              },
-                              onChanged: s.setTheme,
-                            ),
-                          ],
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(Space.base),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  LucideIcons.palette,
-                                  size: 20,
-                                  color: c.accent,
-                                ),
-                                const SizedBox(width: Space.md),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Cor destaque',
-                                        style: T.body.copyWith(color: c.text),
-                                      ),
-                                      Text(
-                                        'Cor secundária ajustada no tema',
-                                        style: T.small.copyWith(
-                                          color: c.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: Space.md),
-                            Wrap(
-                              spacing: Space.md,
-                              runSpacing: Space.md,
-                              children: [
-                                for (final (label, col) in accentPresets)
-                                  _AccentSwatch(
-                                    label: label,
-                                    primary: col,
-                                    complementary: complementaryOf(col),
-                                    selected: currentSeed == col.toARGB32(),
-                                    onTap: () =>
-                                        s.setAccentColor(col.toARGB32()),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
+                      _Row(
+                        icon: LucideIcons.sunMoon,
+                        title: 'Tema',
+                        value: switch (d.theme) {
+                          ThemePref.auto => 'Automático',
+                          ThemePref.light => 'Claro',
+                          ThemePref.dark => 'Escuro',
+                        },
+                        onTap: () => _pickTheme(context),
                       ),
                       _Row(
-                        icon: d.hideValues
-                            ? LucideIcons.eyeOff
-                            : LucideIcons.eye,
-                        title: 'Ocultar valores',
-                        subtitle: 'Esconde os valores na tela',
-                        trailing: SpringSwitch(
-                          value: d.hideValues,
-                          label: 'Ocultar valores',
-                          onChanged: (_) => s.toggleHideValues(),
+                        icon: LucideIcons.palette,
+                        title: 'Cor de destaque',
+                        subtitle: 'A cor secundária se ajusta ao tema',
+                        trailing: Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: Color(currentSeed),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: c.borderStrong),
+                          ),
                         ),
+                        onTap: () => _pickAccent(context),
                       ),
                     ],
                   ),
                   const SectionHeader('Seus dados'),
                   _Group(
                     children: [
+                      _Row(
+                        icon: LucideIcons.cloud,
+                        title: 'Sincronização',
+                        subtitle: syncSummaryLabel(sync),
+                        value: sync.isConnected
+                            ? (sync.pendingConflict != null
+                                  ? 'Conflito'
+                                  : 'Ativa')
+                            : 'Desconectada',
+                        onTap: () => push(context, const SyncScreen()),
+                      ),
                       _Row(
                         icon: LucideIcons.download,
                         title: 'Exportar backup',
@@ -258,6 +238,70 @@ class ProfileScreen extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Future<void> _pickTheme(BuildContext context) async {
+    final s = context.storeRead;
+    final v = await actionSheet<ThemePref>(
+      context,
+      title: 'Tema',
+      actions: const [
+        SheetAction('Automático', ThemePref.auto, icon: LucideIcons.smartphone),
+        SheetAction('Claro', ThemePref.light, icon: LucideIcons.sun),
+        SheetAction('Escuro', ThemePref.dark, icon: LucideIcons.moon),
+      ],
+    );
+    if (v != null) s.setTheme(v);
+  }
+
+  Future<void> _pickAccent(BuildContext context) {
+    return showSheet<void>(
+      context,
+      edgeToEdge: true,
+      builder: (ctx) {
+        final c = ctx.c;
+        final s = ctx.store;
+        final seed = s.data.accentColor ?? accentPresets.first.$2.toARGB32();
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(
+            Space.gutter,
+            20,
+            Space.gutter,
+            24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Cor de destaque',
+                style: T.headline.copyWith(color: c.text),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'A cor secundária se ajusta sozinha ao tema.',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: Space.base,
+                runSpacing: Space.base,
+                children: [
+                  for (final (label, col) in accentPresets)
+                    _AccentSwatch(
+                      label: label,
+                      primary: col,
+                      complementary: complementaryOf(col),
+                      selected: seed == col.toARGB32(),
+                      onTap: () => s.setAccentColor(col.toARGB32()),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -378,7 +422,14 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     return ListRow(
-      leading: IconBadge(icon, danger ? c.negative : c.accent, size: 40),
+      // Sem fundo no ícone, como no Figma: 40px de área, glifo de 24.
+      leading: SizedBox(
+        width: 40,
+        height: 40,
+        child: Center(
+          child: Icon(icon, size: 24, color: danger ? c.negative : c.text),
+        ),
+      ),
       title: title,
       subtitle: subtitle,
       value: value,
@@ -391,52 +442,79 @@ class _Row extends StatelessWidget {
 
 // ── Sheets ──────────────────────────────────────────────────
 
-Future<void> editSalary(BuildContext context) {
-  final s = context.storeRead;
-  final ctl = AmountController(s.f.salary);
-  return showSheet(
-    context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, set) {
-        ctl.addListener(() => set(() {}));
-        final c = ctx.c;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            Space.gutter,
-            12,
-            Space.gutter,
-            16,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+Future<void> editSalary(BuildContext context) =>
+    showIosSheet<void>(context, builder: (_) => const _SalarySheet());
+
+class _SalarySheet extends StatefulWidget {
+  const _SalarySheet();
+  @override
+  State<_SalarySheet> createState() => _SalarySheetState();
+}
+
+class _SalarySheetState extends State<_SalarySheet> {
+  late final _ctl = AmountController(context.storeRead.f.salary);
+
+  @override
+  void initState() {
+    super.initState();
+    _ctl.addListener(_refresh);
+  }
+
+  void _refresh() => setState(() {});
+
+  @override
+  void dispose() {
+    _ctl.removeListener(_refresh);
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final s = context.storeRead;
+    return SheetBody(
+      bottom: PillButton(
+        'Salvar salário',
+        onTap: () {
+          s.setSalary(_ctl.value);
+          Navigator.pop(context);
+          toast(context, 'Salário atualizado');
+        },
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Text(
-                'Salário',
-                style: T.title.copyWith(color: c.text, fontSize: 24),
+              Expanded(
+                child: Text(
+                  'Salário',
+                  style: T.title.copyWith(color: c.text),
+                ),
               ),
-              Text(
-                'Valor líquido que entra por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-              const SizedBox(height: 20),
-              Center(child: AmountDisplay(cents: ctl.value, size: 48)),
-              const SizedBox(height: 16),
-              Keypad(controller: ctl),
-              const SizedBox(height: 12),
-              PillButton(
-                'Salvar salário',
-                onTap: () {
-                  s.setSalary(ctl.value);
-                  Navigator.pop(ctx);
-                  toast(context, 'Salário atualizado');
-                },
+              RoundIconButton(
+                LucideIcons.x,
+                size: 36,
+                bg: c.cardAlt,
+                label: 'Fechar',
+                onTap: () => Navigator.pop(context),
               ),
             ],
           ),
-        );
-      },
-    ),
-  );
+          const SizedBox(height: Space.xs),
+          Text(
+            'Valor líquido que entra por ciclo. Vale a partir deste ciclo; os anteriores mantêm o valor antigo.',
+            style: T.small.copyWith(color: c.textSecondary),
+          ),
+          const SizedBox(height: 24),
+          Center(child: AmountDisplay(cents: _ctl.value, size: 48)),
+          const SizedBox(height: 20),
+          Keypad(controller: _ctl),
+        ],
+      ),
+    );
+  }
 }
 
 Future<void> editCycleDay(BuildContext context) {
@@ -462,7 +540,7 @@ Future<void> editCycleDay(BuildContext context) {
             children: [
               Text(
                 'Virada do ciclo',
-                style: T.title.copyWith(color: c.text, fontSize: 24),
+                style: T.title.copyWith(color: c.text),
               ),
               Text(
                 'Use o dia em que o salário cai. Em meses mais curtos, a virada acontece no último dia.',
@@ -520,74 +598,64 @@ Future<void> editCycleDay(BuildContext context) {
 }
 
 Future<void> manageCards(BuildContext context) {
-  return showSheet(
+  return showIosSheet<void>(
     context,
     builder: (ctx) {
       final c = ctx.c;
       final s = ctx.store;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 16),
+      final cards = s.data.cards;
+      return SheetBody(
+        bottom: PillButton(
+          'Adicionar conta ou cartão',
+          icon: LucideIcons.plus,
+          onTap: () => editCard(ctx),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Contas e cartões',
-              style: T.title.copyWith(color: c.text, fontSize: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Contas e cartões',
+                    style: T.title.copyWith(color: c.text),
+                  ),
+                ),
+                RoundIconButton(
+                  LucideIcons.x,
+                  size: 36,
+                  bg: c.cardAlt,
+                  label: 'Fechar',
+                  onTap: () => Navigator.pop(ctx),
+                ),
+              ],
             ),
+            const SizedBox(height: Space.xs),
             Text(
               'Adicione bancos ou cartões para filtrar seus gastos no extrato. Segure um item na Carteira para editar.',
               style: T.small.copyWith(color: c.textSecondary),
             ),
-            const SizedBox(height: 16),
-            for (final k in s.data.cards)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Pressable(
-                  onTap: () => editCard(ctx, card: k),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: c.card,
-                      borderRadius: BorderRadius.circular(18),
+            const SizedBox(height: Space.base),
+            if (cards.isEmpty)
+              const EmptyState(
+                icon: LucideIcons.landmark,
+                title: 'Nenhuma conta cadastrada',
+                message: 'Adicione seu banco ou cartão para separar os gastos.',
+              )
+            else
+              ListGroup(
+                children: [
+                  for (final k in cards)
+                    ListRow(
+                      leading: CardChip(card: k, width: 72),
+                      title: k.name,
+                      subtitle:
+                          k.last4.isNotEmpty ? 'Final ${k.last4}' : 'Conta',
+                      arrow: true,
+                      onTap: () => editCard(ctx, card: k),
                     ),
-                    child: Row(
-                      children: [
-                        CardChip(card: k, width: 76),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                k.name,
-                                style: T.bodyStrong.copyWith(color: c.text),
-                              ),
-                              if (k.last4.isNotEmpty)
-                                Text(
-                                  'Final ${k.last4}',
-                                  style: T.small.copyWith(
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          LucideIcons.pencil,
-                          size: 18,
-                          color: c.textSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+                ],
               ),
-            const SizedBox(height: 8),
-            PillButton(
-              'Adicionar conta ou cartão',
-              icon: LucideIcons.plus,
-              onTap: () => editCard(ctx),
-            ),
           ],
         ),
       );
@@ -596,7 +664,7 @@ Future<void> manageCards(BuildContext context) {
 }
 
 Future<void> editProfile(BuildContext context) =>
-    showSheet(context, builder: (_) => const _ProfileForm());
+    showIosSheet<void>(context, builder: (_) => const _ProfileForm());
 
 class _ProfileForm extends StatefulWidget {
   const _ProfileForm();
@@ -637,26 +705,50 @@ class _ProfileFormState extends State<_ProfileForm> {
         _removed = false;
       });
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         toast(
           context,
           'Não foi possível usar essa foto',
           icon: LucideIcons.triangleAlert,
         );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 12, Space.gutter, 16),
+    return SheetBody(
+      bottom: PillButton(
+        'Salvar',
+        onTap: () {
+          context.storeRead.setProfile(
+            name: _name.text,
+            avatarPath: _removed ? null : _avatar,
+            clearAvatar: _removed,
+          );
+          Navigator.pop(context);
+        },
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Editar perfil',
-            style: T.title.copyWith(color: c.text, fontSize: 24),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Editar perfil',
+                  style: T.title.copyWith(color: c.text),
+                ),
+              ),
+              RoundIconButton(
+                LucideIcons.x,
+                size: 36,
+                bg: c.cardAlt,
+                label: 'Fechar',
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           Center(
@@ -705,7 +797,7 @@ class _ProfileFormState extends State<_ProfileForm> {
                       decoration: BoxDecoration(
                         color: c.primary,
                         shape: BoxShape.circle,
-                        border: Border.all(color: c.bg, width: 2),
+                        border: Border.all(color: c.card, width: 2),
                       ),
                       child: Icon(
                         LucideIcons.camera,
@@ -726,18 +818,6 @@ class _ProfileFormState extends State<_ProfileForm> {
             capitalization: TextCapitalization.words,
             maxLength: 30,
             onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 20),
-          PillButton(
-            'Salvar',
-            onTap: () {
-              context.storeRead.setProfile(
-                name: _name.text,
-                avatarPath: _removed ? null : _avatar,
-                clearAvatar: _removed,
-              );
-              Navigator.pop(context);
-            },
           ),
         ],
       ),

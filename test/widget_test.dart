@@ -73,15 +73,25 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.f.salary, 500000);
   expect(find.text('Contas'), findsNothing); // oculto quando nenhuma conta foi adicionada
 
-  // Shell: as 4 abas
-  for (final label in ['Extrato', 'Caixinhas', 'Seu Perfil', 'Carteira']) {
-    await tapText(tester, label);
+  // Sem caixinhas: aba Caixinhas fica oculta na navbar e vira sugestão no Perfil
+  expect(
+    find.descendant(
+      of: find.byType(FloatingNavBar),
+      matching: find.text('Caixinhas'),
+    ),
+    findsNothing,
+  );
+  for (final label in ['Extrato', 'Seu Perfil', 'Carteira']) {
+    await tapText(tester, label, within: find.byType(FloatingNavBar));
     await settle(tester, 600);
     expect(tester.takeException(), isNull, reason: 'aba $label');
+    if (label == 'Seu Perfil') {
+      expect(find.text('Comece uma caixinha'), findsOneWidget);
+    }
   }
 
   // Adicionar gasto pelo botão "Gastos"
-  await tester.tap(find.widgetWithText(CircleAction, 'Gasto').first);
+  await tester.tap(find.widgetWithText(PillButton, 'Gastos').first);
   await settle(tester, 900);
   await keypad(tester, '2590'); // R$ 25,90
   await tapText(tester, 'Continuar');
@@ -100,9 +110,14 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.data.expenses.single.cents, 2590);
   expect(store.data.expenses.single.name, 'Almoço');
 
-  // Criar caixinha (fluxo passo a passo)
-  await tester.tap(find.widgetWithText(CircleAction, 'Caixinha').first);
+  // Criar caixinha (fluxo passo a passo, incluindo troca para % do salário)
+  await tester.tap(find.widgetWithText(PillButton, 'Caixinhas').first);
   await settle(tester, 600);
+  await tapText(tester, '% do salário');
+  await settle(tester, 300);
+  expect(tester.takeException(), isNull);
+  await tapText(tester, 'Valor fixo');
+  await settle(tester, 300);
   await keypad(tester, '10000'); // R$ 100,00 por ciclo
   await tapText(tester, 'Continuar');
   await settle(tester, 500);
@@ -119,11 +134,21 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.data.boxes.single.name, 'Viagem');
   expect(store.f.contributionFor(store.data.boxes.single, store.cycle), 10000);
 
-  // Revisita todas as abas com dados
+  // Após criar caixinha: aba aparece na navbar e a sugestão some do Perfil
+  expect(
+    find.descendant(
+      of: find.byType(FloatingNavBar),
+      matching: find.text('Caixinhas'),
+    ),
+    findsOneWidget,
+  );
   for (final label in ['Extrato', 'Caixinhas', 'Seu Perfil', 'Carteira']) {
-    await tapText(tester, label);
+    await tapText(tester, label, within: find.byType(FloatingNavBar));
     await settle(tester, 600);
     expect(tester.takeException(), isNull, reason: 'aba $label com dados');
+    if (label == 'Seu Perfil') {
+      expect(find.text('Comece uma caixinha'), findsNothing);
+    }
   }
 
   // Desmonta o app e deixa os timers terminarem.
@@ -156,9 +181,63 @@ void main() {
     final store = await Store.load();
     store.finishOnboarding(name: 'Rafa', salary: 300000, startDay: 1);
     store.addExpense(Expense(name: 'Mercado', cents: 15000, categoryId: 'alimentacao', date: DateTime.now()));
+    store.addExpense(
+      Expense(
+        name: 'Netflix',
+        cents: 5590,
+        categoryId: 'assinaturas',
+        recurrence: Recurrence.monthly,
+        date: DateTime.now(),
+      ),
+    );
+    store.addExpense(
+      Expense(
+        name: 'Spotify',
+        cents: 2190,
+        categoryId: 'assinaturas',
+        recurrence: Recurrence.monthly,
+        date: DateTime.now(),
+      ),
+    );
+    store.addBox(
+      name: 'Reserva',
+      icon: 'piggy',
+      color: 0xFF30B0C7,
+      mode: PlanMode.fixed,
+      amount: 20000,
+      goal: 100000,
+    );
+    store.saveCard(
+      PayCard(
+        name: 'Nubank',
+        last4: '5468',
+        color: 0xFF820AD1,
+        brand: CardBrand.mastercard,
+      ),
+    );
+    store.saveCard(
+      PayCard(
+        name: 'Bradesco',
+        last4: '',
+        color: 0xFFCC092F,
+        brand: CardBrand.other,
+      ),
+    );
+    store.setDashboardLayout(
+      order: [
+        'gastos',
+        'caixinhas',
+        'categorias',
+        'hoje',
+        'fds',
+        'assinaturas',
+      ],
+      hidden: [],
+    );
     await tester.pumpWidget(MareApp(store: store));
     await settle(tester, 1500);
     expect(find.text('Carteira'), findsWidgets);
+    expect(find.text('Assinaturas'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await settle(tester, 300);

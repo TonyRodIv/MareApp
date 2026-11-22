@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../data/drive_sync.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
 
@@ -78,11 +79,12 @@ Future<void> exportBackupFlow(BuildContext context) async {
   }
 }
 
-enum _ImportWay { file, paste }
+enum _ImportWay { drive, file, paste }
 
-/// Importa backup do maré (ou do FinApp web antigo) a partir de arquivo ou texto.
+/// Importa backup do maré (ou do FinApp web antigo) do Google Drive, arquivo ou texto.
 Future<void> importBackupFlow(BuildContext context) async {
   final store = context.storeRead;
+  final sync = context.syncRead;
   final hasData =
       store.data.expenses.isNotEmpty ||
       store.data.boxes.isNotEmpty ||
@@ -92,14 +94,20 @@ Future<void> importBackupFlow(BuildContext context) async {
     title: 'Importar backup',
     message: hasData
         ? 'Os dados atuais deste celular serão substituídos pelos do backup.'
-        : 'Aceita backups do maré e do FinApp (versão web).',
-    actions: const [
-      SheetAction(
+        : 'Restaure do Google Drive ou de um arquivo/texto do maré.',
+    actions: [
+      if (sync.isSupportedPlatform)
+        const SheetAction(
+          'Restaurar do Google Drive',
+          _ImportWay.drive,
+          icon: LucideIcons.cloudDownload,
+        ),
+      const SheetAction(
         'Escolher arquivo',
         _ImportWay.file,
         icon: LucideIcons.fileUp,
       ),
-      SheetAction(
+      const SheetAction(
         'Colar texto copiado',
         _ImportWay.paste,
         icon: LucideIcons.clipboardPaste,
@@ -107,6 +115,26 @@ Future<void> importBackupFlow(BuildContext context) async {
     ],
   );
   if (way == null || !context.mounted) return;
+
+  if (way == _ImportWay.drive) {
+    if (hasData) {
+      final ok = await confirm(
+        context,
+        title: 'Substituir dados?',
+        message: 'Tudo o que está neste celular será trocado pela cópia do Google Drive.',
+        action: 'Restaurar',
+      );
+      if (!ok || !context.mounted) return;
+    }
+    final res = sync.isConnected ? await sync.pullNow() : await sync.connect();
+    if (!context.mounted) return;
+    toast(
+      context,
+      res.message,
+      icon: res.ok ? LucideIcons.check : LucideIcons.triangleAlert,
+    );
+    return;
+  }
 
   String? raw;
   try {

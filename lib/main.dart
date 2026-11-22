@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/theme.dart';
+import 'data/drive_sync.dart';
 import 'data/models.dart';
 import 'data/store.dart';
 import 'ui/screens/onboarding.dart';
@@ -18,64 +19,102 @@ Future<void> main() async {
   await initializeDateFormatting('pt_BR');
   await ProgressiveBlur.preload();
   final store = await Store.load();
-  runApp(MareApp(store: store));
+  final sync = SyncService.attach(store);
+  runApp(MareApp(store: store, sync: sync));
 }
 
-class MareApp extends StatelessWidget {
+class MareApp extends StatefulWidget {
   final Store store;
-  const MareApp({super.key, required this.store});
+  final SyncService? sync;
+  const MareApp({super.key, required this.store, this.sync});
+
+  @override
+  State<MareApp> createState() => _MareAppState();
+}
+
+class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
+  late final SyncService _sync;
+  late final bool _ownsSync;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsSync = widget.sync == null;
+    _sync =
+        widget.sync ?? SyncService.attach(widget.store, restoreSession: false);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _sync.onAppResumed();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_ownsSync) _sync.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return StoreScope(
-      store: store,
-      child: Builder(
-        builder: (context) {
-          final d = context.store.data;
-          final pref = d.theme;
-          final platform = MediaQuery.platformBrightnessOf(context);
-          final dark =
-              pref == ThemePref.dark ||
-              (pref == ThemePref.auto && platform == Brightness.dark);
-          final seed = d.accentColor == null
-              ? accentPresets.first.$2
-              : Color(d.accentColor!);
-          final colors = AppColors.fromSeed(
-            seed,
-            dark ? Brightness.dark : Brightness.light,
-          );
-          final overlay = SystemUiOverlayStyle(
-            statusBarColor: const Color(0x00000000),
-            statusBarIconBrightness: dark ? Brightness.light : Brightness.dark,
-            statusBarBrightness: dark ? Brightness.dark : Brightness.light,
-            systemNavigationBarColor: const Color(0x00000000),
-            systemNavigationBarDividerColor: const Color(0x00000000),
-            systemNavigationBarIconBrightness: dark
-                ? Brightness.light
-                : Brightness.dark,
-            systemNavigationBarContrastEnforced: false,
-          );
-          SystemChrome.setSystemUIOverlayStyle(overlay);
-          return AnnotatedRegion<SystemUiOverlayStyle>(
-            value: overlay,
-            child: AppTheme(
-              colors: colors,
-              child: CupertinoApp(
-                title: 'maré',
-                debugShowCheckedModeBanner: false,
-                theme: cupertinoThemeFor(colors),
-                locale: const Locale('pt', 'BR'),
-                supportedLocales: const [Locale('pt', 'BR')],
-                localizationsDelegates: const [
-                  GlobalCupertinoLocalizations.delegate,
-                  GlobalWidgetsLocalizations.delegate,
-                  GlobalMaterialLocalizations.delegate,
-                ],
-                home: const _Root(),
+      store: widget.store,
+      child: SyncScope(
+        sync: _sync,
+        child: Builder(
+          builder: (context) {
+            final d = context.store.data;
+            final pref = d.theme;
+            final platform = MediaQuery.platformBrightnessOf(context);
+            final dark =
+                pref == ThemePref.dark ||
+                (pref == ThemePref.auto && platform == Brightness.dark);
+            final seed = d.accentColor == null
+                ? accentPresets.first.$2
+                : Color(d.accentColor!);
+            final colors = AppColors.fromSeed(
+              seed,
+              dark ? Brightness.dark : Brightness.light,
+            );
+            final overlay = SystemUiOverlayStyle(
+              statusBarColor: const Color(0x00000000),
+              statusBarIconBrightness: dark
+                  ? Brightness.light
+                  : Brightness.dark,
+              statusBarBrightness: dark ? Brightness.dark : Brightness.light,
+              systemNavigationBarColor: const Color(0x00000000),
+              systemNavigationBarDividerColor: const Color(0x00000000),
+              systemNavigationBarIconBrightness: dark
+                  ? Brightness.light
+                  : Brightness.dark,
+              systemNavigationBarContrastEnforced: false,
+            );
+            SystemChrome.setSystemUIOverlayStyle(overlay);
+            return AnnotatedRegion<SystemUiOverlayStyle>(
+              value: overlay,
+              child: AppTheme(
+                colors: colors,
+                child: CupertinoApp(
+                  title: 'maré',
+                  debugShowCheckedModeBanner: false,
+                  theme: cupertinoThemeFor(colors),
+                  locale: const Locale('pt', 'BR'),
+                  supportedLocales: const [Locale('pt', 'BR')],
+                  localizationsDelegates: const [
+                    GlobalCupertinoLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                    GlobalMaterialLocalizations.delegate,
+                  ],
+                  home: const _Root(),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
