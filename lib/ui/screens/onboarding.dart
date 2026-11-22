@@ -13,6 +13,7 @@ import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import '../widgets/nav_keypad.dart';
+import 'add_expense.dart';
 import 'backup.dart';
 
 /// Onboarding expressivo e fluido:
@@ -81,6 +82,18 @@ class _OnboardingState extends State<Onboarding> {
       startDay: _startDay,
       avatarPath: _avatarPath,
     );
+  }
+
+  void _finishAndAddExpense() {
+    HapticFeedback.mediumImpact();
+    final nav = Navigator.of(context);
+    context.storeRead.finishOnboarding(
+      name: _name.text,
+      salary: _salary.value,
+      startDay: _startDay,
+      avatarPath: _avatarPath,
+    );
+    nav.push<void>(FluidModalRoute(builder: (_) => const AddExpenseFlow()));
   }
 
   Future<void> _pickPhoto(ImageSource src) async {
@@ -251,6 +264,7 @@ class _OnboardingState extends State<Onboarding> {
 
   Widget _bottomBar(BuildContext context) {
     if (_step == 0) {
+      final c = context.c;
       return Column(
         children: [
           PillButton(
@@ -258,21 +272,51 @@ class _OnboardingState extends State<Onboarding> {
             trailingIcon: LucideIcons.arrowRight,
             onTap: () => _go(1),
           ),
-          const SizedBox(height: Space.md),
-          PillButton(
-            'Já uso o maré: importar backup',
-            kind: BtnKind.outline,
-            height: 52,
-            onTap: () => importBackupFlow(context),
+          const SizedBox(height: Space.sm),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.base,
+              vertical: Space.md,
+            ),
+            minimumSize: Size.zero,
+            onPressed: () => importBackupFlow(context),
+            child: Text(
+              'Já uso o maré: importar backup',
+              style: T.label.copyWith(
+                color: c.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       );
     }
     if (_step == _steps - 1) {
-      return PillButton(
-        'Entrar no app',
-        trailingIcon: LucideIcons.arrowRight,
-        onTap: _finish,
+      final c = context.c;
+      return Column(
+        children: [
+          PillButton(
+            'Adicionar primeiro gasto',
+            icon: LucideIcons.plus,
+            onTap: _finishAndAddExpense,
+          ),
+          const SizedBox(height: Space.sm),
+          CupertinoButton(
+            padding: const EdgeInsets.symmetric(
+              horizontal: Space.base,
+              vertical: Space.md,
+            ),
+            minimumSize: Size.zero,
+            onPressed: _finish,
+            child: Text(
+              'Entrar no app',
+              style: T.label.copyWith(
+                color: c.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       );
     }
     if (_step == 2) {
@@ -323,11 +367,7 @@ class _OnboardingState extends State<Onboarding> {
               child: Text(
                 'Seu dinheiro no\nritmo certo',
                 textAlign: TextAlign.center,
-                style: T.display.copyWith(
-                  color: c.text,
-                  fontSize: 32,
-                  height: 1.15,
-                ),
+                style: T.display.copyWith(color: c.text),
               ),
             ),
             const SizedBox(height: Space.md),
@@ -362,18 +402,17 @@ class _OnboardingState extends State<Onboarding> {
               horizontal: Space.base,
               vertical: Space.base,
             ),
-            style: T.title.copyWith(color: c.text, fontSize: 28),
-            placeholderStyle: T.title.copyWith(
+            style: T.pageTitle.copyWith(color: c.text),
+            placeholderStyle: T.pageTitle.copyWith(
               color: c.textTertiary,
-              fontSize: 28,
             ),
             decoration: BoxDecoration(
               color: c.cardAlt,
-              borderRadius: BorderRadius.circular(Space.radiusField),
               border: Border.all(
                 color: _name.text.trim().isNotEmpty ? c.primary : c.border,
                 width: 1.5,
               ),
+              borderRadius: BorderRadius.circular(Space.radiusField),
             ),
           ),
         );
@@ -476,16 +515,18 @@ class _OnboardingState extends State<Onboarding> {
                       horizontal: Space.md,
                       vertical: Space.md,
                     ),
-                    decoration: BoxDecoration(
+                    decoration: ShapeDecoration(
                       color: currentSeed == col.toARGB32()
                           ? c.primarySoft
                           : c.cardAlt,
-                      borderRadius: BorderRadius.circular(Space.radiusField),
-                      border: Border.all(
-                        color: currentSeed == col.toARGB32()
-                            ? c.primary
-                            : c.border,
-                        width: currentSeed == col.toARGB32() ? 2 : 1,
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(Space.radiusField),
+                        side: BorderSide(
+                          color: currentSeed == col.toARGB32()
+                              ? c.primary
+                              : c.border,
+                          width: currentSeed == col.toARGB32() ? 2 : 1,
+                        ),
                       ),
                     ),
                     child: Column(
@@ -551,7 +592,7 @@ class _OnboardingState extends State<Onboarding> {
               child: Text(
                 'Quanto entra por mês?',
                 textAlign: TextAlign.center,
-                style: T.title.copyWith(color: c.text, fontSize: 26),
+                style: T.pageTitle.copyWith(color: c.text),
               ),
             ),
             const SizedBox(height: Space.sm),
@@ -621,14 +662,18 @@ class _OnboardingState extends State<Onboarding> {
                   selectionOverlay: IgnorePointer(
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: Space.xl),
-                      decoration: BoxDecoration(
+                      decoration: ShapeDecoration(
                         color: c.primary.withValues(
                           alpha: c.isDark ? 0.16 : 0.12,
                         ),
-                        borderRadius: BorderRadius.circular(Space.radiusField),
-                        border: Border.all(
-                          color: c.primary.withValues(alpha: 0.65),
-                          width: 1.5,
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(
+                            Space.radiusField,
+                          ),
+                          side: BorderSide(
+                            color: c.primary.withValues(alpha: 0.65),
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),
@@ -642,13 +687,15 @@ class _OnboardingState extends State<Onboarding> {
                       Center(
                         child: Text(
                           'Dia $d',
-                          style: T.title.copyWith(
-                            fontSize: d == _startDay ? 26 : 18,
-                            color: d == _startDay ? c.primary : c.textSecondary,
-                            fontWeight: d == _startDay
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
+                          style: (d == _startDay ? T.title : T.headline)
+                              .copyWith(
+                                color: d == _startDay
+                                    ? c.primary
+                                    : c.textSecondary,
+                                fontWeight: d == _startDay
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
                         ),
                       ),
                   ],
@@ -759,7 +806,7 @@ class _OnboardingState extends State<Onboarding> {
             spring: Springs.settle,
             builder: (_, v, _) => MoneyText(
               v.round(),
-              style: T.display.copyWith(fontSize: 40),
+              style: T.displayLg,
               color: c.primary,
             ),
           ),
@@ -781,6 +828,15 @@ class _OnboardingState extends State<Onboarding> {
             ),
           ),
         const Spacer(),
+        Reveal(
+          index: 4,
+          child: Text(
+            'Que tal já registrar seu primeiro gasto para acompanhar seu ciclo desde agora?',
+            textAlign: TextAlign.center,
+            style: T.small.copyWith(color: c.textSecondary),
+          ),
+        ),
+        const SizedBox(height: Space.md),
       ],
     );
   }
@@ -801,7 +857,7 @@ class _OnboardingState extends State<Onboarding> {
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: T.title.copyWith(color: c.text, fontSize: 26),
+              style: T.pageTitle.copyWith(color: c.text),
             ),
           ),
           if (subtitle != null) ...[
@@ -867,16 +923,18 @@ class _WelcomeShowcase extends StatelessWidget {
                       horizontal: Space.md,
                       vertical: Space.sm,
                     ),
-                    decoration: BoxDecoration(
+                    decoration: ShapeDecoration(
                       color: c.primary,
-                      borderRadius: BorderRadius.circular(Space.radiusField),
-                      boxShadow: [
+                      shadows: [
                         BoxShadow(
                           color: c.primary.withValues(alpha: 0.32),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
                       ],
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(Space.radiusField),
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -935,11 +993,9 @@ class _WelcomeShowcase extends StatelessWidget {
                 child: Container(
                   width: 272,
                   padding: const EdgeInsets.all(Space.base),
-                  decoration: BoxDecoration(
+                  decoration: ShapeDecoration(
                     color: c.card,
-                    borderRadius: BorderRadius.circular(Space.radiusCard),
-                    border: Border.all(color: c.border.withValues(alpha: 0.8)),
-                    boxShadow: [
+                    shadows: [
                       BoxShadow(
                         color: Palette.neutral950.withValues(
                           alpha: c.isDark ? 0.45 : 0.08,
@@ -948,6 +1004,10 @@ class _WelcomeShowcase extends StatelessWidget {
                         offset: const Offset(0, 10),
                       ),
                     ],
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(Space.radiusCard),
+                      side: BorderSide(color: c.border.withValues(alpha: 0.8)),
+                    ),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -971,10 +1031,12 @@ class _WelcomeShowcase extends StatelessWidget {
                               horizontal: Space.sm,
                               vertical: 2,
                             ),
-                            decoration: BoxDecoration(
+                            decoration: ShapeDecoration(
                               color: c.positiveSoft,
-                              borderRadius: BorderRadius.circular(
-                                Space.radiusSm,
+                              shape: RoundedSuperellipseBorder(
+                                borderRadius: BorderRadius.circular(
+                                  Space.radiusSm,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -990,7 +1052,7 @@ class _WelcomeShowcase extends StatelessWidget {
                         alignment: Alignment.centerLeft,
                         child: Text(
                           'R\$ 2.450,00',
-                          style: T.title.copyWith(color: c.text, fontSize: 26),
+                          style: T.title.copyWith(color: c.text),
                         ),
                       ),
                     ],
@@ -1011,11 +1073,13 @@ class _WelcomeShowcase extends StatelessWidget {
                       horizontal: Space.md,
                       vertical: Space.sm,
                     ),
-                    decoration: BoxDecoration(
+                    decoration: ShapeDecoration(
                       color: c.secondary,
-                      borderRadius: BorderRadius.circular(Space.radiusField),
-                      border: Border.all(
-                        color: c.accentWarm.withValues(alpha: 0.3),
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(Space.radiusField),
+                        side: BorderSide(
+                          color: c.accentWarm.withValues(alpha: 0.3),
+                        ),
                       ),
                     ),
                     child: Row(
@@ -1078,9 +1142,11 @@ class _LinearProgress extends StatelessWidget {
       child: Container(
         height: 4,
         width: double.infinity,
-        decoration: BoxDecoration(
+        decoration: ShapeDecoration(
           color: c.border,
-          borderRadius: BorderRadius.circular(2),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(2),
+          ),
         ),
         alignment: Alignment.centerLeft,
         child: TweenAnimationBuilder<double>(
@@ -1090,9 +1156,11 @@ class _LinearProgress extends StatelessWidget {
           builder: (_, v, _) => FractionallySizedBox(
             widthFactor: v,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: ShapeDecoration(
                 color: c.primary,
-                borderRadius: BorderRadius.circular(2),
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
           ),
