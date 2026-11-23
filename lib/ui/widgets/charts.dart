@@ -1206,24 +1206,22 @@ class CapsuleSegment {
   const CapsuleSegment({required this.value, required this.color, this.label});
 }
 
-/// Barra horizontal grossa composta por cápsulas arredondadas lado a lado com
-/// pequeno espaçamento e trilho sutil — leve na GPU e legível de relance.
+/// Barra horizontal grossa composta por cápsulas arredondadas lado a lado,
+/// sem container nem fundo atrás — flutua diretamente sobre a superfície.
 class SegmentedCapsuleBar extends StatelessWidget {
   final List<CapsuleSegment> segments;
   final double height;
   final double gap;
   final int? selectedIndex;
   final ValueChanged<int>? onSelect;
-  final Color? trayColor;
 
   const SegmentedCapsuleBar({
     super.key,
     required this.segments,
-    this.height = 22,
-    this.gap = 3,
+    this.height = 34,
+    this.gap = 4,
     this.selectedIndex,
     this.onSelect,
-    this.trayColor,
   });
 
   @override
@@ -1234,33 +1232,30 @@ class SegmentedCapsuleBar extends StatelessWidget {
         if (segments[i].value > 0) (i, segments[i]),
     ];
     if (positive.isEmpty) {
-      return Container(
+      return SizedBox(
         height: height,
-        decoration: ShapeDecoration(
-          color: trayColor ?? c.cardAlt,
-          shape: const StadiumBorder(),
+        child: DecoratedBox(
+          decoration: ShapeDecoration(
+            color: c.cardAlt,
+            shape: const StadiumBorder(),
+          ),
         ),
       );
     }
 
     final total = positive.fold<double>(0, (s, e) => s + e.$2.value);
-    const pad = 3.0;
 
-    return Container(
-      height: height + pad * 2,
-      padding: const EdgeInsets.all(pad),
-      decoration: ShapeDecoration(
-        color: trayColor ?? (c.isDark ? c.bg : c.surfaceLow),
-        shape: const StadiumBorder(),
-      ),
+    return SizedBox(
+      height: height,
+      width: double.infinity,
       child: LayoutBuilder(
         builder: (_, box) {
           final n = positive.length;
           final totalGap = gap * (n - 1);
           final avail = math.max(0.0, box.maxWidth - totalGap);
-          final minW = math.min(height * 0.78, avail / n);
+          // Mínimo enxuto (8px) preserva a proporção real mesmo com 10 itens.
+          final minW = math.min(8.0, avail / n);
 
-          // Distribui largura proporcional garantindo cápsula mínima legível.
           final widths = [
             for (final item in positive) avail * (item.$2.value / total),
           ];
@@ -1324,25 +1319,26 @@ class SegmentedCapsuleBar extends StatelessWidget {
   }
 }
 
-/// Distribuição de assinaturas em barra de cápsulas grossa + legenda compacta.
-class SubscriptionBarDistribution extends StatefulWidget {
+/// Arco aberto segmentado (estilo gauge) desenhado diretamente sobre o fundo,
+/// com valor centralizado, linha guia interna delicada e legenda de pontos.
+class SubscriptionArcGauge extends StatefulWidget {
   final List<Expense> subs;
   final bool hidden;
+  final String? footer;
   final ValueChanged<Expense>? onSelect;
-  const SubscriptionBarDistribution({
+  const SubscriptionArcGauge({
     super.key,
     required this.subs,
     this.hidden = false,
+    this.footer,
     this.onSelect,
   });
 
   @override
-  State<SubscriptionBarDistribution> createState() =>
-      _SubscriptionBarDistributionState();
+  State<SubscriptionArcGauge> createState() => _SubscriptionArcGaugeState();
 }
 
-class _SubscriptionBarDistributionState
-    extends State<SubscriptionBarDistribution> {
+class _SubscriptionArcGaugeState extends State<SubscriptionArcGauge> {
   int? _selected;
 
   @override
@@ -1352,72 +1348,155 @@ class _SubscriptionBarDistributionState
     if (list.isEmpty) return const SizedBox.shrink();
     final total = list.fold<int>(0, (t, e) => t + e.cents);
     if (total <= 0) return const SizedBox.shrink();
-    final colors = [
-      for (var i = 0; i < list.length; i++)
-        subscriptionBrandColor(c, list[i], i),
+
+    // Mostra as 3 principais assinaturas e agrupa as demais em "Outros".
+    final topCount = list.length > 3 ? 3 : list.length;
+    final entries = <(String, int, Color, Expense?)>[
+      for (var i = 0; i < topCount; i++)
+        (
+          list[i].name,
+          list[i].cents,
+          subscriptionBrandColor(c, list[i], i),
+          list[i],
+        ),
     ];
-    final sel = _selected != null && _selected! < list.length ? _selected : null;
+    if (list.length > topCount) {
+      final othersTotal = list
+          .skip(topCount)
+          .fold<int>(0, (t, e) => t + e.cents);
+      entries.add(('Outros', othersTotal, c.emptyCell, null));
+    }
+
+    final sel = _selected != null && _selected! < entries.length
+        ? _selected
+        : null;
+    final active = sel != null ? entries[sel] : null;
+    final displayCents = active?.$2 ?? total;
+    final formatted = fmtMoney(displayCents, hidden: widget.hidden);
+    final hasPrefix = !widget.hidden && formatted.startsWith('R\$ ');
+    final numberPart = hasPrefix ? formatted.substring(3) : formatted;
 
     void handleTap(int i) {
       if (sel == i) {
-        widget.onSelect?.call(list[i]);
+        final exp = entries[i].$4;
+        if (exp != null) {
+          widget.onSelect?.call(exp);
+        } else {
+          setState(() => _selected = null);
+        }
       } else {
         setState(() => _selected = i);
       }
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SegmentedCapsuleBar(
-          height: 24,
-          gap: 3.5,
-          selectedIndex: sel,
-          onSelect: handleTap,
-          segments: [
-            for (var i = 0; i < list.length; i++)
-              CapsuleSegment(
-                value: list[i].cents.toDouble(),
-                color: colors[i],
-                label: list[i].name,
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: sel != null ? () => setState(() => _selected = null) : null,
+          child: SizedBox(
+            width: 264,
+            height: 204,
+            child: SpringBuilder(
+              value: 1.0,
+              from: 0.0,
+              spring: Springs.settle,
+              builder: (_, progress, _) => Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(264, 204),
+                    painter: _OpenArcGaugePainter(
+                      values: [for (final e in entries) e.$2 / total],
+                      colors: [for (final e in entries) e.$3],
+                      selected: sel,
+                      progress: progress.clamp(0.0, 1.0),
+                      guideColor: c.border.withValues(
+                        alpha: c.isDark ? 0.55 : 0.85,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 30),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            if (hasPrefix) ...[
+                              Text(
+                                'R\$',
+                                style: T.title.copyWith(
+                                  color: c.textTertiary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              numberPart,
+                              style: T.displayLg.copyWith(color: c.text),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          active != null
+                              ? '${active.$1} · ${(active.$2 / total * 100).round()}%'
+                              : 'Custo mensal',
+                          style: T.label.copyWith(color: c.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (active == null && widget.footer != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.footer!,
+                            style: T.small.copyWith(color: c.textTertiary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ),
-          ],
+            ),
+          ),
         ),
-        const SizedBox(height: Space.md),
+        const SizedBox(height: Space.sm),
         Wrap(
-          spacing: Space.md,
+          alignment: WrapAlignment.center,
+          spacing: Space.base,
           runSpacing: Space.sm,
           children: [
-            for (var i = 0; i < list.length; i++)
+            for (var i = 0; i < entries.length; i++)
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => handleTap(i),
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 160),
-                  opacity: sel == null || sel == i ? 1.0 : 0.35,
+                  opacity: sel == null || sel == i ? 1.0 : 0.32,
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 8,
-                        height: 8,
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(
-                          color: colors[i],
+                          color: entries[i].$3,
                           shape: BoxShape.circle,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        list[i].name,
+                        entries[i].$1,
                         style: (sel == i ? T.smallStrong : T.small).copyWith(
                           color: sel == i ? c.text : c.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${(list[i].cents / total * 100).round()}%',
-                        style: T.smallStrong.copyWith(
-                          color: sel == i ? c.text : c.textTertiary,
                         ),
                       ),
                     ],
@@ -1429,4 +1508,78 @@ class _SubscriptionBarDistributionState
       ],
     );
   }
+}
+
+class _OpenArcGaugePainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+  final int? selected;
+  final double progress;
+  final Color guideColor;
+
+  _OpenArcGaugePainter({
+    required this.values,
+    required this.colors,
+    required this.selected,
+    required this.progress,
+    required this.guideColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Arco aberto de ~230° (155° até 385°), centrado ligeiramente abaixo do meio.
+    const stroke = 15.0;
+    const startDeg = 155.0;
+    const sweepDeg = 230.0;
+    const startRad = startDeg * math.pi / 180.0;
+    const totalRad = sweepDeg * math.pi / 180.0;
+
+    final radius = (size.width - stroke) / 2 - 4;
+    final center = Offset(size.width / 2, radius + stroke / 2 + 4);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Linha guia interna super delicada (igual à referência)
+    final guideRect = Rect.fromCircle(center: center, radius: radius - 14);
+    canvas.drawArc(
+      guideRect,
+      startRad - 0.04,
+      totalRad + 0.08,
+      false,
+      Paint()
+        ..color = guideColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    if (values.isEmpty) return;
+    final n = values.length;
+    // Espaço angular entre segmentos compensando as pontas arredondadas (stroke/r).
+    final capPad = (stroke / radius) * 0.92;
+    final gapRad = n > 1 ? capPad + 0.06 : 0.0;
+    final usable = math.max(0.1, totalRad - gapRad * (n - 1));
+
+    var cursor = startRad;
+    for (var i = 0; i < n; i++) {
+      final segSweep = usable * values[i] * progress;
+      final isSel = selected == i;
+      final dimmed = selected != null && !isSel;
+      final paint = Paint()
+        ..color = dimmed ? colors[i].withValues(alpha: 0.24) : colors[i]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSel ? stroke + 2.5 : stroke
+        ..strokeCap = StrokeCap.round;
+
+      if (segSweep > 0.005) {
+        canvas.drawArc(rect, cursor, segSweep, false, paint);
+      }
+      cursor += usable * values[i] + gapRad;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_OpenArcGaugePainter old) =>
+      old.progress != progress ||
+      old.selected != selected ||
+      old.guideColor != guideColor ||
+      old.values.length != values.length;
 }

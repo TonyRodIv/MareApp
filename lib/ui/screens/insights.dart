@@ -142,21 +142,32 @@ class CategoriesScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: Space.lg),
-          AppCard(
-            title: 'Distribuição',
-            child: SegmentedCapsuleBar(
-              height: 22,
-              gap: 3.5,
-              segments: [
-                for (var i = 0; i < data.length; i++)
+          const SizedBox(height: Space.base),
+          Builder(
+            builder: (_) {
+              final topCount = data.length > 4 ? 4 : data.length;
+              final segs = <CapsuleSegment>[
+                for (var i = 0; i < topCount; i++)
                   CapsuleSegment(
                     value: data[i].value.toDouble(),
                     color: mono[i],
                     label: data[i].key.label,
                   ),
-              ],
-            ),
+                if (data.length > topCount)
+                  CapsuleSegment(
+                    value: data
+                        .skip(topCount)
+                        .fold<double>(0, (t, e) => t + e.value),
+                    color: c.emptyCell,
+                    label: 'Outros',
+                  ),
+              ];
+              return SegmentedCapsuleBar(
+                height: 36,
+                gap: 4,
+                segments: segs,
+              );
+            },
           ),
           ListGroup(
             title: 'Categorias',
@@ -675,41 +686,17 @@ class SubscriptionsScreen extends StatelessWidget {
                 openAddExpense(context, initialCategoryId: 'assinaturas'),
           )
         else ...[
-          // Hero alinhado à esquerda
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Custo mensal',
-                style: T.label.copyWith(color: c.textSecondary),
-              ),
-              const SizedBox(height: Space.xs),
-              CountingMoney(
-                cents: total,
-                builder: (v) => MoneyText(
-                  v,
-                  hidden: hidden,
-                  style: T.displayLg,
-                ),
-              ),
-              const SizedBox(height: Space.xs),
-              Text(
-                '${fmtMoney(total * 12, hidden: hidden)}/ano · ${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}${shareBase > 0 ? ' · ${(rawShare * 100).round()}% $shareLabel' : ''}',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-            ],
-          ),
-          const SizedBox(height: Space.lg),
-
-          // Barra segmentada grossa + legenda compacta
-          AppCard(
-            title: 'Distribuição',
-            child: SubscriptionBarDistribution(
+          // Arco aberto segmentado diretamente no fundo (sem container)
+          Center(
+            child: SubscriptionArcGauge(
               subs: subs,
               hidden: hidden,
+              footer:
+                  '${fmtMoney(total * 12, hidden: hidden)}/ano${shareBase > 0 ? ' · ${(rawShare * 100).round()}% $shareLabel' : ''}',
               onSelect: (e) => showExpenseActions(context, e),
             ),
           ),
+          const SizedBox(height: Space.base),
 
           ListGroup(
             title: 'Serviços ativos',
