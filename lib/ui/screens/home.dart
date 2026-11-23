@@ -325,10 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         case 'caixinhas':
           final boxes = f.openBoxes;
-          final monthly = boxes.fold<int>(
-            0,
-            (t, b) => t + f.contributionFor(b, cy),
-          );
           tiles.add(
             DashTile(
               id: id,
@@ -337,12 +333,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 'Caixinhas',
                 f.boxesBalanceTotal(),
                 boxes.isEmpty
-                    ? 'Guardados agora'
-                    : '+${fmtMoney(monthly, hidden: hidden)}/ciclo',
-                hidden,
-                badge: boxes.isEmpty
-                    ? null
+                    ? 'Guardado'
                     : '${boxes.length} ${boxes.length == 1 ? 'ativa' : 'ativas'}',
+                hidden,
                 onTap: () => s.data.boxes.isEmpty
                     ? pushFluid(context, const BoxForm())
                     : ShellScope.of(context)?.goTo(2),
@@ -430,41 +423,19 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppCard(
       title: 'Projeção do ciclo',
       onTap: () => push(context, const RhythmScreen()),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MoneyText(
-                  projectedEnd,
-                  hidden: hidden,
-                  style: T.cardValue,
-                  color: positive ? c.positive : c.negative,
-                ),
-                const SizedBox(height: Space.xs),
-                Text(
-                  positive
-                      ? 'Estimativa de sobra no ritmo atual'
-                      : 'No ritmo atual pode faltar no fim do ciclo',
-                  style: T.small.copyWith(color: c.textSecondary),
-                ),
-              ],
-            ),
+          MoneyText(
+            projectedEnd,
+            hidden: hidden,
+            style: T.cardValue,
+            color: positive ? c.positive : c.negative,
           ),
-          const SizedBox(width: Space.md),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: positive ? c.positiveSoft : c.negativeSoft,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              positive ? LucideIcons.trendingUp : LucideIcons.trendingDown,
-              color: positive ? c.positive : c.negative,
-              size: 20,
-            ),
+          const SizedBox(height: Space.xxs),
+          Text(
+            positive ? 'Sobra prevista' : 'Falta prevista',
+            style: T.small.copyWith(color: c.textSecondary),
           ),
         ],
       ),
@@ -814,72 +785,55 @@ class _HomeScreenState extends State<HomeScreen> {
       title: 'Gastos por categoria',
       onTap: () => push(context, const CategoriesScreen()),
       child: total <= 0
-          ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'Seus gastos aparecem aqui, separados por categoria.',
-                style: T.label.copyWith(color: c.textSecondary),
-              ),
+          ? Text(
+              'Sem gastos neste ciclo',
+              style: T.small.copyWith(color: c.textSecondary),
             )
-          : Flex(
-              direction: w < 280 ? Axis.vertical : Axis.horizontal,
-              crossAxisAlignment: CrossAxisAlignment.center,
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CategoryWaffle(
-                  data: data,
-                  maxCategories: 3,
-                  width: w < 280 ? w : (w * 0.36).clamp(100.0, 200.0),
+                SegmentedCapsuleBar(
+                  height: 18,
+                  gap: 3,
+                  segments: [
+                    for (final r in rows)
+                      CapsuleSegment(
+                        value: r.$2.toDouble(),
+                        color: r.$3,
+                        label: r.$1,
+                      ),
+                  ],
                 ),
-                const SizedBox(width: 16, height: 14),
-                Flexible(
-                  fit: w < 280 ? FlexFit.loose : FlexFit.tight,
-                  child: Column(
+                const SizedBox(height: Space.md),
+                for (var i = 0; i < rows.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 6),
+                  Row(
                     children: [
-                      for (final r in rows)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: ShapeDecoration(
-                                  color: r.$3,
-                                  shape: RoundedSuperellipseBorder(
-                                    borderRadius: BorderRadius.circular(3),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      r.$1,
-                                      style: T.small.copyWith(color: c.text),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      fmtMoney(r.$2, hidden: hidden),
-                                      style: T.tiny.copyWith(
-                                        color: c.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                '${(r.$2 / total * 100).round()}%',
-                                style: T.bodyStrong.copyWith(color: c.text),
-                              ),
-                            ],
-                          ),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: rows[i].$3,
+                          shape: BoxShape.circle,
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          rows[i].$1,
+                          style: T.small.copyWith(color: c.text),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${(rows[i].$2 / total * 100).round()}%',
+                        style: T.smallStrong.copyWith(color: c.textSecondary),
+                      ),
                     ],
                   ),
-                ),
+                ],
               ],
             ),
     );
@@ -891,7 +845,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppCard(
       expandChild: true,
       title: 'Para hoje',
-      onTap: () => push(context, const RhythmScreen()),
+      onTap: () => push(
+        context,
+        const RhythmScreen(initialFocus: RhythmFocus.today),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -900,19 +857,22 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: Space.base),
           CountingMoney(
             cents: v < 0 ? 0 : v,
-            builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
-          ),
-          const SizedBox(height: Space.xxs),
-          Text(
-            v < 0
-                ? 'Passou ${fmtMoney(-v, hidden: hidden)} hoje'
-                : 'Pode gastar hoje',
-            style: T.small.copyWith(
-              color: v < 0 ? c.negative : c.textSecondary,
+            builder: (x) => MoneyText(
+              x,
+              hidden: hidden,
+              style: T.cardValue,
+              color: v < 0 ? c.negative : null,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
+          if (v < 0) ...[
+            const SizedBox(height: Space.xxs),
+            Text(
+              'Passou ${fmtMoney(-v, hidden: hidden)}',
+              style: T.small.copyWith(color: c.negative),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ],
       ),
     );
@@ -925,7 +885,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return AppCard(
       expandChild: true,
       title: 'Fim de semana',
-      onTap: () => push(context, const RhythmScreen()),
+      onTap: () => push(
+        context,
+        const RhythmScreen(initialFocus: RhythmFocus.weekend),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -941,24 +904,16 @@ class _HomeScreenState extends State<HomeScreen> {
             Text('—', style: T.cardValue.copyWith(color: c.textSecondary)),
             const SizedBox(height: Space.xxs),
             Text(
-              'Sem fim de semana neste ciclo',
+              'Fora deste ciclo',
               style: T.small.copyWith(color: c.textSecondary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-          ] else ...[
+          ] else
             CountingMoney(
               cents: v < 0 ? 0 : v,
               builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
             ),
-            const SizedBox(height: Space.xxs),
-            Text(
-              'No fim de semana',
-              style: T.small.copyWith(color: c.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
         ],
       ),
     );
@@ -969,28 +924,20 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _streakCard(BuildContext context, Finance f, double w) {
     final c = context.c;
     final n = f.streak;
-    final hidden = context.store.data.hideValues;
-    final msg =
-        'Meta diária: ${fmtMoney(f.idealDaily(f.current), hidden: hidden)}';
     return AppCard(
       onTap: () => push(context, const RhythmScreen()),
       titleWidget: Row(
         children: [
-          Icon(LucideIcons.zap, color: c.accentWarm, size: 30),
-          const SizedBox(width: 10),
+          Icon(LucideIcons.zap, color: c.accentWarm, size: 20),
+          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  n == 1 ? '1 dia de sequência' : '$n dias de sequência',
-                  style: (w < 240 ? T.bodyStrong : T.headline).copyWith(
-                    color: c.text,
-                  ),
-                ),
-                if (w >= 240)
-                  Text(msg, style: T.small.copyWith(color: c.textSecondary)),
-              ],
+            child: Text(
+              n == 1 ? '1 dia de sequência' : '$n dias de sequência',
+              style: (w < 240 ? T.bodyStrong : T.headline).copyWith(
+                color: c.text,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1008,55 +955,83 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final subs = f.subscriptions(f.current);
     final total = subs.fold<int>(0, (s, e) => s + e.cents);
-    final summary = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CountingMoney(
-          cents: total,
-          builder: (v) => MoneyText(v, hidden: hidden, style: T.cardValue),
-        ),
-        const SizedBox(height: Space.xxs),
-        Text(
-          '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'} · ${fmtMoney(total * 12, hidden: hidden)}/ano',
-          style: T.small.copyWith(color: c.textSecondary),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
-    );
+    final colors = [
+      for (var i = 0; i < subs.length; i++)
+        subscriptionBrandColor(c, subs[i], i),
+    ];
+    final previewCount = subs.length > 3 ? 3 : subs.length;
+
     return AppCard(
       title: 'Assinaturas',
       onTap: () => push(context, const SubscriptionsScreen()),
       child: subs.isEmpty
           ? Text(
-              'Cadastre gastos na categoria Assinaturas (Netflix, Spotify…) para acompanhar aqui.',
-              style: T.label.copyWith(color: c.textSecondary),
+              'Nenhuma assinatura ativa',
+              style: T.small.copyWith(color: c.textSecondary),
             )
-          : w < 290
-          ? Column(
+          : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                summary,
-                const SizedBox(height: Space.md),
-                SubscriptionBubbles(
-                  subs: subs,
-                  hidden: hidden,
-                  width: w,
-                  height: 132,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Expanded(
+                      child: CountingMoney(
+                        cents: total,
+                        builder: (v) =>
+                            MoneyText(v, hidden: hidden, style: T.cardValue),
+                      ),
+                    ),
+                    Text(
+                      '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}',
+                      style: T.small.copyWith(color: c.textSecondary),
+                    ),
+                  ],
                 ),
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: summary),
-                const SizedBox(width: Space.sm),
-                SubscriptionBubbles(
-                  subs: subs,
-                  hidden: hidden,
-                  width: (w * 0.56 - Space.sm).clamp(110.0, 420.0),
-                  height: 136,
+                const SizedBox(height: Space.md),
+                SegmentedCapsuleBar(
+                  height: 18,
+                  gap: 3,
+                  segments: [
+                    for (var i = 0; i < subs.length; i++)
+                      CapsuleSegment(
+                        value: subs[i].cents.toDouble(),
+                        color: colors[i],
+                        label: subs[i].name,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: Space.md),
+                Wrap(
+                  spacing: Space.md,
+                  runSpacing: Space.xs,
+                  children: [
+                    for (var i = 0; i < previewCount; i++)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: colors[i],
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            subs[i].name,
+                            style: T.small.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                    if (subs.length > previewCount)
+                      Text(
+                        '+${subs.length - previewCount}',
+                        style: T.smallStrong.copyWith(color: c.textTertiary),
+                      ),
+                  ],
                 ),
               ],
             ),

@@ -1196,3 +1196,237 @@ class _WeekdayBarsState extends State<WeekdayBars> {
     );
   }
 }
+
+// ── Barra segmentada em cápsulas (estilo pílulas lado a lado) ─
+
+class CapsuleSegment {
+  final double value;
+  final Color color;
+  final String? label;
+  const CapsuleSegment({required this.value, required this.color, this.label});
+}
+
+/// Barra horizontal grossa composta por cápsulas arredondadas lado a lado com
+/// pequeno espaçamento e trilho sutil — leve na GPU e legível de relance.
+class SegmentedCapsuleBar extends StatelessWidget {
+  final List<CapsuleSegment> segments;
+  final double height;
+  final double gap;
+  final int? selectedIndex;
+  final ValueChanged<int>? onSelect;
+  final Color? trayColor;
+
+  const SegmentedCapsuleBar({
+    super.key,
+    required this.segments,
+    this.height = 22,
+    this.gap = 3,
+    this.selectedIndex,
+    this.onSelect,
+    this.trayColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final positive = [
+      for (var i = 0; i < segments.length; i++)
+        if (segments[i].value > 0) (i, segments[i]),
+    ];
+    if (positive.isEmpty) {
+      return Container(
+        height: height,
+        decoration: ShapeDecoration(
+          color: trayColor ?? c.cardAlt,
+          shape: const StadiumBorder(),
+        ),
+      );
+    }
+
+    final total = positive.fold<double>(0, (s, e) => s + e.$2.value);
+    const pad = 3.0;
+
+    return Container(
+      height: height + pad * 2,
+      padding: const EdgeInsets.all(pad),
+      decoration: ShapeDecoration(
+        color: trayColor ?? (c.isDark ? c.bg : c.surfaceLow),
+        shape: const StadiumBorder(),
+      ),
+      child: LayoutBuilder(
+        builder: (_, box) {
+          final n = positive.length;
+          final totalGap = gap * (n - 1);
+          final avail = math.max(0.0, box.maxWidth - totalGap);
+          final minW = math.min(height * 0.78, avail / n);
+
+          // Distribui largura proporcional garantindo cápsula mínima legível.
+          final widths = [
+            for (final item in positive) avail * (item.$2.value / total),
+          ];
+          var deficit = 0.0;
+          var surplus = 0.0;
+          for (var i = 0; i < n; i++) {
+            if (widths[i] < minW) {
+              deficit += minW - widths[i];
+              widths[i] = minW;
+            } else {
+              surplus += widths[i] - minW;
+            }
+          }
+          if (deficit > 0 && surplus > 0) {
+            final scale = (surplus - deficit).clamp(0.0, surplus) / surplus;
+            for (var i = 0; i < n; i++) {
+              if (widths[i] > minW) {
+                widths[i] = minW + (widths[i] - minW) * scale;
+              }
+            }
+          }
+
+          return Row(
+            children: [
+              for (var k = 0; k < n; k++) ...[
+                if (k > 0) SizedBox(width: gap),
+                Builder(
+                  builder: (_) {
+                    final origIdx = positive[k].$1;
+                    final seg = positive[k].$2;
+                    final dimmed =
+                        selectedIndex != null && selectedIndex != origIdx;
+                    final pill = AnimatedOpacity(
+                      duration: const Duration(milliseconds: 160),
+                      opacity: dimmed ? 0.28 : 1.0,
+                      child: SizedBox(
+                        width: widths[k],
+                        height: height,
+                        child: DecoratedBox(
+                          decoration: ShapeDecoration(
+                            color: seg.color,
+                            shape: const StadiumBorder(),
+                          ),
+                        ),
+                      ),
+                    );
+                    if (onSelect == null) return pill;
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onSelect!(origIdx),
+                      child: pill,
+                    );
+                  },
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Distribuição de assinaturas em barra de cápsulas grossa + legenda compacta.
+class SubscriptionBarDistribution extends StatefulWidget {
+  final List<Expense> subs;
+  final bool hidden;
+  final ValueChanged<Expense>? onSelect;
+  const SubscriptionBarDistribution({
+    super.key,
+    required this.subs,
+    this.hidden = false,
+    this.onSelect,
+  });
+
+  @override
+  State<SubscriptionBarDistribution> createState() =>
+      _SubscriptionBarDistributionState();
+}
+
+class _SubscriptionBarDistributionState
+    extends State<SubscriptionBarDistribution> {
+  int? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final list = [...widget.subs]..sort((a, b) => b.cents.compareTo(a.cents));
+    if (list.isEmpty) return const SizedBox.shrink();
+    final total = list.fold<int>(0, (t, e) => t + e.cents);
+    if (total <= 0) return const SizedBox.shrink();
+    final colors = [
+      for (var i = 0; i < list.length; i++)
+        subscriptionBrandColor(c, list[i], i),
+    ];
+    final sel = _selected != null && _selected! < list.length ? _selected : null;
+
+    void handleTap(int i) {
+      if (sel == i) {
+        widget.onSelect?.call(list[i]);
+      } else {
+        setState(() => _selected = i);
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedCapsuleBar(
+          height: 24,
+          gap: 3.5,
+          selectedIndex: sel,
+          onSelect: handleTap,
+          segments: [
+            for (var i = 0; i < list.length; i++)
+              CapsuleSegment(
+                value: list[i].cents.toDouble(),
+                color: colors[i],
+                label: list[i].name,
+              ),
+          ],
+        ),
+        const SizedBox(height: Space.md),
+        Wrap(
+          spacing: Space.md,
+          runSpacing: Space.sm,
+          children: [
+            for (var i = 0; i < list.length; i++)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => handleTap(i),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 160),
+                  opacity: sel == null || sel == i ? 1.0 : 0.35,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: colors[i],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        list[i].name,
+                        style: (sel == i ? T.smallStrong : T.small).copyWith(
+                          color: sel == i ? c.text : c.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${(list[i].cents / total * 100).round()}%',
+                        style: T.smallStrong.copyWith(
+                          color: sel == i ? c.text : c.textTertiary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}

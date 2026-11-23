@@ -126,57 +126,69 @@ class CategoriesScreen extends StatelessWidget {
             onAction: () => openAddExpense(context),
           )
         else ...[
+          // Hero alinhado à esquerda
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Total em ${f.current.label()}',
+                style: T.label.copyWith(color: c.textSecondary),
+              ),
+              const SizedBox(height: Space.xs),
+              CountingMoney(
+                cents: total,
+                builder: (v) =>
+                    MoneyText(v, hidden: hidden, style: T.displayLg),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.lg),
           AppCard(
-            child: Center(
-              child: SizedBox(width: 220, child: CategoryWaffle(data: data)),
+            title: 'Distribuição',
+            child: SegmentedCapsuleBar(
+              height: 22,
+              gap: 3.5,
+              segments: [
+                for (var i = 0; i < data.length; i++)
+                  CapsuleSegment(
+                    value: data[i].value.toDouble(),
+                    color: mono[i],
+                    label: data[i].key.label,
+                  ),
+              ],
             ),
           ),
           ListGroup(
             title: 'Categorias',
-            trailing: Text(
-              fmtMoney(total, hidden: hidden),
-              style: T.smallStrong.copyWith(color: c.textSecondary),
-            ),
             children: [
               for (var i = 0; i < data.length; i++)
-                Column(
-                  children: [
-                    ListRow(
-                      leading: IconBadge(data[i].key.icon, mono[i], size: 40),
-                      title: data[i].key.label,
-                      subtitle: _delta(
-                        data[i].value,
-                        prevMap[data[i].key.id],
-                        hidden,
+                ListRow(
+                  leading: IconBadge(data[i].key.icon, mono[i], size: 40),
+                  title: data[i].key.label,
+                  subtitle: _delta(
+                    data[i].value,
+                    prevMap[data[i].key.id],
+                    hidden,
+                  ),
+                  trailing: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        fmtMoney(data[i].value, hidden: hidden),
+                        style: T.bodyMedium.copyWith(color: c.text),
                       ),
-                      trailing: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            fmtMoney(data[i].value, hidden: hidden),
-                            style: T.bodyMedium.copyWith(color: c.text),
-                          ),
-                          Text(
-                            '${(data[i].value / total * 100).round()}%',
-                            style: T.small.copyWith(color: c.textSecondary),
-                          ),
-                        ],
+                      Text(
+                        '${(data[i].value / total * 100).round()}%',
+                        style: T.small.copyWith(color: c.textSecondary),
                       ),
-                      arrow: true,
-                      onTap: () => push(
-                        context,
-                        CategoryDetailScreen(categoryId: data[i].key.id),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SpringBar(
-                      fraction: data[i].value / total,
-                      color: mono[i],
-                      track: c.cardAlt,
-                      height: 5,
-                    ),
-                  ],
+                    ],
+                  ),
+                  arrow: true,
+                  onTap: () => push(
+                    context,
+                    CategoryDetailScreen(categoryId: data[i].key.id),
+                  ),
                 ),
             ],
           ),
@@ -412,9 +424,23 @@ class CategoryDetailScreen extends StatelessWidget {
 
 // ── Ritmo do ciclo (Para hoje / Fim de semana / Sequência) ──
 
-class RhythmScreen extends StatelessWidget {
+enum RhythmFocus { today, weekend }
+
+class RhythmScreen extends StatefulWidget {
   final bool embedded;
-  const RhythmScreen({super.key, this.embedded = false});
+  final RhythmFocus initialFocus;
+  const RhythmScreen({
+    super.key,
+    this.embedded = false,
+    this.initialFocus = RhythmFocus.today,
+  });
+
+  @override
+  State<RhythmScreen> createState() => _RhythmScreenState();
+}
+
+class _RhythmScreenState extends State<RhythmScreen> {
+  late RhythmFocus _focus = widget.initialFocus;
 
   @override
   Widget build(BuildContext context) {
@@ -424,40 +450,77 @@ class RhythmScreen extends StatelessWidget {
     final hidden = s.data.hideValues;
     final cy = f.current;
     final today = f.todayAllowance;
+    final weekendDays = f.upcomingWeekend;
+    final weekend = f.weekendAllowance;
+    final ideal = f.idealDaily(cy);
+    final isWeekend = _focus == RhythmFocus.weekend;
+
     return _DetailPage(
-      title: 'Ritmo do ciclo',
-      subtitle:
-          '${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'} em ${cy.label()}',
-      embedded: embedded,
+      title: 'Ritmo',
+      embedded: widget.embedded,
       children: [
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Pode gastar hoje',
-                style: T.label.copyWith(color: c.textSecondary),
-              ),
-              CountingMoney(
-                cents: today < 0 ? 0 : today,
-                builder: (v) => MoneyText(v, hidden: hidden, style: T.display),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Saldo livre de ${fmtMoney(f.freeBalance(cy), hidden: hidden)} dividido pelos dias que faltam. Se gastar menos hoje, sobra mais para amanhã.',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-            ],
-          ),
+        Segmented<RhythmFocus>(
+          value: _focus,
+          options: const {
+            RhythmFocus.today: 'Hoje',
+            RhythmFocus.weekend: 'Fim de semana',
+          },
+          onChanged: (v) => setState(() => _focus = v),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.lg),
+
+        // Hero alinhado à esquerda (foco em Hoje ou Fim de semana)
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              isWeekend
+                  ? 'Para o fim de semana'
+                  : (today < 0 ? 'Passou hoje' : 'Pode gastar hoje'),
+              style: T.label.copyWith(
+                color: !isWeekend && today < 0 ? c.negative : c.textSecondary,
+              ),
+            ),
+            const SizedBox(height: Space.xs),
+            if (isWeekend && weekendDays.isEmpty)
+              Text('—', style: T.displayLg.copyWith(color: c.textSecondary))
+            else
+              CountingMoney(
+                key: ValueKey(_focus),
+                cents: isWeekend
+                    ? (weekend < 0 ? 0 : weekend)
+                    : (today < 0 ? -today : today),
+                builder: (v) => MoneyText(
+                  v,
+                  hidden: hidden,
+                  style: T.displayLg,
+                  color: !isWeekend && today < 0 ? c.negative : null,
+                ),
+              ),
+            const SizedBox(height: Space.xs),
+            Text(
+              isWeekend
+                  ? (weekendDays.isEmpty
+                        ? 'Sem fim de semana restante em ${cy.label()}'
+                        : '${weekendDays.length == 1 ? '1 dia' : '${weekendDays.length} dias'} · Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday}d no ciclo')
+                  : 'Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'}',
+              style: T.small.copyWith(color: c.textSecondary),
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.lg),
+
         AppCard(
-          title: 'Calendário do ciclo',
+          title: 'Calendário de ${cy.label()}',
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CycleGrid(f: f, columns: 7),
-              const SizedBox(height: 14),
+              CycleGrid(
+                f: f,
+                columns: 7,
+                highlight: isWeekend ? weekendDays.toSet() : const {},
+              ),
+              const SizedBox(height: Space.md),
               Wrap(
                 spacing: 14,
                 runSpacing: 8,
@@ -466,25 +529,25 @@ class RhythmScreen extends StatelessWidget {
                   _legend(
                     context,
                     c.isDark ? c.palette.primary[500] : c.palette.primary[700],
-                    'Dentro da meta',
+                    'Na meta',
                   ),
-                  _legend(context, c.textTertiary, 'Passou da meta'),
-                  _legend(context, c.accentWarm, 'Hoje'),
+                  _legend(context, c.textTertiary, 'Acima'),
+                  _legend(
+                    context,
+                    c.accentWarm,
+                    isWeekend ? 'Fim de semana' : 'Hoje',
+                  ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Meta diária deste ciclo: ${fmtMoney(f.idealDaily(cy), hidden: hidden)}',
-                style: T.small.copyWith(color: c.textSecondary),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: Space.md),
+
         AppCard(
           titleWidget: Row(
             children: [
-              Icon(LucideIcons.zap, color: c.accentWarm),
+              Icon(LucideIcons.zap, color: c.accentWarm, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -496,36 +559,22 @@ class RhythmScreen extends StatelessWidget {
               ),
             ],
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              WeekStreak(f: f),
-              const SizedBox(height: 12),
-              Text(
-                'Cada dia em que seus gastos do dia a dia ficam dentro da meta diária conta para a sequência. Gastos recorrentes não entram.',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-            ],
-          ),
+          child: WeekStreak(f: f),
         ),
+
         ListGroup(
-          title: 'Resumo',
+          title: 'Resumo do ciclo',
           gap: 12,
           children: [
             _line(context, 'Salário', f.salaryFor(cy), hidden),
-            _line(context, 'Gastos recorrentes', -f.fixedTotal(cy), hidden),
-            _line(
-              context,
-              'Aportes nas caixinhas',
-              -f.contributionsTotal(cy),
-              hidden,
-            ),
-            _line(context, 'Gastos do dia a dia', -f.variableTotal(cy), hidden),
+            _line(context, 'Fixos', -f.fixedTotal(cy), hidden),
+            _line(context, 'Caixinhas', -f.contributionsTotal(cy), hidden),
+            _line(context, 'Dia a dia', -f.variableTotal(cy), hidden),
             if (f.committed(cy) - f.fixedTotal(cy) - f.contributionsTotal(cy) !=
                 0)
               _line(
                 context,
-                'Extras e resgates de caixinhas',
+                'Extras das caixinhas',
                 -(f.committed(cy) -
                     f.fixedTotal(cy) -
                     f.contributionsTotal(cy)),
@@ -548,8 +597,8 @@ class RhythmScreen extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Container(
-        width: 12,
-        height: 12,
+        width: 10,
+        height: 10,
         decoration: ShapeDecoration(
           color: color,
           shape: RoundedSuperellipseBorder(
@@ -602,7 +651,6 @@ class SubscriptionsScreen extends StatelessWidget {
     final shareBase = salary > 0 ? salary : totalExpenses;
     final shareLabel = salary > 0 ? 'do salário' : 'dos gastos';
     final rawShare = shareBase > 0 ? total / shareBase : 0.0;
-    final share = rawShare.clamp(0.0, 1.0);
 
     return _DetailPage(
       title: 'Assinaturas',
@@ -621,141 +669,53 @@ class SubscriptionsScreen extends StatelessWidget {
             icon: LucideIcons.tv,
             title: 'Nenhuma assinatura',
             message:
-                'Adicione um gasto recorrente na categoria Assinaturas para acompanhar quanto seus serviços custam.',
+                'Adicione um gasto recorrente na categoria Assinaturas para acompanhar seus serviços.',
             action: 'Adicionar',
             onAction: () =>
                 openAddExpense(context, initialCategoryId: 'assinaturas'),
           )
         else ...[
-          // Hero centralizado (mesmo ritmo de Extrato e Caixinhas)
-          Center(
-            child: Column(
-              children: [
-                Text(
-                  'Custo mensal',
-                  style: T.label.copyWith(color: c.textSecondary),
+          // Hero alinhado à esquerda
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Custo mensal',
+                style: T.label.copyWith(color: c.textSecondary),
+              ),
+              const SizedBox(height: Space.xs),
+              CountingMoney(
+                cents: total,
+                builder: (v) => MoneyText(
+                  v,
+                  hidden: hidden,
+                  style: T.displayLg,
                 ),
-                const SizedBox(height: Space.xs),
-                CountingMoney(
-                  cents: total,
-                  builder: (v) => MoneyText(
-                    v,
-                    hidden: hidden,
-                    style: T.displayLg,
-                  ),
-                ),
-                const SizedBox(height: Space.xs),
-                Text(
-                  '${fmtMoney(total * 12, hidden: hidden)} por ano · ${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}',
-                  style: T.small.copyWith(color: c.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: Space.xs),
+              Text(
+                '${fmtMoney(total * 12, hidden: hidden)}/ano · ${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}${shareBase > 0 ? ' · ${(rawShare * 100).round()}% $shareLabel' : ''}',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
+            ],
           ),
           const SizedBox(height: Space.lg),
 
-          // Gráfico em anel segmentado na cor tema de cada assinatura
+          // Barra segmentada grossa + legenda compacta
           AppCard(
             title: 'Distribuição',
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SubscriptionDonutChart(
-                  subs: subs,
-                  hidden: hidden,
-                  onSelect: (e) => showExpenseActions(context, e),
-                ),
-                const SizedBox(height: Space.md),
-                Text(
-                  'Toque num serviço para destacar no gráfico ou toque novamente para abrir detalhes.',
-                  style: T.small.copyWith(color: c.textSecondary),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: Space.md),
-
-          // Resumo em 2 cards neutros com padding 16px
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: AppCard(
-                    title: 'Maior serviço',
-                    expandChild: true,
-                    onTap: () => showExpenseActions(context, subs.first),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        MoneyText(
-                          subs.first.cents,
-                          hidden: hidden,
-                          style: T.cardValue,
-                        ),
-                        const SizedBox(height: Space.xxs),
-                        Text(
-                          subs.first.name,
-                          style: T.small.copyWith(color: c.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: Space.md),
-                Expanded(
-                  child: AppCard(
-                    title: 'Peso no ciclo',
-                    expandChild: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        SpringBar(
-                          fraction: share,
-                          color: c.primary,
-                          track: c.cardAlt,
-                          height: 6,
-                        ),
-                        const SizedBox(height: Space.md),
-                        Text(
-                          '${(rawShare * 100).round()}%',
-                          style: T.cardValue.copyWith(color: c.text),
-                        ),
-                        const SizedBox(height: Space.xxs),
-                        Text(
-                          shareLabel,
-                          style: T.small.copyWith(color: c.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            child: SubscriptionBarDistribution(
+              subs: subs,
+              hidden: hidden,
+              onSelect: (e) => showExpenseActions(context, e),
             ),
           ),
 
           ListGroup(
             title: 'Serviços ativos',
-            trailing: Text(
-              fmtMoney(total, hidden: hidden),
-              style: T.smallStrong.copyWith(color: c.textSecondary),
-            ),
             children: [
               for (final e in subs) ExpenseRow(e: e, f: f, hidden: hidden),
             ],
-          ),
-          const SizedBox(height: Space.sm),
-          Text(
-            'Toque numa assinatura para editar ou parar de repetir.',
-            textAlign: TextAlign.center,
-            style: T.small.copyWith(color: c.textTertiary),
           ),
         ],
       ],
