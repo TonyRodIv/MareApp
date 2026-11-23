@@ -129,9 +129,12 @@ class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
                     GlobalWidgetsLocalizations.delegate,
                     GlobalMaterialLocalizations.delegate,
                   ],
-                  home: _LaunchReveal(
-                    enabled: widget.showLaunchAnimation,
-                    child: const _Root(),
+                  onGenerateRoute: (settings) => createAppRoute<void>(
+                    settings: settings,
+                    builder: (_) => _LaunchReveal(
+                      enabled: widget.showLaunchAnimation,
+                      child: const _Root(),
+                    ),
                   ),
                 ),
               ),

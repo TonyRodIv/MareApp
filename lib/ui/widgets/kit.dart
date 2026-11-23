@@ -878,6 +878,16 @@ class BrandLogo extends StatefulWidget {
 
   static final Map<String, Color> _detectedBgCache = {
     'spotify.com': const Color(0xFF000000),
+    'vivo.com.br': const Color(0xFFFFFFFF),
+    'claro.com.br': const Color(0xFFFFFFFF),
+    'tim.com.br': const Color(0xFFFFFFFF),
+    'oi.com.br': const Color(0xFFFFFFFF),
+    'sky.com.br': const Color(0xFFFFFFFF),
+    'algar.com.br': const Color(0xFFFFFFFF),
+    'brisanet.com.br': const Color(0xFFFFFFFF),
+    'desktop.com.br': const Color(0xFFFFFFFF),
+    'unifique.com.br': const Color(0xFFFFFFFF),
+    'starlink.com': const Color(0xFFFFFFFF),
   };
 
   @override
@@ -2595,19 +2605,19 @@ class SheetScaler extends StatelessWidget {
   Widget build(BuildContext context) {
     final cachedChild = RepaintBoundary(child: child);
     final top = MediaQuery.paddingOf(context).top;
-    return ColoredBox(
-      color: const Color(0xFF000000),
-      child: ValueListenableBuilder<double>(
-        valueListenable: sheetProgress,
-        child: cachedChild,
-        builder: (ctx, p, ch) {
-          final active = p > 0.001;
-          final scale = 1.0 - 0.065 * p;
-          final dy = (top * 0.3 + 8) * p;
-          final matrix = Matrix4.identity()
-            ..setTranslationRaw(0.0, dy, 0.0)
-            ..scaleByDouble(scale, scale, 1.0, 1.0);
-          return Transform(
+    return ValueListenableBuilder<double>(
+      valueListenable: sheetProgress,
+      child: cachedChild,
+      builder: (ctx, p, ch) {
+        final active = p > 0.001;
+        final scale = active ? 1.0 - 0.065 * p : 1.0;
+        final dy = active ? (top * 0.3 + 8) * p : 0.0;
+        final matrix = Matrix4.identity()
+          ..setTranslationRaw(0.0, dy, 0.0)
+          ..scaleByDouble(scale, scale, 1.0, 1.0);
+        return ColoredBox(
+          color: active ? const Color(0xFF000000) : const Color(0x00000000),
+          child: Transform(
             transform: matrix,
             alignment: Alignment.topCenter,
             child: ClipRRect(
@@ -2631,9 +2641,9 @@ class SheetScaler extends StatelessWidget {
                 ],
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -3023,6 +3033,7 @@ class _SheetBodyState extends State<SheetBody> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final tight = constraints.hasTightHeight;
+        final hasBottom = widget.bottom != null;
         final scrollArea = Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: (_) {
@@ -3072,7 +3083,7 @@ class _SheetBodyState extends State<SheetBody> {
                   Space.gutter,
                   pinnedHeader != null ? 58 : 8,
                   Space.gutter,
-                  24,
+                  hasBottom ? 96 : 24,
                 ),
                 child: bodyChild,
               ),
@@ -3105,6 +3116,28 @@ class _SheetBodyState extends State<SheetBody> {
                   child: pinnedHeader,
                 ),
               ],
+              if (hasBottom) ...[
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 104,
+                  child: IgnorePointer(
+                    child: ProgressiveBlur(
+                      direction: AxisDirection.up,
+                      maxSigma: 16,
+                      tint: c.card,
+                      tintOpacity: 0.94,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: Space.gutter,
+                  right: Space.gutter,
+                  bottom: 16,
+                  child: SafeArea(top: false, child: widget.bottom!),
+                ),
+              ],
             ],
           ),
         );
@@ -3116,19 +3149,6 @@ class _SheetBodyState extends State<SheetBody> {
               Expanded(child: scrollArea)
             else
               Flexible(fit: FlexFit.loose, child: scrollArea),
-            if (widget.bottom != null)
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Space.gutter,
-                    8,
-                    Space.gutter,
-                    16,
-                  ),
-                  child: widget.bottom,
-                ),
-              ),
           ],
         );
       },

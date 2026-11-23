@@ -10,6 +10,8 @@ import 'models.dart';
 class Finance {
   final AppData d;
   final DateTime now;
+  final Map<int, List<Expense>> _expensesByCycle = {};
+  final Map<(Caixinha, int), Cents> _boxRawCache = {};
   Finance(this.d, {DateTime? now}) : now = now ?? DateTime.now();
 
   int get startDay => d.cycleStartDay;
@@ -53,8 +55,10 @@ class Finance {
 
   // ── Gastos ────────────────────────────────────────────────
 
-  List<Expense> expensesIn(Cycle c) =>
-      d.expenses.where((e) => expenseActive(e, c)).toList();
+  List<Expense> expensesIn(Cycle c) => _expensesByCycle.putIfAbsent(
+    c.key,
+    () => d.expenses.where((e) => expenseActive(e, c)).toList(),
+  );
 
   Cents expensesTotal(Cycle c) => expensesIn(c).fold(0, (s, e) => s + e.cents);
   Cents fixedTotal(Cycle c) =>
@@ -89,6 +93,9 @@ class Finance {
   /// sem clamp em zero — usado pelo validador para detectar déficit real.
   Cents boxRawBalance(Caixinha b, {Cycle? upTo}) {
     final last = (upTo ?? current).key;
+    final cacheKey = (b, last);
+    final cached = _boxRawCache[cacheKey];
+    if (cached != null) return cached;
     var total = 0;
     final firstMove = b.movements.isEmpty
         ? b.createdKey
@@ -100,6 +107,7 @@ class Finance {
         if (movementActive(m, c)) total += m.sign * max(0, m.cents);
       }
     }
+    _boxRawCache[cacheKey] = total;
     return total;
   }
 

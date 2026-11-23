@@ -16,6 +16,8 @@ class Store extends ChangeNotifier {
   final SharedPreferences _prefs;
   AppData data;
   VoidCallback? onLocalChange;
+  Finance? _financeCache;
+  DateTime? _financeDay;
 
   Store._(this._prefs, this.data);
 
@@ -47,12 +49,23 @@ class Store extends ChangeNotifier {
     return Store._(prefs, d);
   }
 
-  /// Cria um Finance "agora" — barato, sem cache para nunca ficar defasado.
-  Finance get f => Finance(data);
+  /// Cria um Finance para o dia atual e reutiliza o cache enquanto não houver
+  /// commit nem virada de dia — evita recalcular listas e saldos a cada frame.
+  Finance get f {
+    final now = DateTime.now();
+    final day = DateTime(now.year, now.month, now.day);
+    if (_financeCache == null || _financeDay != day) {
+      _financeDay = day;
+      _financeCache = Finance(data, now: now);
+    }
+    return _financeCache!;
+  }
+
   Cycle get cycle => f.current;
   int _keyOf(DateTime d) => Cycle.of(d, data.cycleStartDay).key;
 
   void _commit({bool isRemote = false}) {
+    _financeCache = null;
     if (!isRemote) {
       data.updatedAt = DateTime.now().toUtc();
     }

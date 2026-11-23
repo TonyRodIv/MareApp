@@ -106,11 +106,18 @@ List<String> effectiveNavTabs(AppData d) {
 }
 
 /// Rota com gesto preditivo nativo do Android (mantendo a transição Cupertino
-/// nativa no iOS/macOS).
+/// nativa no iOS/macOS). Usada tanto na rota raiz quanto nas páginas empilhadas
+/// para que a tela anterior nunca deslize -1/3 deixando faixa escura à direita.
 class _PredictivePageRoute<V> extends CupertinoPageRoute<V> {
-  _PredictivePageRoute({required super.builder});
+  _PredictivePageRoute({required super.builder, super.settings});
 
   static const _androidBuilder = PredictiveBackPageTransitionsBuilder();
+
+  bool get _isAndroid =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+
+  @override
+  Color? get barrierColor => _isAndroid ? null : super.barrierColor;
 
   @override
   Widget buildTransitions(
@@ -119,7 +126,7 @@ class _PredictivePageRoute<V> extends CupertinoPageRoute<V> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    if (_isAndroid) {
       return _androidBuilder.buildTransitions<V>(
         this,
         context,
@@ -137,9 +144,16 @@ class _PredictivePageRoute<V> extends CupertinoPageRoute<V> {
   }
 }
 
+/// Cria a rota padrão do app (incluindo a rota inicial `/`) com suporte ao
+/// gesto preditivo do Android sem deslocamento lateral Cupertino na tela base.
+PageRoute<V> createAppRoute<V>({
+  required WidgetBuilder builder,
+  RouteSettings? settings,
+}) => _PredictivePageRoute<V>(builder: builder, settings: settings);
+
 /// Navega com gesto preditivo nativo no Android e swipe Cupertino no iOS.
 Future<V?> push<V>(BuildContext context, Widget page) =>
-    Navigator.of(context).push<V>(_PredictivePageRoute<V>(builder: (_) => page));
+    Navigator.of(context).push<V>(createAppRoute<V>(builder: (_) => page));
 
 /// Abre fluxos de criação com transição modal ultraleve.
 Future<V?> pushFluid<V>(BuildContext context, Widget page) =>
