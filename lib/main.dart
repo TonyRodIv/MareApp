@@ -167,7 +167,7 @@ class _LaunchRevealState extends State<_LaunchReveal>
     _done = !widget.enabled;
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1180),
     );
     if (widget.enabled) {
       _ctrl.addStatusListener((status) {
@@ -191,11 +191,11 @@ class _LaunchRevealState extends State<_LaunchReveal>
     final c = context.c;
     final wordIn = CurvedAnimation(
       parent: _ctrl,
-      curve: const Interval(0.0, 0.34, curve: easeOutExpo),
+      curve: const Interval(0.0, 0.36, curve: easeOutExpo),
     );
     final reveal = CurvedAnimation(
       parent: _ctrl,
-      curve: const Interval(0.42, 1.0, curve: easeOutExpo),
+      curve: const Interval(0.40, 1.0, curve: easeOutExpo),
     );
 
     return AnimatedBuilder(
@@ -205,14 +205,19 @@ class _LaunchRevealState extends State<_LaunchReveal>
         final r = reveal.value;
         final w = wordIn.value;
         final splashOpacity = (1.0 - r).clamp(0.0, 1.0);
-        final appScale = 0.965 + 0.035 * r;
-        final splashScale = (0.94 + 0.06 * w) + 0.08 * r;
+        final appScale = 0.94 + 0.06 * r;
+        final appDy = 24.0 * (1.0 - r);
+        final splashScale = (0.92 + 0.08 * w) + 0.14 * r;
+        final splashDy = -36.0 * r;
 
         return Stack(
           children: [
-            Transform.scale(
-              scale: appScale,
-              child: Opacity(opacity: r.clamp(0.0, 1.0), child: appChild),
+            Transform.translate(
+              offset: Offset(0, appDy),
+              child: Transform.scale(
+                scale: appScale,
+                child: Opacity(opacity: r.clamp(0.0, 1.0), child: appChild),
+              ),
             ),
             if (splashOpacity > 0.001)
               Positioned.fill(
@@ -226,9 +231,12 @@ class _LaunchRevealState extends State<_LaunchReveal>
                         children: [
                           const GlowBackground(height: 520),
                           Center(
-                            child: Transform.scale(
-                              scale: splashScale,
-                              child: const MareWordmark(size: 46),
+                            child: Transform.translate(
+                              offset: Offset(0, splashDy),
+                              child: Transform.scale(
+                                scale: splashScale,
+                                child: const MareWordmark(size: 46),
+                              ),
                             ),
                           ),
                         ],

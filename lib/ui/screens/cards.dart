@@ -205,7 +205,8 @@ class CardChip extends StatelessWidget {
   }
 }
 
-/// Representação visual de destaque do cartão ou conta no topo da tela de detalhe.
+/// Representação visual de destaque do cartão ou conta no topo da tela de detalhe
+/// (largura total alinhada à lista e cantos menos arredondados, proporção real de cartão).
 class _HeroPayCard extends StatelessWidget {
   final PayCard card;
   const _HeroPayCard({required this.card});
@@ -221,9 +222,9 @@ class _HeroPayCard extends StatelessWidget {
         ? (hasLast4 ? '•••• ${card.last4}' : 'Cartão')
         : 'Conta corrente';
     return Container(
-      width: 192,
-      height: 118,
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      width: double.infinity,
+      height: 184,
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
       decoration: ShapeDecoration(
         color: color,
         shadows: [
@@ -236,7 +237,7 @@ class _HeroPayCard extends StatelessWidget {
           ),
         ],
         shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(14),
           side: BorderSide(color: fg.withValues(alpha: 0.14)),
         ),
       ),
@@ -251,14 +252,14 @@ class _HeroPayCard extends StatelessWidget {
                   card.name.isEmpty
                       ? (card.isCard ? 'Cartão' : 'Conta')
                       : card.name,
-                  style: T.bodyStrong.copyWith(color: fg),
+                  style: T.headline.copyWith(color: fg),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Icon(
                 card.isCard ? LucideIcons.creditCard : LucideIcons.landmark,
-                size: 18,
+                size: 20,
                 color: fg.withValues(alpha: 0.85),
               ),
             ],
@@ -268,15 +269,20 @@ class _HeroPayCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   subtitle,
-                  style: T.label.copyWith(
-                    color: fg.withValues(alpha: 0.88),
-                    fontWeight: FontWeight.w500,
+                  style: T.bodyMedium.copyWith(
+                    color: fg.withValues(alpha: 0.90),
+                    letterSpacing: card.isCard && hasLast4 ? 0.8 : 0,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              if (card.isCard) BrandBadge(brand: card.brand),
+              if (card.isCard)
+                Transform.scale(
+                  scale: 1.25,
+                  alignment: Alignment.centerRight,
+                  child: BrandBadge(brand: card.brand),
+                ),
             ],
           ),
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
@@ -11,7 +12,6 @@ import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
 import 'box_form.dart';
-import 'cards.dart';
 import 'extrato.dart';
 import 'insights.dart';
 import 'profile.dart';
@@ -38,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final hidden = s.data.hideValues;
     final name = s.data.userName.trim().split(' ').first;
     final noSalary = f.salary == 0;
-    final hasCards = s.data.cards.isNotEmpty;
     final hasSubs = f.subscriptions(cy).isNotEmpty;
 
     return Stack(
@@ -110,25 +109,41 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               sliver: SliverList.list(
                 children: [
-                  // ── Ações rápidas (padrão de cores da tela de sincronização)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: PillButton(
-                          'Gastos',
-                          icon: LucideIcons.receipt,
-                          onTap: () => openAddExpense(context),
-                        ),
-                      ),
-                      const SizedBox(width: Space.md),
-                      Expanded(
-                        child: PillButton(
-                          'Caixinhas',
-                          icon: LucideIcons.piggyBank,
-                          onTap: () => pushFluid(context, const BoxForm()),
-                        ),
-                      ),
-                    ],
+                  // ── Ações rápidas (cada botão usa uma cor do tema adaptada ao modo claro/escuro)
+                  Builder(
+                    builder: (_) {
+                      final (expBg, expFg) = softActionTone(
+                        c.palette.companion[500],
+                        isDark: c.isDark,
+                      );
+                      final (boxBg, boxFg) = softActionTone(
+                        c.palette.primary[500],
+                        isDark: c.isDark,
+                      );
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: PillButton(
+                              'Gastos',
+                              icon: LucideIcons.receipt,
+                              background: expBg,
+                              foreground: expFg,
+                              onTap: () => openAddExpense(context),
+                            ),
+                          ),
+                          const SizedBox(width: Space.md),
+                          Expanded(
+                            child: PillButton(
+                              'Caixinhas',
+                              icon: LucideIcons.piggyBank,
+                              background: boxBg,
+                              foreground: boxFg,
+                              onTap: () => pushFluid(context, const BoxForm()),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                   const SizedBox(height: Space.md),
 
@@ -158,18 +173,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
 
                   // ── Cards adaptáveis (personalizáveis no botão "Editar grade")
-                  DashboardGrid(
-                    gap: Space.md,
-                    spans: s.data.cardSpans,
-                    onSpanChanged: (id, newSpan) =>
-                        _handleSpanChanged(s, f, id, newSpan),
-                    tiles: _orderedVisibleTiles(
-                      context,
-                      f,
-                      hidden,
-                      hasSubs,
-                      hasCards,
-                    ),
+                  Builder(
+                    builder: (_) {
+                      final tiles = _orderedVisibleTiles(
+                        context,
+                        f,
+                        hidden,
+                        hasSubs,
+                      );
+                      if (tiles.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: Space.md),
+                          child: EmptyState(
+                            icon: LucideIcons.wallet,
+                            title: 'Seu ciclo está limpo',
+                            message:
+                                'Registre seu primeiro gasto ou crie uma caixinha para preencher sua carteira.',
+                            action: 'Adicionar gasto',
+                            onAction: () => openAddExpense(context),
+                          ),
+                        );
+                      }
+                      return DashboardGrid(
+                        gap: Space.md,
+                        spans: s.data.cardSpans,
+                        onSpanChanged: s.setCardSpan,
+                        tiles: tiles,
+                      );
+                    },
                   ),
                   const SizedBox(height: Space.sm),
                   Center(
@@ -196,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
     'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
     'categorias': ('Por categoria', LucideIcons.chartPie, 2),
-    'contas': ('Contas', LucideIcons.landmark, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
   };
 
@@ -205,7 +235,6 @@ class _HomeScreenState extends State<HomeScreen> {
     'caixinhas',
     'assinaturas',
     'categorias',
-    'contas',
     'historico',
   ];
 
@@ -224,44 +253,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _widgetMeta[id]?.$3 ?? 1;
   }
 
-  /// Ao recolher (2x -> 1x) ou expandir (1x -> 2x), se um card 1x ficaria
-  /// isolado numa linha com vizinho 2x ao lado, ajusta ou reordena de forma
-  /// inteligente para permitir combinar qualquer par de cards 1x na mesma linha.
-  void _handleSpanChanged(Store s, Finance f, String id, int newSpan) {
-    final targetSpan = newSpan.clamp(1, 2);
-    s.setCardSpan(id, targetSpan);
-    if (targetSpan != 1) return;
-
-    final hasOpenBoxes = f.openBoxes.isNotEmpty;
-    final hidden = _effectiveHidden(s);
-    final order = _allIds(s.data.widgetOrder);
-    final visible = [
-      for (final item in order)
-        if (!hidden.contains(item)) item,
-    ];
-    final idx = visible.indexOf(id);
-    if (idx < 0) return;
-
-    int spanOf(String wid) =>
-        (s.data.cardSpans[wid] ?? _defaultSpanFor(wid, hasOpenBoxes)).clamp(1, 2);
-
-    // Se já há outro card 1x imediatamente antes ou depois, eles já formam par!
-    final prevIs1 = idx > 0 && spanOf(visible[idx - 1]) == 1;
-    final nextIs1 = idx + 1 < visible.length && spanOf(visible[idx + 1]) == 1;
-    if (prevIs1 || nextIs1) return;
-
-    // Se há outro card 1x solto na grade (ex.: Seus Gastos lá no topo quando
-    // Caixinhas não existe ou quando outro card 2x está no meio), aproxima os dois!
-    final other1Idx = visible.indexWhere((w) => w != id && spanOf(w) == 1);
-    if (other1Idx >= 0) {
-      final otherId = visible[other1Idx];
-      final newOrder = [...order]..remove(id);
-      final insertAt = (newOrder.indexOf(otherId) + 1).clamp(0, newOrder.length);
-      newOrder.insert(insertAt, id);
-      s.setDashboardLayout(order: newOrder);
-    }
-  }
-
   List<String> _allIds(List<String> savedOrder) {
     final ordered = [
       for (final id in savedOrder)
@@ -277,7 +268,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Finance f,
     bool hidden,
     bool hasSubs,
-    bool hasCards,
   ) {
     final s = context.store;
     final cy = f.current;
@@ -297,20 +287,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (id == 'caixinhas' && !hasOpenBoxes) continue;
       if (id == 'categorias' && !hasCategories) continue;
       if (id == 'assinaturas' && !hasSubs) continue;
-      if (id == 'contas' && !hasCards) continue;
       if (id == 'historico' && !hasHistory) continue;
 
       final defSpan = _defaultSpanFor(id, hasOpenBoxes);
 
       switch (id) {
-        case 'contas':
-          tiles.add(
-            DashTile(
-              id: id,
-              defaultSpan: defSpan,
-              builder: (ctx, w, span) => _accountsCard(ctx, s, f, hidden, w),
-            ),
-          );
         case 'gastos':
           final spent = f.expensesTotal(cy);
           final sal = f.salaryFor(cy);
@@ -344,16 +325,8 @@ class _HomeScreenState extends State<HomeScreen> {
             DashTile(
               id: id,
               defaultSpan: defSpan,
-              builder: (ctx, w, span) => _statCard(
-                ctx,
-                'Caixinhas',
-                f.boxesBalanceTotal(),
-                'Guardado',
-                hidden,
-                onTap: () => s.data.boxes.isEmpty
-                    ? pushFluid(context, const BoxForm())
-                    : ShellScope.of(context)?.goTo(2),
-              ),
+              builder: (ctx, w, span) =>
+                  _boxesCard(ctx, s, f, hidden, w, span),
             ),
           );
         case 'categorias':
@@ -399,101 +372,61 @@ class _HomeScreenState extends State<HomeScreen> {
     return tiles;
   }
 
-  Widget _accountsCard(
+  Widget _boxesCard(
     BuildContext context,
     Store s,
     Finance f,
     bool hidden,
     double w,
+    int span,
   ) {
     final c = context.c;
-    final cards = s.data.cards;
-    final compact = w < 240;
+    final open = f.openBoxes;
+    final total = f.boxesBalanceTotal();
+    final expanded = span >= 2 && w >= 240;
+    final boxSegments = [
+      for (final b in open)
+        if (f.boxBalance(b) > 0)
+          CapsuleSegment(
+            value: f.boxBalance(b).toDouble(),
+            color: c.tone(b.colorValue),
+          ),
+    ];
 
     return AppCard(
       expandChild: true,
-      onTap: () => manageCards(context),
-      titleWidget: Row(
+      title: 'Caixinhas',
+      onTap: () => s.data.boxes.isEmpty
+          ? pushFluid(context, const BoxForm())
+          : ShellScope.of(context)?.goTo(2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Text(
-              'Contas',
-              style: T.body.copyWith(color: c.text),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+          const Spacer(),
+          if (expanded && boxSegments.isNotEmpty) ...[
+            SegmentedCapsuleBar(
+              height: 16,
+              gap: 3,
+              segments: boxSegments,
             ),
+            const SizedBox(height: Space.md),
+          ] else
+            const SizedBox(height: Space.sm),
+          CountingMoney(
+            cents: total,
+            builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
           ),
-          Pressable(
-            semanticLabel: 'Nova conta ou cartão',
-            onTap: () => editCard(context),
-            child: Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                color: c.cardAlt,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(LucideIcons.plus, size: 15, color: c.textSecondary),
-            ),
+          const SizedBox(height: Space.xxs),
+          Text(
+            expanded
+                ? '${open.length} ${open.length == 1 ? 'caixinha ativa' : 'caixinhas ativas'} · Guardado'
+                : 'Guardado',
+            style: T.small.copyWith(color: c.textSecondary),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
-      child: cards.isEmpty
-          ? Align(
-              alignment: Alignment.bottomLeft,
-              child: Text(
-                'Toque para adicionar',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-            )
-          : compact
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  child: Row(
-                    children: [
-                      for (var i = 0; i < cards.length; i++) ...[
-                        if (i > 0) const SizedBox(width: Space.xs),
-                        Pressable(
-                          onTap: () => push(
-                            context,
-                            CardDetailScreen(cardId: cards[i].id),
-                          ),
-                          onLongPress: () => editCard(context, card: cards[i]),
-                          child: CardChip(card: cards[i], width: 74),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Align(
-              alignment: Alignment.centerLeft,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: [
-                    for (var i = 0; i < cards.length; i++) ...[
-                      if (i > 0) const SizedBox(width: Space.sm),
-                      Pressable(
-                        onTap: () => push(
-                          context,
-                          CardDetailScreen(cardId: cards[i].id),
-                        ),
-                        onLongPress: () => editCard(context, card: cards[i]),
-                        child: CardChip(card: cards[i], width: 88),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
     );
   }
 
@@ -508,8 +441,50 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) {
           final c = ctx.c;
+          final cy = f.current;
           final hasOpenBoxes = f.openBoxes.isNotEmpty;
+          final hasExpenses = f.expensesTotal(cy) > 0;
+          final hasCategories = f.byCategory(cy).any((e) => e.value > 0);
+          final hasSubs = f.subscriptions(cy).isNotEmpty;
+          final hasHistory = f
+              .lastCycles(12)
+              .any((cycle) => f.expensesTotal(cycle) > 0);
+          final wellBg = c.isDark ? c.bg : c.surfaceLow;
           final available = order;
+
+          bool hasDataFor(String id) => switch (id) {
+            'gastos' => hasExpenses,
+            'caixinhas' => hasOpenBoxes,
+            'categorias' => hasCategories,
+            'assinaturas' => hasSubs,
+            'historico' => hasHistory,
+            _ => true,
+          };
+
+          int spanOf(String id) =>
+              (s.data.cardSpans[id] ?? _defaultSpanFor(id, hasOpenBoxes))
+                  .clamp(1, 2);
+
+          // Monta as linhas da miniatura exatamente como o DashboardGrid faz
+          final activeIds = [
+            for (final id in available)
+              if (!hidden.contains(id) && hasDataFor(id)) id,
+          ];
+          final previewRows = <List<String>>[];
+          var curRow = <String>[];
+          var curUsed = 0;
+          for (final id in activeIds) {
+            final sp = spanOf(id);
+            if (curRow.isNotEmpty && curUsed + sp > 2) {
+              previewRows.add(curRow);
+              curRow = [];
+              curUsed = 0;
+            }
+            curRow.add(id);
+            curUsed += sp;
+          }
+          if (curRow.isNotEmpty) previewRows.add(curRow);
+
           return SheetBody(
             bottom: PillButton('Concluir', onTap: () => Navigator.pop(ctx)),
             child: Column(
@@ -551,12 +526,161 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
-                  'Combine dois cards 1x lado a lado ou expanda em 2x.',
+                  'Toque num bloco da prévia para alternar entre 1x e 2x, ou ajuste a ordem abaixo.',
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
                 const SizedBox(height: Space.base),
+
+                // ── Prévia visual interativa da grade (2 colunas)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: ShapeDecoration(
+                    color: wellBg,
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                  ),
+                  child: previewRows.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(
+                            'Nenhum card ativo com dados neste ciclo.',
+                            textAlign: TextAlign.center,
+                            style: T.small.copyWith(color: c.textTertiary),
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            for (var r = 0; r < previewRows.length; r++) ...[
+                              if (r > 0) const SizedBox(height: 8),
+                              () {
+                                final row = previewRows[r];
+                                final used = row.fold<int>(
+                                  0,
+                                  (sum, id) => sum + spanOf(id),
+                                );
+                                final leftover = (2 - used).clamp(0, 2);
+                                return Row(
+                                  children: [
+                                    for (var i = 0; i < row.length; i++) ...[
+                                      if (i > 0) const SizedBox(width: 8),
+                                      () {
+                                        final id = row[i];
+                                        final meta = _widgetMeta[id]!;
+                                        final sp = spanOf(id);
+                                        final (tBg, tFg) = softActionTone(
+                                          c.palette.primary[500],
+                                          isDark: c.isDark,
+                                        );
+                                        return Expanded(
+                                          flex: sp,
+                                          child: Pressable(
+                                            scale: 0.97,
+                                            onTap: () {
+                                              HapticFeedback.selectionClick();
+                                              s.setCardSpan(
+                                                id,
+                                                sp == 1 ? 2 : 1,
+                                              );
+                                              set(() {});
+                                            },
+                                            child: AnimatedContainer(
+                                              duration: const Duration(
+                                                milliseconds: 180,
+                                              ),
+                                              height: 52,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                  ),
+                                              decoration: ShapeDecoration(
+                                                color: c.card,
+                                                shape:
+                                                    RoundedSuperellipseBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            14,
+                                                          ),
+                                                    ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    meta.$2,
+                                                    size: 16,
+                                                    color: c.primary,
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: Text(
+                                                      meta.$1,
+                                                      style: T.smallStrong
+                                                          .copyWith(
+                                                            color: c.text,
+                                                          ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2,
+                                                        ),
+                                                    decoration: ShapeDecoration(
+                                                      color: tBg,
+                                                      shape:
+                                                          const StadiumBorder(),
+                                                    ),
+                                                    child: Text(
+                                                      '${sp}x',
+                                                      style: T.tiny.copyWith(
+                                                        color: tFg,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }(),
+                                    ],
+                                    if (leftover > 0) ...[
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: leftover,
+                                        child: Container(
+                                          height: 52,
+                                          decoration: ShapeDecoration(
+                                            color: c.card.withValues(
+                                              alpha: 0.25,
+                                            ),
+                                            shape: RoundedSuperellipseBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                );
+                              }(),
+                            ],
+                          ],
+                        ),
+                ),
+                const SizedBox(height: Space.base),
+
                 ListGroup(
-                  bg: c.isDark ? c.bg : c.surfaceLow,
+                  bg: wellBg,
                   gap: 16,
                   children: [
                     for (var idx = 0; idx < available.length; idx++)
@@ -564,10 +688,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         builder: (_) {
                           final id = available[idx];
                           final meta = _widgetMeta[id]!;
-                          final visible = !hidden.contains(id);
-                          final span =
-                              s.data.cardSpans[id] ??
-                              _defaultSpanFor(id, hasOpenBoxes);
+                          final isBoxDisabled =
+                              id == 'caixinhas' && !hasOpenBoxes;
+                          final visible =
+                              !isBoxDisabled && !hidden.contains(id);
+                          final span = spanOf(id);
                           return ListRow(
                             leading: SizedBox(
                               width: 32,
@@ -581,44 +706,42 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             title: meta.$1,
+                            subtitle: isBoxDisabled
+                                ? 'Desativado · sem caixinha ativa'
+                                : (!hasDataFor(id) ? 'Sem dados no ciclo' : null),
                             titleColor: visible ? c.text : c.textTertiary,
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Pressable(
-                                  semanticLabel: 'Largura ${span}x',
-                                  onTap: () {
-                                    _handleSpanChanged(
-                                      s,
-                                      f,
-                                      id,
-                                      span == 1 ? 2 : 1,
-                                    );
-                                    set(() {
-                                      order = _allIds(s.data.widgetOrder);
-                                    });
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: Space.sm,
-                                      vertical: Space.xs,
-                                    ),
-                                    decoration: ShapeDecoration(
-                                      color: c.primarySoft,
-                                      shape: RoundedSuperellipseBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          Space.radiusSm,
+                                if (!isBoxDisabled)
+                                  Pressable(
+                                    semanticLabel: 'Largura ${span}x',
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      s.setCardSpan(id, span == 1 ? 2 : 1);
+                                      set(() {});
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: Space.sm,
+                                        vertical: Space.xs,
+                                      ),
+                                      decoration: ShapeDecoration(
+                                        color: c.primarySoft,
+                                        shape: RoundedSuperellipseBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            Space.radiusSm,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '${span}x',
+                                        style: T.smallStrong.copyWith(
+                                          color: c.primary,
                                         ),
                                       ),
                                     ),
-                                    child: Text(
-                                      '${span}x',
-                                      style: T.smallStrong.copyWith(
-                                        color: c.primary,
-                                      ),
-                                    ),
                                   ),
-                                ),
                                 const SizedBox(width: Space.xs),
                                 Pressable(
                                   semanticLabel: 'Mover para cima',
@@ -677,23 +800,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: Space.xs),
-                                SpringSwitch(
-                                  value: visible,
-                                  label: meta.$1,
-                                  onChanged: (v) {
-                                    set(() {
-                                      if (v) {
-                                        hidden.remove(id);
-                                      } else {
-                                        hidden.add(id);
-                                      }
-                                    });
-                                    s.setDashboardLayout(
-                                      order: order,
-                                      hidden: hidden.toList(),
-                                    );
-                                  },
-                                ),
+                                if (isBoxDisabled)
+                                  Tag(
+                                    'Inativo',
+                                    bg: c.cardAlt,
+                                    fg: c.textTertiary,
+                                  )
+                                else
+                                  SpringSwitch(
+                                    value: visible,
+                                    label: meta.$1,
+                                    onChanged: (v) {
+                                      set(() {
+                                        if (v) {
+                                          hidden.remove(id);
+                                        } else {
+                                          hidden.add(id);
+                                        }
+                                      });
+                                      s.setDashboardLayout(
+                                        order: order,
+                                        hidden: hidden.toList(),
+                                      );
+                                    },
+                                  ),
                               ],
                             ),
                           );

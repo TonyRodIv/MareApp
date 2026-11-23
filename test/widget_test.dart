@@ -83,7 +83,6 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
     'Caixinhas',
     'Por categoria',
     'Assinaturas',
-    'Contas',
     'Histórico visual',
   ]) {
     expect(tile(label), findsNothing, reason: '$label sem dados');
@@ -252,7 +251,6 @@ void main() {
       'Caixinhas',
       'Assinaturas',
       'Por categoria',
-      'Contas',
       'Histórico visual',
     ];
     for (final label in defaultLabels) {

@@ -423,7 +423,7 @@ class _OnboardingState extends State<Onboarding> {
             Reveal(
               index: 1,
               child: Text(
-                'Seu dinheiro no\nritmo certo',
+                'Seu dinheiro no\nritmo do seu ciclo',
                 textAlign: TextAlign.center,
                 style: T.display.copyWith(color: c.text),
               ),
@@ -432,7 +432,7 @@ class _OnboardingState extends State<Onboarding> {
             Reveal(
               index: 2,
               child: Text(
-                'Quanto gastar hoje, caixinhas que acumulam e controle por ciclo',
+                'Saldo livre do ciclo, caixinhas que acumulam e assinaturas sob controle',
                 textAlign: TextAlign.center,
                 style: T.label.copyWith(color: c.textSecondary),
               ),
@@ -465,11 +465,7 @@ class _OnboardingState extends State<Onboarding> {
               color: c.textTertiary,
             ),
             decoration: BoxDecoration(
-              color: c.cardAlt,
-              border: Border.all(
-                color: _name.text.trim().isNotEmpty ? c.primary : c.border,
-                width: 1.5,
-              ),
+              color: c.card,
               borderRadius: BorderRadius.circular(Space.radiusField),
             ),
           ),
@@ -552,92 +548,80 @@ class _OnboardingState extends State<Onboarding> {
       case 3:
         final s = context.store;
         final currentSeed =
-            s.data.accentColor ?? accentPresets.first.$2.toARGB32();
+            s.data.accentColor ?? accentThemes.first.primary.toARGB32();
         return _question(
           context,
-          'Qual cor combina com você?',
-          subtitle: 'A cor complementar é calculada automaticamente.',
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: Space.md,
-            runSpacing: Space.md,
-            children: [
-              for (final (label, col) in accentPresets)
-                Pressable(
-                  semanticLabel: 'Cor $label',
-                  onTap: () => s.setAccentColor(col.toARGB32()),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    width: 100,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Space.md,
-                      vertical: Space.md,
-                    ),
-                    decoration: ShapeDecoration(
-                      color: currentSeed == col.toARGB32()
-                          ? c.primarySoft
-                          : c.cardAlt,
-                      shape: RoundedSuperellipseBorder(
-                        borderRadius: BorderRadius.circular(Space.radiusField),
-                        side: BorderSide(
-                          color: currentSeed == col.toARGB32()
-                              ? c.primary
-                              : c.border,
-                          width: currentSeed == col.toARGB32() ? 2 : 1,
-                        ),
-                      ),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: ClipOval(
-                            child: Stack(
-                              children: [
-                                Positioned.fill(child: ColoredBox(color: col)),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  width: 16,
-                                  height: 16,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: complementaryOf(col),
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(10),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (currentSeed == col.toARGB32())
-                                  Center(
-                                    child: Icon(
-                                      LucideIcons.check,
-                                      size: 16,
-                                      color: onColor(col),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: Space.sm),
-                        Text(
-                          label,
-                          style: T.smallStrong.copyWith(
-                            color: currentSeed == col.toARGB32()
-                                ? c.primary
-                                : c.text,
-                          ),
-                          maxLines: 1,
-                        ),
-                      ],
+          'Qual tema combina com você?',
+          subtitle: 'Cada cor tem seu próprio gradiente atmosférico.',
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: accentThemes.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              mainAxisExtent: 86,
+            ),
+            itemBuilder: (_, i) {
+              final themeSpec = accentThemes[i];
+              final col = themeSpec.primary;
+              final selected = currentSeed == col.toARGB32();
+              final (selBg, selFg) = softActionTone(col, isDark: c.isDark);
+              return Pressable(
+                scale: 0.96,
+                semanticLabel: 'Cor ${themeSpec.name}',
+                onTap: () => s.setAccentColor(col.toARGB32()),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: Space.sm,
+                    vertical: Space.sm,
+                  ),
+                  decoration: ShapeDecoration(
+                    color: selected ? selBg : c.card,
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
                   ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [col, themeSpec.secondaryGlow],
+                          ),
+                        ),
+                        child: selected
+                            ? Center(
+                                child: Icon(
+                                  LucideIcons.check,
+                                  size: 16,
+                                  color: onColor(col),
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        themeSpec.name,
+                        style: (selected ? T.smallStrong : T.small).copyWith(
+                          color: selected ? selFg : c.text,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-            ],
+              );
+            },
           ),
         );
 
@@ -895,11 +879,7 @@ class _OnboardingState extends State<Onboarding> {
   Widget _summary(BuildContext context) {
     final c = context.c;
     final cy = Cycle.of(DateTime.now(), _startDay);
-    final daysLeft = cy.end
-        .difference(dateOnly(DateTime.now()))
-        .inDays
-        .clamp(1, 31);
-    final perDay = _salary.value ~/ math.max(1, daysLeft);
+    final last = cy.end.subtract(const Duration(days: 1));
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -936,10 +916,6 @@ class _OnboardingState extends State<Onboarding> {
                     decoration: BoxDecoration(
                       color: c.primarySoft,
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: c.primary.withValues(alpha: 0.35),
-                        width: 2,
-                      ),
                     ),
                     child: Icon(LucideIcons.check, color: c.primary, size: 36),
                   ),
@@ -959,13 +935,13 @@ class _OnboardingState extends State<Onboarding> {
           Reveal(
             index: 2,
             child: Text(
-              'Você pode usar até',
+              'Saldo livre de ${cy.label()}',
               style: T.label.copyWith(color: c.textSecondary),
             ),
           ),
           const SizedBox(height: Space.sm),
           SpringBuilder(
-            value: perDay.toDouble(),
+            value: _salary.value.toDouble(),
             from: 0,
             spring: Springs.settle,
             builder: (_, v, _) => MoneyText(
@@ -978,7 +954,7 @@ class _OnboardingState extends State<Onboarding> {
           Reveal(
             index: 3,
             child: Text(
-              'por dia até o fim deste ciclo',
+              'Ciclo de ${cy.start.day}/${cy.start.month} a ${last.day}/${last.month}',
               style: T.label.copyWith(color: c.textSecondary),
             ),
           ),
@@ -1238,22 +1214,19 @@ class _WelcomeShowcase extends StatelessWidget {
                       vertical: Space.sm,
                     ),
                     decoration: ShapeDecoration(
-                      color: c.secondary,
+                      color: c.cardAlt,
                       shape: RoundedSuperellipseBorder(
                         borderRadius: BorderRadius.circular(Space.radiusField),
-                        side: BorderSide(
-                          color: c.accentWarm.withValues(alpha: 0.3),
-                        ),
                       ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(LucideIcons.zap, size: 16, color: c.accentWarm),
+                        Icon(LucideIcons.tv, size: 16, color: c.primary),
                         const SizedBox(width: Space.sm),
                         Text(
-                          'Hoje · R\$ 82,00',
-                          style: T.smallStrong.copyWith(color: c.onSecondary),
+                          'Assinaturas · R\$ 119',
+                          style: T.smallStrong.copyWith(color: c.text),
                         ),
                       ],
                     ),

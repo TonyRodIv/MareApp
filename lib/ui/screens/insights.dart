@@ -118,59 +118,22 @@ class CategoriesScreen extends StatelessWidget {
           EmptyState(
             icon: LucideIcons.chartPie,
             title: 'Sem gastos neste ciclo',
+            message: 'Adicione um gasto para ver a divisão do seu ciclo por categoria.',
             action: 'Adicionar gasto',
             onAction: () => openAddExpense(context),
           )
         else ...[
-          // Hero alinhado à esquerda
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Total em ${f.current.label()}',
-                style: T.label.copyWith(color: c.textSecondary),
+          // Anel circular completo segmentado diretamente sobre o fundo
+          Center(
+            child: CategoryCircleGauge(
+              items: data,
+              hidden: hidden,
+              footer: 'Total em ${f.current.label()}',
+              onSelect: (cat) => push(
+                context,
+                CategoryDetailScreen(categoryId: cat.id),
               ),
-              const SizedBox(height: Space.xs),
-              CountingMoney(
-                cents: total,
-                builder: (v) =>
-                    MoneyText(v, hidden: hidden, style: T.displayLg),
-              ),
-            ],
-          ),
-          const SizedBox(height: Space.base),
-          Builder(
-            builder: (_) {
-              final topCount = data.length > 4 ? 4 : data.length;
-              final segs = <CapsuleSegment>[
-                for (var i = 0; i < topCount; i++)
-                  CapsuleSegment(
-                    value: data[i].value.toDouble(),
-                    color: c.tone(data[i].key.color),
-                    label: data[i].key.label,
-                  ),
-                if (data.length > topCount)
-                  CapsuleSegment(
-                    value: data
-                        .skip(topCount)
-                        .fold<double>(0, (t, e) => t + e.value),
-                    color: c.emptyCell,
-                    label: 'Outros',
-                  ),
-              ];
-              return Container(
-                padding: const EdgeInsets.all(6),
-                decoration: ShapeDecoration(
-                  color: c.card,
-                  shape: const StadiumBorder(),
-                ),
-                child: SegmentedCapsuleBar(
-                  height: 32,
-                  gap: 4,
-                  segments: segs,
-                ),
-              );
-            },
+            ),
           ),
           const SizedBox(height: Space.lg),
           ListGroup(

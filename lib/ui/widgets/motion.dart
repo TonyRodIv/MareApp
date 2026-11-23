@@ -348,27 +348,36 @@ class SpringBar extends StatelessWidget {
 
 // ── Rota modal ultraleve ────────────────────────────────────
 
-/// Transição modal ultraleve (transform puro de GPU, sem SaveLayer de opacidade em tela cheia).
+/// Transição modal fluida com curva easeOutExpo, leve escala e fade suave.
 class FluidModalRoute<V> extends PageRouteBuilder<V> {
   FluidModalRoute({required WidgetBuilder builder})
     : super(
         opaque: true,
-        transitionDuration: const Duration(milliseconds: 200),
-        reverseTransitionDuration: const Duration(milliseconds: 160),
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
         pageBuilder: (ctx, _, _) => builder(ctx),
         transitionsBuilder: (ctx, a, _, child) {
           if (reduceMotion(ctx)) return child;
           final t = CurvedAnimation(
             parent: a,
-            curve: Curves.easeOutCubic,
+            curve: easeOutExpo,
             reverseCurve: Curves.easeInCubic,
           );
-          return SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 0.12),
-              end: Offset.zero,
-            ).animate(t),
-            child: child,
+          return FadeTransition(
+            opacity: CurvedAnimation(
+              parent: a,
+              curve: const Interval(0.0, 0.65, curve: Curves.easeOut),
+            ),
+            child: SlideTransition(
+              position: Tween(
+                begin: const Offset(0, 0.08),
+                end: Offset.zero,
+              ).animate(t),
+              child: ScaleTransition(
+                scale: Tween(begin: 0.96, end: 1.0).animate(t),
+                child: child,
+              ),
+            ),
           );
         },
       );

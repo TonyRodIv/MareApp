@@ -224,20 +224,113 @@ class Palette {
   static const red900 = Color(0xFF6B1914);
 }
 
-/// Cores de destaque disponíveis para personalização (paleta completa de 10 famílias).
-/// Cores de destaque oferecidas. Ciano, índigo e menta ficaram de fora por serem
-/// quase iguais a Maré, Azul e Roxo/Verde: sobra uma de cada "família" visual.
+/// Tema de cor e gradiente atmosférico do app.
+class AccentThemeSpec {
+  final String name;
+  final Color primary;
+  final Color secondaryGlow;
+  final Alignment radialCenter;
+  const AccentThemeSpec({
+    required this.name,
+    required this.primary,
+    required this.secondaryGlow,
+    this.radialCenter = const Alignment(-0.95, -0.85),
+  });
+}
+
+/// Temas cromáticos disponíveis para personalização (12 famílias com gradientes
+/// atmosféricos próprios que fundem perfeitamente até `c.bg`).
+const accentThemes = <AccentThemeSpec>[
+  AccentThemeSpec(
+    name: 'Maré',
+    primary: Color(0xFF30B0C7),
+    secondaryGlow: Color(0xFF007AFF),
+    radialCenter: Alignment(-0.90, -0.85),
+  ),
+  AccentThemeSpec(
+    name: 'Oceano',
+    primary: Color(0xFF007AFF),
+    secondaryGlow: Color(0xFF32ADE6),
+    radialCenter: Alignment(0.85, -0.85),
+  ),
+  AccentThemeSpec(
+    name: 'Ciano',
+    primary: Color(0xFF32ADE6),
+    secondaryGlow: Color(0xFF00C7BE),
+    radialCenter: Alignment(-0.80, -0.90),
+  ),
+  AccentThemeSpec(
+    name: 'Índigo',
+    primary: Color(0xFF5856D6),
+    secondaryGlow: Color(0xFFAF52DE),
+    radialCenter: Alignment(0.90, -0.80),
+  ),
+  AccentThemeSpec(
+    name: 'Ametista',
+    primary: Color(0xFFAF52DE),
+    secondaryGlow: Color(0xFFFF2D55),
+    radialCenter: Alignment(-0.95, -0.80),
+  ),
+  AccentThemeSpec(
+    name: 'Sakura',
+    primary: Color(0xFFFF375F),
+    secondaryGlow: Color(0xFFFF9F0A),
+    radialCenter: Alignment(0.85, -0.90),
+  ),
+  AccentThemeSpec(
+    name: 'Coral',
+    primary: Color(0xFFFF6259),
+    secondaryGlow: Color(0xFFFF9500),
+    radialCenter: Alignment(-0.85, -0.85),
+  ),
+  AccentThemeSpec(
+    name: 'Âmbar',
+    primary: Color(0xFFFF9500),
+    secondaryGlow: Color(0xFFFF3B30),
+    radialCenter: Alignment(0.85, -0.80),
+  ),
+  AccentThemeSpec(
+    name: 'Ouro',
+    primary: Color(0xFFE8BA00),
+    secondaryGlow: Color(0xFFFF9500),
+    radialCenter: Alignment(-0.85, -0.90),
+  ),
+  AccentThemeSpec(
+    name: 'Esmeralda',
+    primary: Color(0xFF34C759),
+    secondaryGlow: Color(0xFF00C7BE),
+    radialCenter: Alignment(0.90, -0.85),
+  ),
+  AccentThemeSpec(
+    name: 'Menta',
+    primary: Color(0xFF00C7BE),
+    secondaryGlow: Color(0xFF34C759),
+    radialCenter: Alignment(-0.90, -0.80),
+  ),
+  AccentThemeSpec(
+    name: 'Grafite',
+    primary: Color(0xFF7D8597),
+    secondaryGlow: Color(0xFF5856D6),
+    radialCenter: Alignment(0.80, -0.85),
+  ),
+];
+
+/// Especificação de tema correspondente à cor [seed].
+AccentThemeSpec accentThemeFor(Color seed) {
+  final target = seed.toARGB32();
+  for (final t in accentThemes) {
+    if (t.primary.toARGB32() == target) return t;
+  }
+  return AccentThemeSpec(
+    name: 'Personalizado',
+    primary: seed,
+    secondaryGlow: complementaryOf(seed),
+  );
+}
+
+/// Cores de destaque oferecidas (compatível com seletores existentes).
 final accentPresets = <(String, Color)>[
-  for (final s in [
-    Palette.teal,
-    Palette.blue,
-    Palette.purple,
-    Palette.green,
-    Palette.orange,
-    Palette.red,
-    Palette.yellow,
-  ])
-    (s.name, s.s500),
+  for (final t in accentThemes) (t.name, t.primary),
 ];
 
 /// Família do Figma mais próxima da cor [seed] (em OKLCH).

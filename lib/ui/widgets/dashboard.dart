@@ -48,9 +48,9 @@ class DashboardGrid extends StatelessWidget {
         final cols = columnsFor(w);
 
         // Empacota em linhas na ordem escolhida: cada linha comporta até [cols]
-        // blocos de largura. Quando dois cards 1x dividem uma linha, ambos se
-        // igualam na mesma altura via IntrinsicHeight; quando um card fica sozinho
-        // na linha, ele ocupa a largura total da linha para nunca sobrar buraco.
+        // blocos de largura. Se a soma dos spans da linha for menor que [cols],
+        // preenche o espaço lateral restante com [Expanded] vazio para que um
+        // card 1x realmente ocupe meia largura e nunca mude de posição.
         int spanOf(DashTile t) =>
             (spans[t.id] ?? t.defaultSpan).clamp(1, 2).clamp(1, cols);
         final rows = <List<DashTile>>[];
@@ -71,40 +71,55 @@ class DashboardGrid extends StatelessWidget {
         return Column(
           children: [
             for (final row in rows) ...[
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (var i = 0; i < row.length; i++) ...[
-                      if (i > 0) SizedBox(width: gap),
-                      Expanded(
-                        flex: row.length == 1 ? 1 : spanOf(row[i]),
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: _minHeight[row[i].id] ?? 128,
-                          ),
-                          child: RepaintBoundary(
-                            child: _Resizable(
-                              key: ValueKey(row[i].id),
-                              span: spanOf(row[i]),
-                              enabled: cols > 1,
-                              onToggle: () => onSpanChanged(
-                                row[i].id,
-                                spanOf(row[i]) == 1 ? 2 : 1,
-                              ),
-                              child: row[i].builder(
-                                ctx,
-                                _innerWidth(w, gap, row, i, spanOf),
-                                row.length == 1 ? 2 : spanOf(row[i]),
+              () {
+                final rowUsed = row.fold<int>(0, (s, t) => s + spanOf(t));
+                final leftover = (cols - rowUsed).clamp(0, cols);
+                final slots = row.length + (leftover > 0 ? 1 : 0);
+                return IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = 0; i < row.length; i++) ...[
+                        if (i > 0) SizedBox(width: gap),
+                        Expanded(
+                          flex: spanOf(row[i]),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: _minHeightFor(row[i].id, spanOf(row[i])),
+                            ),
+                            child: RepaintBoundary(
+                              child: _Resizable(
+                                key: ValueKey(row[i].id),
+                                span: spanOf(row[i]),
+                                enabled: cols > 1,
+                                onToggle: () => onSpanChanged(
+                                  row[i].id,
+                                  spanOf(row[i]) == 1 ? 2 : 1,
+                                ),
+                                child: row[i].builder(
+                                  ctx,
+                                  _innerWidth(
+                                    w,
+                                    gap,
+                                    cols,
+                                    slots,
+                                    spanOf(row[i]),
+                                  ),
+                                  spanOf(row[i]),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
+                      if (leftover > 0) ...[
+                        SizedBox(width: gap),
+                        Expanded(flex: leftover, child: const SizedBox()),
+                      ],
                     ],
-                  ],
-                ),
-              ),
+                  ),
+                );
+              }(),
               SizedBox(height: gap),
             ],
           ],
@@ -116,23 +131,28 @@ class DashboardGrid extends StatelessWidget {
   static double _innerWidth(
     double w,
     double gap,
-    List<DashTile> row,
-    int i,
-    int Function(DashTile) spanOf,
+    int cols,
+    int slots,
+    int tileSpan,
   ) {
-    final flexes = [for (final t in row) row.length == 1 ? 1 : spanOf(t)];
-    final total = flexes.fold<int>(0, (a, b) => a + b);
-    return (w - gap * (row.length - 1)) * flexes[i] / total - 32;
+    return (w - gap * (slots - 1)) * tileSpan / cols - 32;
   }
 }
 
-/// Altura mínima por card (px).
+/// Altura mínima por card conforme o span (1x ou 2x).
+double _minHeightFor(String id, int span) {
+  if (id == 'assinaturas') return span == 1 ? 156 : 128;
+  if (id == 'categorias') return span == 1 ? 156 : 140;
+  if (id == 'caixinhas') return span == 1 ? 132 : 148;
+  if (id == 'historico') return span == 1 ? 156 : 184;
+  return _minHeight[id] ?? 132;
+}
+
 const _minHeight = <String, double>{
   'gastos': 132,
   'caixinhas': 132,
-  'contas': 132,
-  'categorias': 136,
-  'assinaturas': 132,
+  'categorias': 140,
+  'assinaturas': 128,
   'historico': 184,
 };
 

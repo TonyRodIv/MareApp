@@ -1093,12 +1093,13 @@ class GlowBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    // Mistura diretamente a cor pura do tema sobre c.bg (com opacidade suave no
-    // modo escuro em vez de primarySoft, que tinha luminosidade base mais alta
-    // que o novo fundo profundo), garantindo que o degradê morra exatamente em
-    // c.bg sem deixar véu acinzentado.
-    final base = tint ?? c.primary;
-    final warm = c.accentWarm;
+    // Cada tema possui um par de cores de gradiente próprio (primary +
+    // secondaryGlow) que se fundem suavemente até c.bg, sem véu acinzentado.
+    final spec = accentThemeFor(tint ?? c.seed);
+    final base = tint ?? spec.primary;
+    final secondary = tint != null
+        ? complementaryOf(tint!)
+        : spec.secondaryGlow;
     return IgnorePointer(
       child: SizedBox(
         height: height,
@@ -1110,26 +1111,26 @@ class GlowBackground extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Color.alphaBlend(
-                  base.withValues(alpha: c.isDark ? 0.22 : 0.20),
+                  base.withValues(alpha: c.isDark ? 0.24 : 0.20),
                   c.bg,
                 ),
                 Color.alphaBlend(
-                  base.withValues(alpha: c.isDark ? 0.08 : 0.08),
+                  secondary.withValues(alpha: c.isDark ? 0.09 : 0.08),
                   c.bg,
                 ),
                 c.bg,
               ],
-              stops: const [0.0, 0.52, 1.0],
+              stops: const [0.0, 0.54, 1.0],
             ),
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: RadialGradient(
-                center: const Alignment(-1.05, -0.9),
-                radius: 1.0,
+                center: spec.radialCenter,
+                radius: 1.15,
                 colors: [
-                  warm.withValues(alpha: c.isDark ? 0.12 : 0.10),
-                  warm.withValues(alpha: 0),
+                  secondary.withValues(alpha: c.isDark ? 0.16 : 0.12),
+                  secondary.withValues(alpha: 0),
                 ],
               ),
             ),
@@ -1562,6 +1563,8 @@ class LargeTitle extends StatelessWidget {
 
 // ── Estado vazio ────────────────────────────────────────────
 
+/// Estado vazio padronizado, com ícone em destaque tonal, texto limpo e botão
+/// de ação principal.
 class EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -1582,9 +1585,16 @@ class EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final (badgeBg, badgeFg) = softActionTone(
+      c.palette.primary[500],
+      isDark: c.isDark,
+    );
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(Space.base),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Space.lg,
+        vertical: Space.xl,
+      ),
       decoration: ShapeDecoration(
         color: bg ?? c.card,
         shape: RoundedSuperellipseBorder(
@@ -1598,28 +1608,37 @@ class EmptyState extends StatelessWidget {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: c.primarySoft,
+              color: badgeBg,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: c.accent, size: 24),
+            child: Icon(icon, color: badgeFg, size: 24),
           ),
           const SizedBox(height: Space.base),
           Text(
             title,
-            style: T.bodyStrong.copyWith(color: c.text),
+            style: T.headline.copyWith(color: c.text),
             textAlign: TextAlign.center,
           ),
           if (message != null) ...[
-            const SizedBox(height: Space.sm),
-            Text(
-              message!,
-              style: T.label.copyWith(color: c.textSecondary),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Text(
+                message!,
+                style: T.small.copyWith(color: c.textSecondary, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
           if (action != null) ...[
             const SizedBox(height: Space.lg),
-            PillButton(action!, onTap: onAction, expand: false, height: 48),
+            PillButton(
+              action!,
+              icon: LucideIcons.plus,
+              onTap: onAction,
+              expand: false,
+              height: 46,
+            ),
           ],
         ],
       ),

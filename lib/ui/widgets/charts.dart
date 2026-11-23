@@ -1598,6 +1598,263 @@ class _OpenArcGaugePainter extends CustomPainter {
       old.values.length != values.length;
 }
 
+/// Anel circular completo segmentado (360°) desenhado diretamente sobre o fundo,
+/// usado na tela de "Por categoria": mesma lógica interativa e estética limpa do
+/// [SubscriptionArcGauge], porém com o círculo fechado.
+class CategoryCircleGauge extends StatefulWidget {
+  final List<MapEntry<Category, Cents>> items;
+  final bool hidden;
+  final String? footer;
+  final ValueChanged<Category>? onSelect;
+
+  const CategoryCircleGauge({
+    super.key,
+    required this.items,
+    this.hidden = false,
+    this.footer,
+    this.onSelect,
+  });
+
+  @override
+  State<CategoryCircleGauge> createState() => _CategoryCircleGaugeState();
+}
+
+class _CategoryCircleGaugeState extends State<CategoryCircleGauge> {
+  int? _selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final list = [
+      for (final e in widget.items)
+        if (e.value > 0) e,
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    if (list.isEmpty) return const SizedBox.shrink();
+    final total = list.fold<int>(0, (t, e) => t + e.value);
+    if (total <= 0) return const SizedBox.shrink();
+
+    final topCount = list.length > 5 ? 5 : list.length;
+    final entries = <(String, int, Color, Category?)>[
+      for (var i = 0; i < topCount; i++)
+        (
+          list[i].key.label,
+          list[i].value,
+          c.tone(list[i].key.color),
+          list[i].key,
+        ),
+    ];
+    if (list.length > topCount) {
+      final othersTotal = list
+          .skip(topCount)
+          .fold<int>(0, (t, e) => t + e.value);
+      entries.add(('Outros', othersTotal, c.emptyCell, null));
+    }
+
+    final sel = _selected != null && _selected! < entries.length
+        ? _selected
+        : null;
+    final active = sel != null ? entries[sel] : null;
+    final displayCents = active?.$2 ?? total;
+    final formatted = fmtMoney(displayCents, hidden: widget.hidden);
+    final hasPrefix = !widget.hidden && formatted.startsWith('R\$ ');
+    final numberPart = hasPrefix ? formatted.substring(3) : formatted;
+
+    void handleTap(int i) {
+      if (sel == i) {
+        final cat = entries[i].$4;
+        if (cat != null) {
+          widget.onSelect?.call(cat);
+        } else {
+          setState(() => _selected = null);
+        }
+      } else {
+        HapticFeedback.selectionClick();
+        setState(() => _selected = i);
+      }
+    }
+
+    return Column(
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: sel != null ? () => setState(() => _selected = null) : null,
+          child: SizedBox(
+            width: 248,
+            height: 248,
+            child: SpringBuilder(
+              value: 1.0,
+              from: 0.0,
+              spring: Springs.settle,
+              builder: (_, progress, _) => Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(248, 248),
+                    painter: _FullCircleGaugePainter(
+                      values: [for (final e in entries) e.$2 / total],
+                      colors: [for (final e in entries) e.$3],
+                      selected: sel,
+                      progress: progress.clamp(0.0, 1.0),
+                      guideColor: c.border.withValues(
+                        alpha: c.isDark ? 0.55 : 0.85,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              if (hasPrefix) ...[
+                                Text(
+                                  'R\$',
+                                  style: T.title.copyWith(
+                                    color: c.textTertiary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                numberPart,
+                                style: T.displayLg.copyWith(color: c.text),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          active != null
+                              ? '${active.$1} · ${(active.$2 / total * 100).round()}%'
+                              : (widget.footer ?? 'Total por categoria'),
+                          style: T.label.copyWith(color: c.textSecondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: Space.base),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: Space.base,
+          runSpacing: Space.sm,
+          children: [
+            for (var i = 0; i < entries.length; i++)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => handleTap(i),
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 160),
+                  opacity: sel == null || sel == i ? 1.0 : 0.32,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: entries[i].$3,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        entries[i].$1,
+                        style: (sel == i ? T.smallStrong : T.small).copyWith(
+                          color: sel == i ? c.text : c.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _FullCircleGaugePainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+  final int? selected;
+  final double progress;
+  final Color guideColor;
+
+  _FullCircleGaugePainter({
+    required this.values,
+    required this.colors,
+    required this.selected,
+    required this.progress,
+    required this.guideColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 15.0;
+    const startRad = -math.pi / 2;
+    const totalRad = 2 * math.pi;
+
+    final radius = (size.width - stroke) / 2 - 4;
+    final center = Offset(size.width / 2, size.height / 2);
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Linha guia interna circular delicada
+    canvas.drawCircle(
+      center,
+      radius - 14,
+      Paint()
+        ..color = guideColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0,
+    );
+
+    if (values.isEmpty) return;
+    final n = values.length;
+    final capPad = (stroke / radius) * 0.96;
+    final gapRad = n > 1 ? capPad + 0.06 : 0.0;
+    final usable = math.max(0.1, totalRad - gapRad * n);
+
+    var cursor = startRad + (n > 1 ? gapRad / 2 : 0.0);
+    for (var i = 0; i < n; i++) {
+      final segSweep = usable * values[i] * progress;
+      final isSel = selected == i;
+      final dimmed = selected != null && !isSel;
+      final paint = Paint()
+        ..color = dimmed ? colors[i].withValues(alpha: 0.24) : colors[i]
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSel ? stroke + 2.5 : stroke
+        ..strokeCap = StrokeCap.round;
+
+      if (segSweep > 0.005) {
+        canvas.drawArc(rect, cursor, segSweep, false, paint);
+      }
+      cursor += usable * values[i] + gapRad;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FullCircleGaugePainter old) =>
+      old.progress != progress ||
+      old.selected != selected ||
+      old.guideColor != guideColor ||
+      old.values.length != values.length;
+}
+
 // ── Sparkline translúcido de fundo (card Seus Gastos) ───────
 
 /// Curva suave bem transparente desenhada por trás de cards de resumo
@@ -1794,7 +2051,7 @@ class _HistoryLineChartState extends State<HistoryLineChart> {
       height: widget.height + 26,
       child: LayoutBuilder(
         builder: (_, box) {
-          final plotW = math.max(60.0, box.maxWidth - axisW);
+          final plotW = math.max(40.0, box.maxWidth - axisW);
           return Column(
             children: [
               SizedBox(
@@ -1805,7 +2062,9 @@ class _HistoryLineChartState extends State<HistoryLineChart> {
                       width: plotW,
                       height: widget.height,
                       child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
+                        behavior: widget.interactive
+                            ? HitTestBehavior.opaque
+                            : HitTestBehavior.deferToChild,
                         onTapDown: widget.interactive
                             ? (d) => _pickAt(d.localPosition.dx, plotW, list.length)
                             : null,

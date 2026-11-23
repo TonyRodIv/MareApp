@@ -40,8 +40,6 @@ class ProfileScreen extends StatelessWidget {
     final pad = sidePadding(context, maxWidth: 640);
     final cy = f.current;
     final lastDay = cy.end.subtract(const Duration(days: 1));
-    final subs = f.subscriptions(cy);
-    final subsTotal = subs.fold<int>(0, (t, e) => t + e.cents);
     final byCat = f.byCategory(cy);
     final catTotal = byCat.fold<int>(0, (t, e) => t + e.value);
     final topCat = byCat.isEmpty ? null : byCat.first;
@@ -202,216 +200,233 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ],
 
-                  // ── Finanças em grade bento (agrupando informações-chave)
-                  const SectionHeader('Finanças'),
-                  // Linha 1 (largura cheia): Salário + Virada do ciclo agrupados
-                  _FinanceTile(
-                    icon: LucideIcons.banknote,
-                    title: 'Salário e ciclo',
-                    onTap: () => editSalaryAndCycle(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Expanded(
-                              child: f.salary > 0
-                                  ? MoneyText(
-                                      f.salary,
-                                      hidden: hidden,
-                                      style: T.cardValue.copyWith(fontSize: 20),
-                                    )
-                                  : Text(
-                                      'Informar salário',
-                                      style: T.headline.copyWith(
-                                        color: c.primary,
-                                      ),
-                                    ),
-                            ),
-                            Tag(
-                              'Dia ${d.cycleStartDay}',
-                              icon: LucideIcons.calendarSync,
-                              bg: c.cardAlt,
-                              fg: c.textSecondary,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Ciclo atual: ${cy.start.day}/${cy.start.month} a ${lastDay.day}/${lastDay.month}',
-                          style: T.small.copyWith(color: c.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: Space.sm),
+                  // ── Finanças e estatísticas pessoais (estilo compacto)
+                  const SectionHeader('Seu ciclo'),
+                  Builder(
+                    builder: (_) {
+                      final totalSpent = f.expensesTotal(cy);
+                      final totalSaved = f.boxesBalanceTotal();
+                      final fixedTotal = f.fixedTotal(cy);
+                      final varTotal = f.variableTotal(cy);
+                      final salary = f.salary;
+                      final fixedPct = salary > 0
+                          ? ((fixedTotal / salary) * 100).round().clamp(0, 999)
+                          : (totalSpent > 0
+                                ? ((fixedTotal / totalSpent) * 100).round()
+                                : 0);
+                      final activeCyclesList = [
+                        for (final item in f.lastCycles(6))
+                          if (f.expensesTotal(item) > 0) f.expensesTotal(item),
+                      ];
+                      final avgCycle = activeCyclesList.isEmpty
+                          ? 0
+                          : (activeCyclesList.fold<int>(0, (a, b) => a + b) /
+                                    activeCyclesList.length)
+                                .round();
 
-                  // Linha 2 (2 colunas): Contas e cartões + Assinaturas
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _FinanceTile(
-                            icon: LucideIcons.landmark,
-                            title: 'Contas',
-                            expandChild: true,
-                            onTap: () => manageCards(context),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
+                      return Column(
+                        children: [
+                          // Card 1: Salário e virada do ciclo (clicável)
+                          _FinanceTile(
+                            icon: LucideIcons.banknote,
+                            title: 'Salário e ciclo',
+                            onTap: () => editSalaryAndCycle(context),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  d.cards.isEmpty
-                                      ? 'Nenhuma'
-                                      : '${d.cards.length} ${d.cards.length == 1 ? 'conta' : 'contas'}',
-                                  style: T.headline.copyWith(color: c.text),
-                                ),
-                                const SizedBox(height: 6),
-                                if (d.cards.isEmpty)
-                                  Text(
-                                    'Toque para adicionar',
-                                    style: T.small.copyWith(
-                                      color: c.textSecondary,
-                                    ),
-                                  )
-                                else
-                                  Row(
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      for (final k in d.cards.take(5))
-                                        Container(
-                                          width: 10,
-                                          height: 10,
-                                          margin: const EdgeInsets.only(
-                                            right: 5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Color(k.color),
-                                            shape: BoxShape.circle,
-                                          ),
+                                      salary > 0
+                                          ? MoneyText(
+                                              salary,
+                                              hidden: hidden,
+                                              style: T.cardValue,
+                                            )
+                                          : Text(
+                                              'Informar salário',
+                                              style: T.headline.copyWith(
+                                                color: c.primary,
+                                              ),
+                                            ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${cy.start.day}/${cy.start.month} a ${lastDay.day}/${lastDay.month}',
+                                        style: T.small.copyWith(
+                                          color: c.textSecondary,
                                         ),
-                                      if (d.cards.length > 5)
-                                        Text(
-                                          '+${d.cards.length - 5}',
-                                          style: T.tiny.copyWith(
-                                            color: c.textSecondary,
-                                          ),
-                                        ),
+                                      ),
                                     ],
                                   ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: Space.sm),
-                        Expanded(
-                          child: _FinanceTile(
-                            icon: LucideIcons.tv,
-                            title: 'Assinaturas',
-                            expandChild: true,
-                            onTap: () =>
-                                push(context, const SubscriptionsScreen()),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                subs.isEmpty
-                                    ? Text(
-                                        'Nenhuma',
-                                        style: T.headline.copyWith(
-                                          color: c.text,
-                                        ),
-                                      )
-                                    : MoneyText(
-                                        subsTotal,
-                                        hidden: hidden,
-                                        style: T.headline,
-                                      ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  subs.isEmpty
-                                      ? 'Serviços recorrentes'
-                                      : '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}/mês',
-                                  style: T.small.copyWith(
-                                    color: c.textSecondary,
-                                  ),
+                                ),
+                                Tag(
+                                  'Dia ${d.cycleStartDay}',
+                                  icon: LucideIcons.calendarSync,
+                                  bg: c.cardAlt,
+                                  fg: c.textSecondary,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: Space.sm),
+                          const SizedBox(height: Space.sm),
 
-                  // Linha 3 (2 colunas): Histórico + Categorias
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _FinanceTile(
-                            icon: LucideIcons.chartColumn,
-                            title: 'Histórico',
-                            expandChild: true,
-                            onTap: () => push(context, const HistoryScreen()),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
+                          // Linha 2: Estatísticas pessoais (Fixos vs. Dia a dia + Média mensal)
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text(
-                                  '$activeCycles ${activeCycles == 1 ? 'ciclo' : 'ciclos'}',
-                                  style: T.headline.copyWith(color: c.text),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Livre: ${fmtMoney(f.freeBalance(cy), hidden: hidden)}',
-                                  style: T.small.copyWith(
-                                    color: c.textSecondary,
+                                Expanded(
+                                  child: _FinanceTile(
+                                    icon: LucideIcons.repeat,
+                                    title: 'Custos fixos',
+                                    expandChild: true,
+                                    onTap: () => push(
+                                      context,
+                                      const SubscriptionsScreen(),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        MoneyText(
+                                          fixedTotal,
+                                          hidden: hidden,
+                                          style: T.headline,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          salary > 0
+                                              ? '$fixedPct% do salário'
+                                              : 'Dia a dia: ${fmtMoney(varTotal, hidden: hidden)}',
+                                          style: T.small.copyWith(
+                                            color: c.textSecondary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(width: Space.sm),
+                                Expanded(
+                                  child: _FinanceTile(
+                                    icon: LucideIcons.chartColumn,
+                                    title: 'Média mensal',
+                                    expandChild: true,
+                                    onTap: () =>
+                                        push(context, const HistoryScreen()),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        MoneyText(
+                                          avgCycle,
+                                          hidden: hidden,
+                                          style: T.headline,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '$activeCycles ${activeCycles == 1 ? 'ciclo registrado' : 'ciclos registrados'}',
+                                          style: T.small.copyWith(
+                                            color: c.textSecondary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                        const SizedBox(width: Space.sm),
-                        Expanded(
-                          child: _FinanceTile(
-                            icon: LucideIcons.chartPie,
-                            title: 'Categorias',
-                            expandChild: true,
-                            onTap: () =>
-                                push(context, const CategoriesScreen()),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.end,
+                          const SizedBox(height: Space.sm),
+
+                          // Linha 3: Patrimônio em caixinhas + Contas/Maior foco
+                          IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Text(
-                                  topCat?.key.label ?? 'Sem gastos',
-                                  style: T.headline.copyWith(color: c.text),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                Expanded(
+                                  child: _FinanceTile(
+                                    icon: LucideIcons.piggyBank,
+                                    title: 'Patrimônio',
+                                    expandChild: true,
+                                    onTap: () => d.boxes.isEmpty
+                                        ? pushFluid(context, const BoxForm())
+                                        : ShellScope.of(context)?.goTo(2),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        MoneyText(
+                                          totalSaved,
+                                          hidden: hidden,
+                                          style: T.headline,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          f.openBoxes.isEmpty
+                                              ? 'Sem caixinhas ativas'
+                                              : '${f.openBoxes.length} ${f.openBoxes.length == 1 ? 'caixinha ativa' : 'caixinhas ativas'}',
+                                          style: T.small.copyWith(
+                                            color: c.textSecondary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  topCat == null || catTotal == 0
-                                      ? 'Divisão do ciclo'
-                                      : '${(topCat.value / catTotal * 100).round()}% no topo',
-                                  style: T.small.copyWith(
-                                    color: c.textSecondary,
+                                const SizedBox(width: Space.sm),
+                                Expanded(
+                                  child: _FinanceTile(
+                                    icon: LucideIcons.chartPie,
+                                    title: 'Maior gasto',
+                                    expandChild: true,
+                                    onTap: () =>
+                                        push(context, const CategoriesScreen()),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          topCat?.key.label ?? 'Sem gastos',
+                                          style: T.headline.copyWith(
+                                            color: c.text,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          topCat == null || catTotal == 0
+                                              ? 'Neste ciclo'
+                                              : '${(topCat.value / catTotal * 100).round()}% · ${fmtMoney(topCat.value, hidden: hidden)}',
+                                          style: T.small.copyWith(
+                                            color: c.textSecondary,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),
@@ -450,8 +465,8 @@ class _FinanceTile extends StatelessWidget {
   }
 }
 
-/// Tela de Configurações categorizada (Personalização, Sincronização e backup,
-/// Aplicativo e Conta).
+/// Tela de Configurações categorizada (Aparência, Navegação e ciclo,
+/// Nuvem e dados, Aplicativo e Conta).
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -462,7 +477,8 @@ class SettingsScreen extends StatelessWidget {
     final sync = context.sync;
     final d = s.data;
     final pad = sidePadding(context, maxWidth: 640);
-    final currentSeed = d.accentColor ?? accentPresets.first.$2.toARGB32();
+    final currentSeed = d.accentColor ?? accentThemes.first.primary.toARGB32();
+    final themeSpec = accentThemeFor(Color(currentSeed));
     final navTabs = effectiveNavTabs(d);
 
     return SheetScaler(
@@ -495,12 +511,12 @@ class SettingsScreen extends StatelessWidget {
                     sliver: SliverList.list(
                       children: [
                         LargeTitle('Configurações', style: T.pageTitle),
-                        const SectionHeader('Personalização'),
+                        const SectionHeader('Aparência e navegação'),
                         _Group(
                           children: [
                             _Row(
                               icon: LucideIcons.sunMoon,
-                              title: 'Tema',
+                              title: 'Modo de cor',
                               value: switch (d.theme) {
                                 ThemePref.auto => 'Automático',
                                 ThemePref.light => 'Claro',
@@ -510,16 +526,8 @@ class SettingsScreen extends StatelessWidget {
                             ),
                             _Row(
                               icon: LucideIcons.palette,
-                              title: 'Cor de destaque',
-                              trailing: Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: Color(currentSeed),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: c.borderStrong),
-                                ),
-                              ),
+                              title: 'Tema e destaque',
+                              value: themeSpec.name,
                               onTap: () => _pickAccent(context),
                             ),
                             _Row(
@@ -530,7 +538,26 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SectionHeader('Sincronização e backup'),
+                        const SectionHeader('Finanças'),
+                        _Group(
+                          children: [
+                            _Row(
+                              icon: LucideIcons.calendarSync,
+                              title: 'Salário e virada do ciclo',
+                              value: 'Dia ${d.cycleStartDay}',
+                              onTap: () => editSalaryAndCycle(context),
+                            ),
+                            _Row(
+                              icon: LucideIcons.landmark,
+                              title: 'Contas e cartões',
+                              value: d.cards.isEmpty
+                                  ? 'Nenhuma'
+                                  : '${d.cards.length}',
+                              onTap: () => manageCards(context),
+                            ),
+                          ],
+                        ),
+                        const SectionHeader('Nuvem e dados'),
                         _Group(
                           children: [
                             _Row(
@@ -569,17 +596,9 @@ class SettingsScreen extends StatelessWidget {
                               value: 'v1.0',
                               onTap: () => push(context, const AboutScreen()),
                             ),
-                          ],
-                        ),
-                        const SectionHeader('Conta'),
-                        _Group(
-                          children: [
                             _Row(
                               icon: LucideIcons.logOut,
-                              title: 'Sair',
-                              subtitle: sync.isConnected
-                                  ? 'Desconectar e limpar dados'
-                                  : 'Limpar dados deste aparelho',
+                              title: 'Sair e limpar aparelho',
                               danger: true,
                               onTap: () => _signOut(context),
                             ),
@@ -598,23 +617,66 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _openAiImportMenu(BuildContext context) async {
-    final choice = await actionSheet<AiImportMode>(
+    final choice = await showIosSheet<AiImportMode>(
       context,
-      title: 'Importar com agente de IA',
-      message:
-          'Copie as instruções prontas para o ChatGPT, Claude ou Gemini e cole o JSON gerado de volta no app.',
-      actions: const [
-        SheetAction(
-          'Importar gastos em lote',
-          AiImportMode.expenses,
-          icon: LucideIcons.receipt,
-        ),
-        SheetAction(
-          'Importar dados completos',
-          AiImportMode.full,
-          icon: LucideIcons.database,
-        ),
-      ],
+      builder: (ctx) {
+        final c = ctx.c;
+        final itemBg = c.isDark ? c.bg : c.surfaceLow;
+        return SheetBody(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Importar com IA',
+                      style: T.title.copyWith(color: c.text),
+                    ),
+                  ),
+                  RoundIconButton(
+                    LucideIcons.x,
+                    size: 36,
+                    bg: c.cardAlt,
+                    label: 'Fechar',
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.xs),
+              Text(
+                'Copie as instruções prontas para o ChatGPT, Claude ou Gemini e cole o JSON gerado de volta no app.',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
+              const SizedBox(height: Space.base),
+              ListGroup(
+                bg: itemBg,
+                children: [
+                  ListRow(
+                    leading: IconBadge(LucideIcons.receipt, c.primary, size: 38),
+                    title: 'Importar gastos em lote',
+                    subtitle: 'Faturas, extratos ou textos avulsos',
+                    arrow: true,
+                    onTap: () => Navigator.pop(ctx, AiImportMode.expenses),
+                  ),
+                  ListRow(
+                    leading: IconBadge(
+                      LucideIcons.database,
+                      c.accentWarm,
+                      size: 38,
+                    ),
+                    title: 'Importar dados completos',
+                    subtitle: 'Salário, caixinhas, contas e histórico',
+                    arrow: true,
+                    onTap: () => Navigator.pop(ctx, AiImportMode.full),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
     if (choice == null || !context.mounted) return;
     push(context, AiImportScreen(initialMode: choice));
@@ -623,6 +685,7 @@ class SettingsScreen extends StatelessWidget {
   Future<void> _editNavBar(BuildContext context) {
     final s = context.storeRead;
     var pinned = List<String>.from(effectiveNavTabs(s.data));
+    var previewIndex = 0;
 
     return showIosSheet<void>(
       context,
@@ -630,12 +693,6 @@ class SettingsScreen extends StatelessWidget {
         builder: (ctx, set) {
           final c = ctx.c;
           final wellBg = c.isDark ? c.bg : c.surfaceLow;
-          final ordered = [
-            for (final id in pinned)
-              navDestinations.firstWhere((n) => n.id == id),
-            for (final dest in navDestinations)
-              if (!pinned.contains(dest.id)) dest,
-          ];
           void commit() => s.setNavTabs(pinned);
 
           return SheetBody(
@@ -655,11 +712,10 @@ class SettingsScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: Space.sm),
                       onPressed: () {
                         s.resetNavTabs();
-                        set(
-                          () => pinned = List<String>.from(
-                            effectiveNavTabs(s.data),
-                          ),
-                        );
+                        set(() {
+                          pinned = List<String>.from(effectiveNavTabs(s.data));
+                          previewIndex = 0;
+                        });
                         toast(ctx, 'Barra restaurada ao padrão');
                       },
                       child: Text(
@@ -678,127 +734,132 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
-                  'Escolha de 2 a 5 telas fixadas (${pinned.length}/5) e ajuste a ordem com as setas.',
+                  'Toque nos blocos abaixo para ativar ou remover da barra (${pinned.length}/5).',
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
                 const SizedBox(height: Space.base),
-                for (var i = 0; i < ordered.length; i++)
-                  () {
-                    final dest = ordered[i];
-                    final pinIdx = pinned.indexOf(dest.id);
-                    final isPinned = pinIdx >= 0;
-                    final canToggle = dest.locked
-                        ? false
-                        : (isPinned ? pinned.length > 2 : pinned.length < 5);
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: Space.sm),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: Space.md,
-                        vertical: 10,
-                      ),
-                      decoration: ShapeDecoration(
-                        color: wellBg,
-                        shape: RoundedSuperellipseBorder(
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            dest.icon,
-                            size: 20,
-                            color: isPinned ? c.primary : c.textSecondary,
-                          ),
-                          const SizedBox(width: Space.md),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  dest.label,
-                                  style: T.bodyMedium.copyWith(
-                                    color: isPinned ? c.text : c.textSecondary,
-                                  ),
+                // ── Pré-visualização ao vivo da barra de navegação
+                Container(
+                  height: 62,
+                  padding: const EdgeInsets.all(5),
+                  decoration: ShapeDecoration(
+                    color: wellBg,
+                    shape: const StadiumBorder(),
+                  ),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < pinned.length; i++)
+                        () {
+                          final dest = navDestinations.firstWhere(
+                            (n) => n.id == pinned[i],
+                            orElse: () => navDestinations.first,
+                          );
+                          final active =
+                              previewIndex.clamp(0, pinned.length - 1) == i;
+                          return Expanded(
+                            child: Pressable(
+                              scale: 0.96,
+                              onTap: () => set(() => previewIndex = i),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                decoration: ShapeDecoration(
+                                  color: active
+                                      ? c.cardAlt
+                                      : const Color(0x00000000),
+                                  shape: const StadiumBorder(),
                                 ),
-                                Text(
-                                  dest.subtitle,
-                                  style: T.small.copyWith(
-                                    color: c.textTertiary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isPinned) ...[
-                            Pressable(
-                              semanticLabel: 'Mover para cima',
-                              onTap: pinIdx > 0
-                                  ? () {
-                                      set(() {
-                                        final item = pinned.removeAt(pinIdx);
-                                        pinned.insert(pinIdx - 1, item);
-                                      });
-                                      commit();
-                                    }
-                                  : null,
-                              child: Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Icon(
-                                  LucideIcons.chevronUp,
-                                  size: 18,
-                                  color: pinIdx > 0
-                                      ? c.textSecondary
-                                      : c.textTertiary,
-                                ),
-                              ),
-                            ),
-                            Pressable(
-                              semanticLabel: 'Mover para baixo',
-                              onTap: pinIdx < pinned.length - 1
-                                  ? () {
-                                      set(() {
-                                        final item = pinned.removeAt(pinIdx);
-                                        pinned.insert(pinIdx + 1, item);
-                                      });
-                                      commit();
-                                    }
-                                  : null,
-                              child: Padding(
-                                padding: const EdgeInsets.all(6),
-                                child: Icon(
-                                  LucideIcons.chevronDown,
-                                  size: 18,
-                                  color: pinIdx < pinned.length - 1
-                                      ? c.textSecondary
-                                      : c.textTertiary,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (dest.id == 'perfil')
+                                      Avatar(
+                                        path: s.data.avatarPath,
+                                        name: s.data.userName,
+                                        size: 20,
+                                      )
+                                    else
+                                      Icon(
+                                        dest.icon,
+                                        size: 18,
+                                        color: active
+                                            ? c.text
+                                            : c.textSecondary,
+                                      ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      dest.label,
+                                      style: T.tiny.copyWith(
+                                        color: active
+                                            ? c.text
+                                            : c.textSecondary,
+                                        fontWeight: active
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
-                          ],
-                          const SizedBox(width: Space.xs),
-                          if (dest.locked)
-                            Tag('Fixo', bg: c.cardAlt, fg: c.textSecondary)
-                          else
-                            SpringSwitch(
-                              value: isPinned,
-                              label: dest.label,
-                              onChanged: (on) {
-                                if (!canToggle) {
+                          );
+                        }(),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: Space.base),
+
+                // ── Grade 2 colunas para escolher as abas
+                LayoutBuilder(
+                  builder: (_, box) {
+                    const gap = 10.0;
+                    final tileW = (box.maxWidth - gap) / 2;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (final dest in navDestinations)
+                          () {
+                            final pinIdx = pinned.indexOf(dest.id);
+                            final isPinned = pinIdx >= 0;
+                            final (selBg, selFg) = softActionTone(
+                              c.palette.primary[500],
+                              isDark: c.isDark,
+                            );
+                            return Pressable(
+                              scale: 0.97,
+                              onTap: () {
+                                if (dest.locked) {
                                   toast(
                                     ctx,
-                                    on
-                                        ? 'Máximo de 5 abas na barra'
-                                        : 'Mantenha ao menos 2 abas fixadas',
+                                    'Seu Perfil fica sempre fixo na barra',
+                                    icon: LucideIcons.lock,
+                                  );
+                                  return;
+                                }
+                                if (isPinned && pinned.length <= 2) {
+                                  toast(
+                                    ctx,
+                                    'Mantenha ao menos 2 abas fixadas',
                                     icon: LucideIcons.info,
                                   );
                                   return;
                                 }
+                                if (!isPinned && pinned.length >= 5) {
+                                  toast(
+                                    ctx,
+                                    'Máximo de 5 abas na barra',
+                                    icon: LucideIcons.info,
+                                  );
+                                  return;
+                                }
+                                HapticFeedback.selectionClick();
                                 set(() {
-                                  if (on) {
-                                    // Insere antes do Perfil se ele for o último
+                                  if (isPinned) {
+                                    pinned.remove(dest.id);
+                                  } else {
                                     final perfilIdx = pinned.indexOf('perfil');
                                     if (perfilIdx == pinned.length - 1 &&
                                         perfilIdx > 0) {
@@ -806,17 +867,91 @@ class SettingsScreen extends StatelessWidget {
                                     } else {
                                       pinned.add(dest.id);
                                     }
-                                  } else {
-                                    pinned.remove(dest.id);
                                   }
                                 });
                                 commit();
                               },
-                            ),
-                        ],
-                      ),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: tileW,
+                                height: 74,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: Space.md,
+                                  vertical: 10,
+                                ),
+                                decoration: ShapeDecoration(
+                                  color: isPinned ? selBg : wellBg,
+                                  shape: RoundedSuperellipseBorder(
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          dest.icon,
+                                          size: 20,
+                                          color: isPinned
+                                              ? selFg
+                                              : c.textSecondary,
+                                        ),
+                                        const Spacer(),
+                                        if (dest.locked)
+                                          Icon(
+                                            LucideIcons.lock,
+                                            size: 14,
+                                            color: isPinned
+                                                ? selFg.withValues(alpha: 0.8)
+                                                : c.textTertiary,
+                                          )
+                                        else if (isPinned)
+                                          Container(
+                                            width: 20,
+                                            height: 20,
+                                            alignment: Alignment.center,
+                                            decoration: BoxDecoration(
+                                              color: selFg.withValues(
+                                                alpha: 0.18,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Text(
+                                              '${pinIdx + 1}',
+                                              style: T.tiny.copyWith(
+                                                color: selFg,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    Text(
+                                      dest.label,
+                                      style:
+                                          (isPinned
+                                                  ? T.bodyStrong
+                                                  : T.bodyMedium)
+                                              .copyWith(
+                                                color: isPinned
+                                                    ? selFg
+                                                    : c.textSecondary,
+                                              ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }(),
+                      ],
                     );
-                  }(),
+                  },
+                ),
               ],
             ),
           );
@@ -825,35 +960,116 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _pickTheme(BuildContext context) async {
+  Future<void> _pickTheme(BuildContext context) {
     final s = context.storeRead;
-    final v = await actionSheet<ThemePref>(
+    return showIosSheet<void>(
       context,
-      title: 'Tema',
-      actions: const [
-        SheetAction('Automático', ThemePref.auto, icon: LucideIcons.smartphone),
-        SheetAction('Claro', ThemePref.light, icon: LucideIcons.sun),
-        SheetAction('Escuro', ThemePref.dark, icon: LucideIcons.moon),
-      ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final c = ctx.c;
+          final cur = s.data.theme;
+          final wellBg = c.isDark ? c.bg : c.surfaceLow;
+          final items = const [
+            (ThemePref.auto, 'Automático', LucideIcons.smartphone),
+            (ThemePref.light, 'Claro', LucideIcons.sun),
+            (ThemePref.dark, 'Escuro', LucideIcons.moon),
+          ];
+          return SheetBody(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Modo de cor',
+                        style: T.title.copyWith(color: c.text),
+                      ),
+                    ),
+                    RoundIconButton(
+                      LucideIcons.x,
+                      size: 36,
+                      bg: c.cardAlt,
+                      label: 'Fechar',
+                      onTap: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Space.md),
+                Row(
+                  children: [
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0) const SizedBox(width: Space.sm),
+                      Expanded(
+                        child: () {
+                          final (pref, label, icon) = items[i];
+                          final selected = cur == pref;
+                          final (selBg, selFg) = softActionTone(
+                            c.palette.primary[500],
+                            isDark: c.isDark,
+                          );
+                          return Pressable(
+                            scale: 0.96,
+                            onTap: () {
+                              s.setTheme(pref);
+                              Navigator.pop(ctx);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              height: 82,
+                              decoration: ShapeDecoration(
+                                color: selected ? selBg : wellBg,
+                                shape: RoundedSuperellipseBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    icon,
+                                    size: 22,
+                                    color: selected ? selFg : c.textSecondary,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    label,
+                                    style:
+                                        (selected ? T.smallStrong : T.small)
+                                            .copyWith(
+                                              color: selected
+                                                  ? selFg
+                                                  : c.textSecondary,
+                                            ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }(),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
-    if (v != null) s.setTheme(v);
   }
 
   Future<void> _pickAccent(BuildContext context) {
-    return showSheet<void>(
+    return showIosSheet<void>(
       context,
-      edgeToEdge: true,
       builder: (ctx) {
         final c = ctx.c;
         final s = ctx.store;
-        final seed = s.data.accentColor ?? accentPresets.first.$2.toARGB32();
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            Space.gutter,
-            4,
-            Space.gutter,
-            24,
-          ),
+        final seed =
+            s.data.accentColor ?? accentThemes.first.primary.toARGB32();
+        final wellBg = c.isDark ? c.bg : c.surfaceLow;
+        return SheetBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -862,17 +1078,14 @@ class SettingsScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'Cor de destaque',
-                      style: T.title.copyWith(
-                        color: c.text,
-                        decoration: TextDecoration.none,
-                      ),
+                      'Tema e destaque',
+                      style: T.title.copyWith(color: c.text),
                     ),
                   ),
                   RoundIconButton(
                     LucideIcons.x,
                     size: 36,
-                    bg: c.isDark ? c.cardAlt : c.surfaceLow,
+                    bg: c.cardAlt,
                     label: 'Fechar',
                     onTap: () => Navigator.pop(ctx),
                   ),
@@ -880,26 +1093,86 @@ class SettingsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'A cor secundária se ajusta sozinha ao tema.',
-                style: T.small.copyWith(
-                  color: c.textSecondary,
-                  decoration: TextDecoration.none,
-                ),
+                'Cada opção aplica sua paleta e seu gradiente atmosférico ao app.',
+                style: T.small.copyWith(color: c.textSecondary),
               ),
-              const SizedBox(height: 20),
-              Wrap(
-                spacing: Space.base,
-                runSpacing: Space.base,
-                children: [
-                  for (final (label, col) in accentPresets)
-                    _AccentSwatch(
-                      label: label,
-                      primary: col,
-                      complementary: complementaryOf(col),
-                      selected: seed == col.toARGB32(),
-                      onTap: () => s.setAccentColor(col.toARGB32()),
-                    ),
-                ],
+              const SizedBox(height: Space.base),
+              LayoutBuilder(
+                builder: (_, box) {
+                  const gap = 10.0;
+                  final tileW = (box.maxWidth - gap * 2) / 3;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final themeSpec in accentThemes)
+                        () {
+                          final col = themeSpec.primary;
+                          final selected = seed == col.toARGB32();
+                          final (selBg, selFg) = softActionTone(
+                            col,
+                            isDark: c.isDark,
+                          );
+                          return Pressable(
+                            scale: 0.96,
+                            onTap: () => s.setAccentColor(col.toARGB32()),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              width: tileW,
+                              height: 78,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: Space.xs,
+                                vertical: Space.xs,
+                              ),
+                              decoration: ShapeDecoration(
+                                color: selected ? selBg : wellBg,
+                                shape: RoundedSuperellipseBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [col, themeSpec.secondaryGlow],
+                                      ),
+                                    ),
+                                    child: selected
+                                        ? Center(
+                                            child: Icon(
+                                              LucideIcons.check,
+                                              size: 15,
+                                              color: onColor(col),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    themeSpec.name,
+                                    style:
+                                        (selected ? T.smallStrong : T.small)
+                                            .copyWith(
+                                              color: selected ? selFg : c.text,
+                                            ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }(),
+                    ],
+                  );
+                },
               ),
             ],
           ),

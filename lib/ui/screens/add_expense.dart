@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/cycle.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
+import '../../data/brands.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
@@ -759,20 +760,39 @@ class _ExpenseFormState extends State<ExpenseForm> {
   late final Expense _e = widget.expense.copy();
   late final _amount = AmountController(_e.cents);
   late final _name = TextEditingController(text: _e.name);
+  final _catSearch = TextEditingController();
   bool _typing = false;
+  bool _pickingCategory = false;
 
   @override
   void initState() {
     super.initState();
     _amount.addListener(() => setState(() {}));
     _name.addListener(() => setState(() {}));
+    _catSearch.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _amount.dispose();
     _name.dispose();
+    _catSearch.dispose();
     super.dispose();
+  }
+
+  List<Category> _matchingCategories(String raw) {
+    final q = foldText(raw.trim());
+    if (q.isEmpty) return categories;
+    final guessed = guessCategory(raw);
+    final matches = <Category>[
+      if (guessed != null) guessed,
+      for (final cat in categories)
+        if (cat.id != guessed?.id &&
+            (foldText(cat.label).contains(q) ||
+                cat.keywords.any((kw) => foldText(kw).contains(q))))
+          cat,
+    ];
+    return matches.isEmpty ? categories : matches;
   }
 
   @override
@@ -781,8 +801,11 @@ class _ExpenseFormState extends State<ExpenseForm> {
     final s = context.store;
     final df = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
     final cat = categoryById(_e.categoryId);
-    final wellBg = c.isDark ? c.bg : c.surfaceLow;
-    final chipBg = c.isDark ? c.cardAlt : c.surfaceLow;
+    final fieldBg = c.isDark ? c.cardAlt : c.surfaceLow;
+    final chipBg = c.isDark
+        ? c.surfaceHigh
+        : Palette.neutral100.withValues(alpha: 0.7);
+    final matchedCats = _matchingCategories(_catSearch.text);
 
     return SheetBody(
       bottom: PillButton(
@@ -803,7 +826,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
               RoundIconButton(
                 LucideIcons.x,
                 size: 36,
-                bg: chipBg,
+                bg: fieldBg,
                 label: 'Fechar',
                 onTap: () => Navigator.pop(context),
               ),
@@ -816,7 +839,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
               width: double.infinity,
               padding: const EdgeInsets.all(Space.base),
               decoration: ShapeDecoration(
-                color: wellBg,
+                color: fieldBg,
                 shape: RoundedSuperellipseBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
@@ -858,7 +881,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
                     padding: const EdgeInsets.only(top: Space.md),
                     child: Keypad(
                       controller: _amount,
-                      keyColor: chipBg,
+                      keyColor: fieldBg,
                       keyHeight: 54,
                     ),
                   )
@@ -869,26 +892,162 @@ class _ExpenseFormState extends State<ExpenseForm> {
           AppField(
             controller: _name,
             placeholder: 'Em que você gastou?',
-            bg: wellBg,
+            bg: fieldBg,
             maxLength: 40,
           ),
           const SizedBox(height: Space.base),
           const FieldLabel('Categoria'),
-          SelectField(
-            bg: wellBg,
-            leading: IconBadge(cat.icon, cat.color, size: 32),
-            value: cat.label,
-            placeholder: 'Escolher categoria',
-            onTap: () async {
-              final id = await pickCategory(context, _e.categoryId);
-              if (id != null) setState(() => _e.categoryId = id);
-            },
+          // Seletor inline com busca inteligente de categoria
+          Pressable(
+            scale: 0.99,
+            onTap: () => setState(() {
+              _pickingCategory = !_pickingCategory;
+              if (!_pickingCategory) _catSearch.clear();
+            }),
+            child: Container(
+              height: 56,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: ShapeDecoration(
+                color: fieldBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(Space.radiusField),
+                ),
+              ),
+              child: Row(
+                children: [
+                  IconBadge(cat.icon, cat.color, size: 32),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      cat.label,
+                      style: T.body.copyWith(color: c.text),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    _pickingCategory
+                        ? LucideIcons.chevronUp
+                        : LucideIcons.chevronDown,
+                    size: 18,
+                    color: c.textSecondary,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 240),
+            curve: easeOutExpo,
+            child: !_pickingCategory
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: const EdgeInsets.only(top: Space.sm),
+                    child: Container(
+                      padding: const EdgeInsets.all(Space.md),
+                      decoration: ShapeDecoration(
+                        color: fieldBg,
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AppField(
+                            controller: _catSearch,
+                            placeholder:
+                                'Digite a categoria ou palavra-chave…',
+                            bg: c.isDark ? c.bg : c.card,
+                            prefix: Icon(
+                              LucideIcons.search,
+                              size: 16,
+                              color: c.textSecondary,
+                            ),
+                            suffix: _catSearch.text.isEmpty
+                                ? null
+                                : Pressable(
+                                    onTap: _catSearch.clear,
+                                    child: Icon(
+                                      LucideIcons.x,
+                                      size: 16,
+                                      color: c.textSecondary,
+                                    ),
+                                  ),
+                          ),
+                          const SizedBox(height: Space.sm),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final item in matchedCats)
+                                () {
+                                  final selected = item.id == _e.categoryId;
+                                  final tone = c.tone(item.color);
+                                  return Pressable(
+                                    scale: 0.96,
+                                    onTap: () {
+                                      HapticFeedback.selectionClick();
+                                      setState(() {
+                                        _e.categoryId = item.id;
+                                        _pickingCategory = false;
+                                        _catSearch.clear();
+                                      });
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 160,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      decoration: ShapeDecoration(
+                                        color: selected
+                                            ? item.color.withValues(
+                                                alpha: c.isDark ? 0.24 : 0.16,
+                                              )
+                                            : (c.isDark ? c.bg : c.card),
+                                        shape: const StadiumBorder(),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            item.icon,
+                                            size: 15,
+                                            color: tone,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            item.label,
+                                            style:
+                                                (selected
+                                                        ? T.smallStrong
+                                                        : T.small)
+                                                    .copyWith(
+                                                      color: selected
+                                                          ? tone
+                                                          : c.text,
+                                                    ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }(),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
           ),
           const SizedBox(height: Space.base),
           const FieldLabel('Frequência do gasto'),
           Segmented<Recurrence>(
             value: _e.recurrence,
-            trackColor: wellBg,
+            trackColor: fieldBg,
             options: const {
               Recurrence.once: 'Único',
               Recurrence.monthly: 'Recorrente',
@@ -905,7 +1064,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
           const SizedBox(height: Space.base),
           FieldLabel(_e.isRecurring ? 'Começa em' : 'Data'),
           SelectField(
-            bg: wellBg,
+            bg: fieldBg,
             leading: Icon(
               LucideIcons.calendar,
               size: 18,
@@ -929,7 +1088,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
             const SizedBox(height: 14),
             const FieldLabel('Termina em (opcional)'),
             SelectField(
-              bg: wellBg,
+              bg: fieldBg,
               leading: Icon(
                 LucideIcons.calendarX,
                 size: 18,
@@ -955,7 +1114,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
               children: [
                 ChipButton(
                   'Nenhum',
-                  bg: chipBg,
+                  bg: fieldBg,
                   selected: _e.cardId == null,
                   onTap: () => setState(() => _e.cardId = null),
                 ),
@@ -963,7 +1122,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
                   ChipButton(
                     k.last4.isNotEmpty ? '${k.name} •${k.last4}' : k.name,
                     dot: Color(k.color),
-                    bg: chipBg,
+                    bg: fieldBg,
                     selected: _e.cardId == k.id,
                     onTap: () => setState(() => _e.cardId = k.id),
                   ),
@@ -993,107 +1152,143 @@ class _ExpenseFormState extends State<ExpenseForm> {
   }
 }
 
-/// Seletor moderno de categoria em grade compacta de 2 colunas (sem bordas,
-/// cabeçalho padronizado e destaque suave na categoria selecionada).
+/// Seletor moderno de categoria com busca instantânea por nome ou palavra-chave
+/// e grade compacta de 2 colunas.
 Future<String?> pickCategory(BuildContext context, String current) {
-  return showSheet<String>(
+  final searchCtrl = TextEditingController();
+  return showIosSheet<String>(
     context,
-    edgeToEdge: true,
-    builder: (ctx) {
-      final c = ctx.c;
-      final itemBg = c.isDark ? c.bg : c.surfaceLow;
-      return SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Categoria',
-                    style: T.title.copyWith(
-                      color: c.text,
-                      decoration: TextDecoration.none,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, set) {
+        final c = ctx.c;
+        final itemBg = c.isDark ? c.cardAlt : c.surfaceLow;
+        final q = foldText(searchCtrl.text.trim());
+        final guessed = q.isEmpty ? null : guessCategory(searchCtrl.text);
+        final list = q.isEmpty
+            ? categories
+            : <Category>[
+                if (guessed != null) guessed,
+                for (final cat in categories)
+                  if (cat.id != guessed?.id &&
+                      (foldText(cat.label).contains(q) ||
+                          cat.keywords.any((kw) => foldText(kw).contains(q))))
+                    cat,
+              ];
+        final shown = list.isEmpty ? categories : list;
+
+        return SheetBody(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Categoria',
+                      style: T.title.copyWith(color: c.text),
                     ),
                   ),
-                ),
-                RoundIconButton(
-                  LucideIcons.x,
-                  size: 36,
-                  bg: c.cardAlt,
-                  label: 'Fechar',
-                  onTap: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: Space.base),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: categories.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                mainAxisExtent: 52,
+                  RoundIconButton(
+                    LucideIcons.x,
+                    size: 36,
+                    bg: itemBg,
+                    label: 'Fechar',
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
               ),
-              itemBuilder: (_, i) {
-                final cat = categories[i];
-                final selected = cat.id == current;
-                final tone = c.tone(cat.color);
-                return Pressable(
-                  scale: 0.97,
-                  onTap: () => Navigator.pop(ctx, cat.id),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 160),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: ShapeDecoration(
-                      color: selected
-                          ? cat.color.withValues(alpha: c.isDark ? 0.22 : 0.14)
-                          : itemBg,
-                      shape: RoundedSuperellipseBorder(
-                        borderRadius: BorderRadius.circular(16),
+              const SizedBox(height: Space.md),
+              AppField(
+                controller: searchCtrl,
+                placeholder: 'Buscar categoria ou exemplo (ex.: mercado, luz)…',
+                bg: itemBg,
+                onChanged: (_) => set(() {}),
+                prefix: Icon(
+                  LucideIcons.search,
+                  size: 18,
+                  color: c.textSecondary,
+                ),
+                suffix: searchCtrl.text.isEmpty
+                    ? null
+                    : Pressable(
+                        onTap: () {
+                          searchCtrl.clear();
+                          set(() {});
+                        },
+                        child: Icon(
+                          LucideIcons.x,
+                          size: 18,
+                          color: c.textSecondary,
+                        ),
+                      ),
+              ),
+              const SizedBox(height: Space.base),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: shown.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 8,
+                  mainAxisExtent: 52,
+                ),
+                itemBuilder: (_, i) {
+                  final cat = shown[i];
+                  final selected = cat.id == current;
+                  final tone = c.tone(cat.color);
+                  return Pressable(
+                    scale: 0.97,
+                    onTap: () => Navigator.pop(ctx, cat.id),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      decoration: ShapeDecoration(
+                        color: selected
+                            ? cat.color.withValues(
+                                alpha: c.isDark ? 0.24 : 0.16,
+                              )
+                            : itemBg,
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: cat.color.withValues(
+                                alpha: c.isDark ? 0.26 : 0.16,
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(cat.icon, size: 16, color: tone),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              cat.label,
+                              style: (selected ? T.labelStrong : T.label)
+                                  .copyWith(color: selected ? tone : c.text),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (selected)
+                            Icon(LucideIcons.check, size: 16, color: tone),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: cat.color.withValues(
-                              alpha: c.isDark ? 0.24 : 0.16,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(cat.icon, size: 16, color: tone),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            cat.label,
-                            style: (selected ? T.labelStrong : T.label)
-                                .copyWith(
-                                  color: selected ? tone : c.text,
-                                  decoration: TextDecoration.none,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (selected)
-                          Icon(LucideIcons.check, size: 16, color: tone),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      );
-    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    ),
   );
 }
