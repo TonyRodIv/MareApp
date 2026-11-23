@@ -137,7 +137,6 @@ const _heightClass = <String, int>{
   'projecao': 1,
   'hoje': 2,
   'fds': 2,
-  'sequencia': 2,
   'categorias': 3,
   'assinaturas': 3,
   'historico': 3,
@@ -145,15 +144,14 @@ const _heightClass = <String, int>{
 
 /// Altura mínima por card (px).
 const _minHeight = <String, double>{
-  'gastos': 148,
-  'caixinhas': 148,
+  'gastos': 132,
+  'caixinhas': 132,
   'projecao': 112,
-  'hoje': 220,
-  'fds': 220,
-  'sequencia': 150,
-  'categorias': 200,
-  'assinaturas': 168,
-  'historico': 220,
+  'hoje': 210,
+  'fds': 210,
+  'categorias': 142,
+  'assinaturas': 124,
+  'historico': 210,
 };
 
 /// Envolve o card: segurar → háptico + "respiração" com mola ao trocar o tamanho.

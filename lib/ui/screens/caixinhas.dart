@@ -305,6 +305,28 @@ class BoxDetail extends StatelessWidget {
             tint: context.c.tone(box.colorValue, min: 2.5),
             height: 460,
           ),
+          // Véu suave na cor do fundo (mais leve que o do Extrato para preservar
+          // a identidade de cor da caixinha sem saturar demais)
+          IgnorePointer(
+            child: SizedBox(
+              height: 460,
+              width: double.infinity,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      c.bg.withValues(alpha: c.isDark ? 0.28 : 0.34),
+                      c.bg.withValues(alpha: c.isDark ? 0.42 : 0.48),
+                      c.bg.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
             slivers: [

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/cycle.dart';
@@ -1582,4 +1583,593 @@ class _OpenArcGaugePainter extends CustomPainter {
       old.selected != selected ||
       old.guideColor != guideColor ||
       old.values.length != values.length;
+}
+
+// ── Sparkline translúcido de fundo (card Seus Gastos) ───────
+
+/// Curva suave bem transparente desenhada por trás de cards de resumo
+/// (verde para gastos controlados, vermelho para tendência de alta).
+class SparklineBackground extends StatelessWidget {
+  final List<double> values;
+  final Color color;
+  const SparklineBackground({
+    super.key,
+    required this.values,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.c.isDark;
+    return RepaintBoundary(
+      child: CustomPaint(
+        painter: _SparklineBgPainter(
+          values: values,
+          color: color,
+          isDark: isDark,
+        ),
+      ),
+    );
+  }
+}
+
+class _SparklineBgPainter extends CustomPainter {
+  final List<double> values;
+  final Color color;
+  final bool isDark;
+  _SparklineBgPainter({
+    required this.values,
+    required this.color,
+    required this.isDark,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+    final pts = values.length >= 2 ? values : const [0.4, 0.55, 0.45, 0.6];
+    final minV = pts.reduce(math.min);
+    final maxV = pts.reduce(math.max);
+    final span = (maxV - minV).abs();
+
+    final topY = size.height * 0.34;
+    final botY = size.height * 0.86;
+    final usableH = math.max(1.0, botY - topY);
+
+    final coords = <Offset>[];
+    final padX = size.width * 0.04;
+    final usableW = size.width - padX * 2;
+    for (var i = 0; i < pts.length; i++) {
+      final x = padX + usableW * (i / (pts.length - 1));
+      final norm = span < 0.0001 ? 0.45 : (pts[i] - minV) / span;
+      final y = botY - norm * usableH;
+      coords.add(Offset(x, y));
+    }
+
+    final linePath = Path()..moveTo(coords.first.dx, coords.first.dy);
+    for (var i = 0; i < coords.length - 1; i++) {
+      final p0 = coords[i];
+      final p1 = coords[i + 1];
+      final midX = (p0.dx + p1.dx) / 2;
+      linePath.cubicTo(midX, p0.dy, midX, p1.dy, p1.dx, p1.dy);
+    }
+
+    final areaPath = Path.from(linePath)
+      ..lineTo(coords.last.dx, size.height)
+      ..lineTo(coords.first.dx, size.height)
+      ..close();
+
+    canvas.drawPath(
+      areaPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            color.withValues(alpha: isDark ? 0.16 : 0.13),
+            color.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, topY, size.width, size.height - topY)),
+    );
+
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = color.withValues(alpha: isDark ? 0.34 : 0.28)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    final last = coords.last;
+    canvas.drawCircle(
+      last,
+      3.5,
+      Paint()..color = color.withValues(alpha: isDark ? 0.62 : 0.55),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SparklineBgPainter old) =>
+      old.color != color ||
+      old.isDark != isDark ||
+      old.values.length != values.length ||
+      (values.isNotEmpty &&
+          old.values.isNotEmpty &&
+          old.values.last != values.last);
+}
+
+// ── Histórico visual em linha/área interativa ───────────────
+
+/// Gráfico de área e linha suave por ciclo, com eixo Y à direita, grade sutil
+/// pontilhada e toque/arraste interativo com tooltip flutuante.
+class HistoryLineChart extends StatefulWidget {
+  final Finance f;
+  final int cycles;
+  final double height;
+  final bool hidden;
+  final bool interactive;
+  final bool showAxis;
+  final ValueChanged<int?>? onSelect;
+
+  const HistoryLineChart({
+    super.key,
+    required this.f,
+    this.cycles = 6,
+    this.height = 180,
+    this.hidden = false,
+    this.interactive = true,
+    this.showAxis = true,
+    this.onSelect,
+  });
+
+  @override
+  State<HistoryLineChart> createState() => _HistoryLineChartState();
+}
+
+class _HistoryLineChartState extends State<HistoryLineChart> {
+  int? _selected;
+
+  @override
+  void didUpdateWidget(HistoryLineChart old) {
+    super.didUpdateWidget(old);
+    if (old.cycles != widget.cycles) _selected = null;
+  }
+
+  void _pickAt(double localX, double plotW, int n) {
+    if (!widget.interactive || n <= 1 || plotW <= 0) return;
+    const padX = 10.0;
+    final usable = math.max(1.0, plotW - padX * 2);
+    final raw = ((localX - padX) / usable * (n - 1)).round().clamp(0, n - 1);
+    if (_selected != raw) {
+      HapticFeedback.selectionClick();
+      setState(() => _selected = raw);
+      widget.onSelect?.call(raw);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final list = widget.f.lastCycles(widget.cycles);
+    final values = [for (final cy in list) widget.f.expensesTotal(cy)];
+    final maxRaw = values.fold<int>(0, math.max);
+    final ticks = HistoryBars._niceTicks(math.max(10000, maxRaw));
+    final top = math.max(1, ticks.last);
+    final sel = _selected != null && _selected! < list.length ? _selected : null;
+    final lineColor = c.isDark
+        ? Palette.neutral0.withValues(alpha: 0.90)
+        : c.primary;
+    final axisW = widget.showAxis ? 44.0 : 0.0;
+
+    return SizedBox(
+      height: widget.height + 26,
+      child: LayoutBuilder(
+        builder: (_, box) {
+          final plotW = math.max(60.0, box.maxWidth - axisW);
+          return Column(
+            children: [
+              SizedBox(
+                height: widget.height,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: plotW,
+                      height: widget.height,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: widget.interactive
+                            ? (d) => _pickAt(d.localPosition.dx, plotW, list.length)
+                            : null,
+                        onHorizontalDragStart: widget.interactive
+                            ? (d) => _pickAt(d.localPosition.dx, plotW, list.length)
+                            : null,
+                        onHorizontalDragUpdate: widget.interactive
+                            ? (d) => _pickAt(d.localPosition.dx, plotW, list.length)
+                            : null,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: _HistoryLinePainter(
+                                    values: values,
+                                    maxValue: top,
+                                    lineColor: lineColor,
+                                    accentColor: c.primary,
+                                    gridColor: c.border.withValues(
+                                      alpha: c.isDark ? 0.42 : 0.65,
+                                    ),
+                                    cursorColor: c.textTertiary.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                    bgColor: c.bg,
+                                    selected: sel,
+                                    isDark: c.isDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (sel != null)
+                              _buildTooltip(
+                                c,
+                                plotW,
+                                widget.height,
+                                sel,
+                                list.length,
+                                values[sel],
+                                top,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (widget.showAxis)
+                      SizedBox(
+                        width: axisW,
+                        height: widget.height,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            for (final t in ticks)
+                              Positioned(
+                                right: 0,
+                                bottom:
+                                    ((widget.height - 24) * (t / top) + 4)
+                                        .clamp(0.0, widget.height - 14),
+                                child: Text(
+                                  widget.hidden ? '••' : fmtCompact(t),
+                                  style: T.tiny.copyWith(color: c.textTertiary),
+                                  maxLines: 1,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  SizedBox(
+                    width: plotW,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        for (var i = 0; i < list.length; i++)
+                          if (list.length <= 6 ||
+                              i == 0 ||
+                              i == list.length - 1 ||
+                              i % 2 == 0)
+                            Text(
+                              list[i].shortLabel(),
+                              style: T.tiny.copyWith(
+                                color: sel == i ? c.text : c.textSecondary,
+                                fontWeight: sel == i
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                              ),
+                            ),
+                      ],
+                    ),
+                  ),
+                  if (widget.showAxis) SizedBox(width: axisW),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTooltip(
+    AppColors c,
+    double plotW,
+    double plotH,
+    int idx,
+    int n,
+    int cents,
+    int top,
+  ) {
+    const padX = 10.0;
+    const topPad = 24.0;
+    const botPad = 10.0;
+    final usableW = math.max(1.0, plotW - padX * 2);
+    final usableH = math.max(1.0, plotH - topPad - botPad);
+    final x = n <= 1 ? plotW / 2 : padX + usableW * (idx / (n - 1));
+    final y = topPad + usableH * (1.0 - (cents / top).clamp(0.0, 1.0));
+    const pillW = 86.0;
+    final left = (x - pillW / 2)
+        .clamp(0.0, math.max(0.0, plotW - pillW))
+        .toDouble();
+    final topPos = math.max(0.0, y - 34.0);
+
+    return Positioned(
+      left: left,
+      top: topPos,
+      child: IgnorePointer(
+        child: Container(
+          width: pillW,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          alignment: Alignment.center,
+          decoration: ShapeDecoration(
+            color: c.isDark ? c.cardAlt : c.text,
+            shape: const StadiumBorder(),
+          ),
+          child: Text(
+            widget.hidden ? '•••' : fmtMoney(cents),
+            style: T.tiny.copyWith(
+              color: c.isDark ? c.text : Palette.neutral0,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryLinePainter extends CustomPainter {
+  final List<int> values;
+  final int maxValue;
+  final Color lineColor;
+  final Color accentColor;
+  final Color gridColor;
+  final Color cursorColor;
+  final Color bgColor;
+  final int? selected;
+  final bool isDark;
+
+  _HistoryLinePainter({
+    required this.values,
+    required this.maxValue,
+    required this.lineColor,
+    required this.accentColor,
+    required this.gridColor,
+    required this.cursorColor,
+    required this.bgColor,
+    required this.selected,
+    required this.isDark,
+  });
+
+  void _drawDashedH(Canvas canvas, double y, double w, Paint p) {
+    const dash = 4.0;
+    const gap = 4.0;
+    var x = 0.0;
+    while (x < w) {
+      canvas.drawLine(Offset(x, y), Offset(math.min(w, x + dash), y), p);
+      x += dash + gap;
+    }
+  }
+
+  void _drawDashedV(Canvas canvas, double x, double y0, double y1, Paint p) {
+    const dash = 4.0;
+    const gap = 4.0;
+    var y = y0;
+    while (y < y1) {
+      canvas.drawLine(Offset(x, y), Offset(x, math.min(y1, y + dash)), p);
+      y += dash + gap;
+    }
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty || size.width <= 0 || size.height <= 0) return;
+    const padX = 10.0;
+    const topPad = 24.0;
+    const botPad = 10.0;
+    final usableW = math.max(1.0, size.width - padX * 2);
+    final usableH = math.max(1.0, size.height - topPad - botPad);
+
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1.0;
+    _drawDashedH(canvas, topPad, size.width, gridPaint);
+    _drawDashedH(canvas, topPad + usableH * 0.5, size.width, gridPaint);
+
+    final coords = <Offset>[];
+    final n = values.length;
+    for (var i = 0; i < n; i++) {
+      final x = n <= 1 ? size.width / 2 : padX + usableW * (i / (n - 1));
+      final norm = (values[i] / maxValue).clamp(0.0, 1.0);
+      final y = topPad + usableH * (1.0 - norm);
+      coords.add(Offset(x, y));
+    }
+
+    final linePath = Path()..moveTo(coords.first.dx, coords.first.dy);
+    for (var i = 0; i < coords.length - 1; i++) {
+      final p0 = coords[i];
+      final p1 = coords[i + 1];
+      final midX = (p0.dx + p1.dx) / 2;
+      linePath.cubicTo(midX, p0.dy, midX, p1.dy, p1.dx, p1.dy);
+    }
+
+    final baseY = size.height - botPad;
+    final areaPath = Path.from(linePath)
+      ..lineTo(coords.last.dx, baseY)
+      ..lineTo(coords.first.dx, baseY)
+      ..close();
+
+    canvas.drawPath(
+      areaPath,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            lineColor.withValues(alpha: isDark ? 0.18 : 0.15),
+            lineColor.withValues(alpha: 0.0),
+          ],
+        ).createShader(Rect.fromLTWH(0, topPad, size.width, baseY - topPad)),
+    );
+
+    canvas.drawPath(
+      linePath,
+      Paint()
+        ..color = lineColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.2
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+
+    // Ponto branco/destaque no último ciclo
+    canvas.drawCircle(coords.last, 4.0, Paint()..color = lineColor);
+
+    if (selected != null && selected! < coords.length) {
+      final p = coords[selected!];
+      _drawDashedV(
+        canvas,
+        p.dx,
+        p.dy + 6,
+        baseY,
+        Paint()
+          ..color = cursorColor
+          ..strokeWidth = 1.0,
+      );
+      canvas.drawCircle(p, 6.0, Paint()..color = bgColor);
+      canvas.drawCircle(p, 4.2, Paint()..color = accentColor);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HistoryLinePainter old) =>
+      old.selected != selected ||
+      old.maxValue != maxValue ||
+      old.isDark != isDark ||
+      old.lineColor != lineColor ||
+      old.values.length != values.length;
+}
+
+/// Anel segmentado compacto com pontas arredondadas e gaps limpos,
+/// ideal para o card "Por categoria" na Carteira.
+class MiniDonutRing extends StatelessWidget {
+  final List<double> values;
+  final List<Color> colors;
+  final double size;
+  final double stroke;
+  final Widget? center;
+
+  const MiniDonutRing({
+    super.key,
+    required this.values,
+    required this.colors,
+    this.size = 86,
+    this.stroke = 10,
+    this.center,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          RepaintBoundary(
+            child: CustomPaint(
+              size: Size.square(size),
+              painter: _MiniDonutPainter(
+                values: values,
+                colors: colors,
+                stroke: stroke,
+                trackColor: context.c.cardAlt,
+              ),
+            ),
+          ),
+          if (center != null) center!,
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniDonutPainter extends CustomPainter {
+  final List<double> values;
+  final List<Color> colors;
+  final double stroke;
+  final Color trackColor;
+
+  _MiniDonutPainter({
+    required this.values,
+    required this.colors,
+    required this.stroke,
+    required this.trackColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.shortestSide - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final total = values.fold<double>(0, (s, v) => s + v);
+    if (total <= 0) {
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..color = trackColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = stroke,
+      );
+      return;
+    }
+
+    final n = values.length;
+    final capPad = (stroke / radius) * 0.92;
+    final gapRad = n > 1 ? capPad + 0.08 : 0.0;
+    final usable = math.max(0.2, 2 * math.pi - gapRad * n);
+    var cursor = -math.pi / 2 + gapRad / 2;
+
+    for (var i = 0; i < n; i++) {
+      final frac = values[i] / total;
+      final sweep = usable * frac;
+      if (sweep > 0.01) {
+        canvas.drawArc(
+          rect,
+          cursor,
+          sweep,
+          false,
+          Paint()
+            ..color = colors[i]
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+      cursor += sweep + gapRad;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MiniDonutPainter old) =>
+      old.values.length != values.length ||
+      old.stroke != stroke ||
+      old.trackColor != trackColor;
 }

@@ -394,6 +394,7 @@ class AppCard extends StatelessWidget {
   final String? title;
   final Widget? titleWidget;
   final Widget child;
+  final Widget? background;
   final VoidCallback? onTap;
   final EdgeInsets padding;
   final Color? color;
@@ -404,6 +405,7 @@ class AppCard extends StatelessWidget {
     this.title,
     this.titleWidget,
     required this.child,
+    this.background,
     this.onTap,
     this.padding = const EdgeInsets.all(16),
     this.color,
@@ -415,29 +417,8 @@ class AppCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final hasHeader = title != null || titleWidget != null;
-    final body = Container(
-      width: double.infinity,
+    final content = Padding(
       padding: padding,
-      decoration: ShapeDecoration(
-        color: color ?? c.card,
-        shadows: c.isDark
-            ? null
-            : const [
-                BoxShadow(
-                  color: Color(0x0A0A0D12),
-                  blurRadius: 8,
-                  offset: Offset(0, 2),
-                ),
-              ],
-        shape: RoundedSuperellipseBorder(
-          borderRadius: BorderRadius.circular(Space.radiusCard),
-          side: bordered
-              ? BorderSide(
-                  color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
-                )
-              : BorderSide.none,
-        ),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: expandChild ? MainAxisSize.max : MainAxisSize.min,
@@ -470,6 +451,41 @@ class AppCard extends StatelessWidget {
           if (expandChild) Expanded(child: child) else child,
         ],
       ),
+    );
+    final body = Container(
+      width: double.infinity,
+      decoration: ShapeDecoration(
+        color: color ?? c.card,
+        shadows: c.isDark
+            ? null
+            : const [
+                BoxShadow(
+                  color: Color(0x0A0A0D12),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(Space.radiusCard),
+          side: bordered
+              ? BorderSide(
+                  color: c.border.withValues(alpha: c.isDark ? 0.5 : 0.65),
+                )
+              : BorderSide.none,
+        ),
+      ),
+      child: background == null
+          ? content
+          : ClipRSuperellipse(
+              borderRadius: BorderRadius.circular(Space.radiusCard),
+              child: Stack(
+                fit: expandChild ? StackFit.expand : StackFit.passthrough,
+                children: [
+                  Positioned.fill(child: IgnorePointer(child: background!)),
+                  content,
+                ],
+              ),
+            ),
     );
     return onTap == null
         ? body

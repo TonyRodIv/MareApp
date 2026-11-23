@@ -553,25 +553,6 @@ class _RhythmScreenState extends State<RhythmScreen> {
             ],
           ),
         ),
-        const SizedBox(height: Space.md),
-
-        AppCard(
-          titleWidget: Row(
-            children: [
-              Icon(LucideIcons.zap, color: c.accentWarm, size: 20),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${f.streak} ${f.streak == 1 ? 'dia' : 'dias'} de sequência',
-                  style: T.headline.copyWith(color: c.text),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          child: WeekStreak(f: f),
-        ),
 
         ListGroup(
           title: 'Resumo do ciclo',
@@ -712,9 +693,18 @@ class SubscriptionsScreen extends StatelessWidget {
 
 // ── Histórico ───────────────────────────────────────────────
 
-class HistoryScreen extends StatelessWidget {
+class HistoryScreen extends StatefulWidget {
   final bool embedded;
   const HistoryScreen({super.key, this.embedded = false});
+
+  @override
+  State<HistoryScreen> createState() => _HistoryScreenState();
+}
+
+class _HistoryScreenState extends State<HistoryScreen> {
+  int _months = 6;
+  bool _barsMode = false;
+  int? _selectedIdx;
 
   @override
   Widget build(BuildContext context) {
@@ -722,6 +712,20 @@ class HistoryScreen extends StatelessWidget {
     final s = context.store;
     final f = s.f;
     final hidden = s.data.hideValues;
+    final list = f.lastCycles(_months);
+    final activeIdx =
+        _selectedIdx != null && _selectedIdx! < list.length
+            ? _selectedIdx!
+            : list.length - 1;
+    final activeCycle = list[activeIdx];
+    final activeTotal = f.expensesTotal(activeCycle);
+    final prevCycle = activeIdx > 0
+        ? list[activeIdx - 1]
+        : activeCycle.prev(s.data.cycleStartDay);
+    final prevTotal = f.expensesTotal(prevCycle);
+    final deltaPct = prevTotal > 0
+        ? ((activeTotal - prevTotal) / prevTotal * 100)
+        : null;
     final cycles = [
       for (final cy in f.lastCycles(12).reversed)
         if (f.salaryFor(cy) > 0 || f.expensesTotal(cy) > 0) cy,
@@ -731,49 +735,131 @@ class HistoryScreen extends StatelessWidget {
 
     return _DetailPage(
       title: 'Histórico',
-      subtitle: 'Calculado a partir dos seus lançamentos',
-      embedded: embedded,
+      embedded: widget.embedded,
       children: [
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              HistoryBars(
-                f: f,
-                cycles: isWide(context) ? 12 : 6,
-                height: 180,
-                hidden: hidden,
-              ),
-              const SizedBox(height: Space.sm),
-              Wrap(
-                spacing: Space.md,
-                runSpacing: Space.xs,
+        // Cabeçalho com valor + variação à esquerda e alternador linha/barras à direita
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _dot(fixedColor),
-                      Text(
-                        ' Fixos e caixinhas',
-                        style: T.small.copyWith(color: c.textSecondary),
-                      ),
-                    ],
+                  Text(
+                    activeCycle.label(),
+                    style: T.label.copyWith(color: c.textSecondary),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _dot(varColor),
-                      Text(
-                        ' Dia a dia',
-                        style: T.small.copyWith(color: c.textSecondary),
-                      ),
-                    ],
+                  const SizedBox(height: Space.xxs),
+                  CountingMoney(
+                    cents: activeTotal,
+                    builder: (v) =>
+                        MoneyText(v, hidden: hidden, style: T.displayLg),
+                  ),
+                  if (deltaPct != null) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          deltaPct > 0
+                              ? LucideIcons.trendingUp
+                              : LucideIcons.trendingDown,
+                          size: 14,
+                          color: deltaPct > 0 ? c.negative : c.positive,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${deltaPct > 0 ? '+' : ''}${deltaPct.toStringAsFixed(0)}% vs. ${prevCycle.shortLabel()}',
+                          style: T.smallStrong.copyWith(
+                            color: deltaPct > 0 ? c.negative : c.positive,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _modeBtn(
+                  context,
+                  icon: LucideIcons.trendingUp,
+                  active: !_barsMode,
+                  label: 'Gráfico em linha',
+                  onTap: () => setState(() => _barsMode = false),
+                ),
+                const SizedBox(width: Space.xs),
+                _modeBtn(
+                  context,
+                  icon: LucideIcons.chartColumn,
+                  active: _barsMode,
+                  label: 'Gráfico em barras',
+                  onTap: () => setState(() => _barsMode = true),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: Space.base),
+
+        // Seletor de período (3M / 6M / 12M)
+        Segmented<int>(
+          value: _months,
+          options: const {3: '3M', 6: '6M', 12: '12M'},
+          onChanged: (v) => setState(() {
+            _months = v;
+            _selectedIdx = null;
+          }),
+        ),
+        const SizedBox(height: Space.lg),
+
+        // Gráfico diretamente sobre o fundo (sem container extra)
+        if (!_barsMode)
+          HistoryLineChart(
+            f: f,
+            cycles: _months,
+            height: 204,
+            hidden: hidden,
+            onSelect: (idx) => setState(() => _selectedIdx = idx),
+          )
+        else ...[
+          HistoryBars(
+            f: f,
+            cycles: _months,
+            height: 196,
+            hidden: hidden,
+          ),
+          const SizedBox(height: Space.sm),
+          Wrap(
+            spacing: Space.md,
+            runSpacing: Space.xs,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _dot(fixedColor),
+                  Text(
+                    ' Fixos e caixinhas',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _dot(varColor),
+                  Text(
+                    ' Dia a dia',
+                    style: T.small.copyWith(color: c.textSecondary),
                   ),
                 ],
               ),
             ],
           ),
-        ),
+        ],
+
         if (cycles.isNotEmpty)
           ListGroup(
             title: 'Ciclos',
@@ -790,6 +876,34 @@ class HistoryScreen extends StatelessWidget {
             ],
           ),
       ],
+    );
+  }
+
+  Widget _modeBtn(
+    BuildContext context, {
+    required IconData icon,
+    required bool active,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final c = context.c;
+    return Pressable(
+      semanticLabel: label,
+      scale: 0.92,
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: active ? c.cardAlt : const Color(0x00000000),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: active ? c.text : c.textTertiary,
+        ),
+      ),
     );
   }
 

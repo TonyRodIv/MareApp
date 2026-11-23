@@ -222,11 +222,10 @@ class _HomeScreenState extends State<HomeScreen> {
     'contas': ('Contas e cartões', LucideIcons.landmark, 2),
     'gastos': ('Seus Gastos', LucideIcons.receipt, 1),
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
-    'categorias': ('Gastos por categoria', LucideIcons.chartPie, 2),
+    'categorias': ('Por categoria', LucideIcons.chartPie, 2),
     'hoje': ('Para hoje', LucideIcons.calendarCheck, 1),
     'fds': ('Fim de semana', LucideIcons.sun, 1),
     'projecao': ('Projeção do ciclo', LucideIcons.trendingUp, 2),
-    'sequencia': ('Sequência', LucideIcons.zap, 2),
     'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
   };
@@ -236,7 +235,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _defaultHidden = <String>{
     'contas',
     'projecao',
-    'sequencia',
     'assinaturas',
     'historico',
   };
@@ -278,11 +276,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     for (final id in order) {
       if (hiddenSet.contains(id)) continue;
-      if (noSalary &&
-          (id == 'hoje' ||
-              id == 'fds' ||
-              id == 'sequencia' ||
-              id == 'projecao')) {
+      if (noSalary && (id == 'hoje' || id == 'fds' || id == 'projecao')) {
         continue;
       }
       if (id == 'categorias' &&
@@ -302,7 +296,16 @@ class _HomeScreenState extends State<HomeScreen> {
         case 'gastos':
           final spent = f.expensesTotal(cy);
           final sal = f.salaryFor(cy);
-          final rawRatio = sal > 0 ? spent / sal : 0.0;
+          final prevSpent = f.expensesTotal(cy.prev(s.data.cycleStartDay));
+          final isHigh = prevSpent > 0
+              ? spent > prevSpent
+              : (sal > 0 && spent / sal > 0.80);
+          final recent = [
+            for (final cItem in f.lastCycles(6))
+              f.expensesTotal(cItem).toDouble(),
+          ];
+          final hasHistory = recent.where((v) => v > 0).length >= 2;
+          final sparkPoints = hasHistory ? recent : _dailySpark(f);
           tiles.add(
             DashTile(
               id: id,
@@ -310,10 +313,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ctx,
                 'Seus Gastos',
                 spent,
-                sal > 0 ? 'do salário' : 'neste ciclo',
+                'Neste ciclo',
                 hidden,
-                corner: sal > 0 ? '${(rawRatio * 100).round()}%' : null,
-                cornerColor: rawRatio > 0.85 ? ctx.c.negative : null,
+                background: SparklineBackground(
+                  values: sparkPoints,
+                  color: isHigh ? ctx.c.negative : ctx.c.positive,
+                ),
                 onTap: () => ShellScope.of(
                   context,
                 )?.goTo(1, filter: const ExtratoFilter()),
@@ -321,7 +326,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         case 'caixinhas':
-          final boxes = f.openBoxes;
           tiles.add(
             DashTile(
               id: id,
@@ -331,9 +335,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 f.boxesBalanceTotal(),
                 'Guardado',
                 hidden,
-                corner: boxes.isEmpty
-                    ? null
-                    : '${boxes.length} ${boxes.length == 1 ? 'ativa' : 'ativas'}',
                 onTap: () => s.data.boxes.isEmpty
                     ? pushFluid(context, const BoxForm())
                     : ShellScope.of(context)?.goTo(2),
@@ -370,14 +371,6 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (ctx, w, span) => _projectionCard(ctx, f, hidden),
             ),
           );
-        case 'sequencia':
-          tiles.add(
-            DashTile(
-              id: id,
-              defaultSpan: 2,
-              builder: (ctx, w, span) => _streakCard(ctx, f, w),
-            ),
-          );
         case 'assinaturas':
           tiles.add(
             DashTile(
@@ -394,9 +387,12 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (ctx, w, span) => AppCard(
                 title: 'Histórico visual',
                 onTap: () => push(context, const HistoryScreen()),
-                child: HistoryBars(
+                child: HistoryLineChart(
                   f: f,
                   hidden: hidden,
+                  height: 148,
+                  interactive: false,
+                  showAxis: w >= 240,
                   cycles: w < 220 ? 3 : (w < 420 ? 6 : 12),
                 ),
               ),
@@ -453,10 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final available = [
             for (final id in order)
               if (!(noSalary &&
-                  (id == 'hoje' ||
-                      id == 'fds' ||
-                      id == 'sequencia' ||
-                      id == 'projecao')))
+                  (id == 'hoje' || id == 'fds' || id == 'projecao')))
                 id,
           ];
           return SheetBody(
@@ -708,40 +701,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<double> _dailySpark(Finance f) {
+    final cy = f.current;
+    final items = f.expensesIn(cy);
+    final days = cy.days;
+    const buckets = 6;
+    final perBucket = (days.length / buckets).ceil().clamp(1, 31);
+    final totals = List<double>.filled(buckets, 0.0);
+    for (final e in items) {
+      final diff = e.date.difference(cy.start).inDays;
+      final idx = (diff < 0 ? 0 : diff ~/ perBucket).clamp(0, buckets - 1);
+      totals[idx] += e.cents.toDouble();
+    }
+    var running = 0.0;
+    return [for (final v in totals) running += v];
+  }
+
   Widget _statCard(
     BuildContext context,
     String title,
     Cents v,
     String caption,
     bool hidden, {
-    String? corner,
-    Color? cornerColor,
+    Widget? background,
     VoidCallback? onTap,
   }) {
     final c = context.c;
     return AppCard(
       expandChild: true,
-      titleWidget: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: T.body.copyWith(color: c.text),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (corner != null) ...[
-            const SizedBox(width: Space.xs),
-            Text(
-              corner,
-              style: T.smallStrong.copyWith(
-                color: cornerColor ?? c.textSecondary,
-              ),
-            ),
-          ],
-        ],
-      ),
+      title: title,
+      background: background,
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -773,9 +762,62 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final data = f.byCategory(f.current);
     final total = data.fold<int>(0, (s, e) => s + e.value);
-    final maxItems = w < 220 ? 1 : (w < 300 ? 2 : 3);
-    final count = data.length > maxItems ? maxItems : data.length;
-    final mono = categoryMonochromeColors(c, count);
+    final topCount = data.length > 3 ? 3 : data.length;
+    final rows = <(String, Cents, Color)>[
+      for (var i = 0; i < topCount; i++)
+        (data[i].key.label, data[i].value, c.tone(data[i].key.color)),
+      if (data.length > topCount)
+        (
+          'Outros',
+          data.skip(topCount).fold<int>(0, (s, e) => s + e.value),
+          c.textTertiary.withValues(alpha: 0.45),
+        ),
+    ];
+
+    Widget ring() => MiniDonutRing(
+      size: w < 240 ? 74 : 88,
+      stroke: 10,
+      values: [for (final r in rows) r.$2.toDouble()],
+      colors: [for (final r in rows) r.$3],
+      center: data.isEmpty
+          ? null
+          : Icon(data.first.key.icon, size: 22, color: rows.first.$3),
+    );
+
+    Widget legend(int maxRows) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < rows.length && i < maxRows; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: rows[i].$3,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  rows[i].$1,
+                  style: T.small.copyWith(color: c.text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${(rows[i].$2 / total * 100).round()}%',
+                style: T.smallStrong.copyWith(color: c.textSecondary),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
 
     return AppCard(
       title: 'Por categoria',
@@ -785,44 +827,20 @@ class _HomeScreenState extends State<HomeScreen> {
               'Sem gastos neste ciclo',
               style: T.small.copyWith(color: c.textSecondary),
             )
-          : Row(
+          : w < 240
+          ? Column(
               children: [
-                for (var i = 0; i < count; i++)
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ProgressRing(
-                          size: 48,
-                          stroke: 4,
-                          fraction: (data[i].value / total).clamp(0.0, 1.0),
-                          color: mono[i],
-                          track: c.cardAlt,
-                          child: Icon(
-                            data[i].key.icon,
-                            size: 18,
-                            color: mono[i],
-                          ),
-                        ),
-                        const SizedBox(height: Space.sm),
-                        Text(
-                          '${(data[i].value / total * 100).round()}%',
-                          style: T.bodyStrong.copyWith(color: c.text),
-                        ),
-                        const SizedBox(height: 2),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            data[i].key.label,
-                            style: T.tiny.copyWith(color: c.textSecondary),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                Center(child: ring()),
+                const SizedBox(height: Space.md),
+                legend(2),
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ring(),
+                const SizedBox(width: Space.lg),
+                Expanded(child: legend(4)),
               ],
             ),
     );
@@ -910,31 +928,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int _gridCols(double w) => w < 200 ? 8 : (w < 420 ? 16 : 31);
 
-  Widget _streakCard(BuildContext context, Finance f, double w) {
-    final c = context.c;
-    final n = f.streak;
-    return AppCard(
-      onTap: () => push(context, const RhythmScreen()),
-      titleWidget: Row(
-        children: [
-          Icon(LucideIcons.zap, color: c.accentWarm, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              n == 1 ? '1 dia de sequência' : '$n dias de sequência',
-              style: (w < 240 ? T.bodyStrong : T.headline).copyWith(
-                color: c.text,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      child: WeekStreak(f: f, width: w),
-    );
-  }
-
   Widget _subscriptionsCard(
     BuildContext context,
     Finance f,
@@ -944,65 +937,105 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final subs = f.subscriptions(f.current);
     final total = subs.fold<int>(0, (s, e) => s + e.cents);
-    final top = subs.isEmpty ? null : subs.first;
-    final topColor = top == null ? c.primary : subscriptionBrandColor(c, top, 0);
+
+    Widget logoStack() {
+      const iconSz = 38.0;
+      const step = 28.0;
+      final maxLogos = w < 240 ? 3 : 4;
+      final shown = subs.take(maxLogos).toList();
+      final extra = subs.length - shown.length;
+      final count = shown.length + (extra > 0 ? 1 : 0);
+      final totalW = iconSz + (count - 1) * step;
+
+      return SizedBox(
+        width: totalW,
+        height: iconSz + 4,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            for (var i = 0; i < shown.length; i++)
+              Positioned(
+                left: i * step,
+                top: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: c.card,
+                    shape: BoxShape.circle,
+                  ),
+                  child: BrandLogo(
+                    name: shown[i].name,
+                    size: iconSz - 4,
+                    icon: shown[i].category.icon,
+                    color: subscriptionBrandColor(c, shown[i], i),
+                  ),
+                ),
+              ),
+            if (extra > 0)
+              Positioned(
+                left: shown.length * step,
+                top: 2,
+                child: Container(
+                  width: iconSz,
+                  height: iconSz,
+                  decoration: BoxDecoration(
+                    color: c.cardAlt,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.card, width: 2),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '+$extra',
+                    style: T.smallStrong.copyWith(color: c.textSecondary),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    final summary = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CountingMoney(
+          cents: total,
+          builder: (v) => MoneyText(v, hidden: hidden, style: T.cardValue),
+        ),
+        const SizedBox(height: Space.xxs),
+        Text(
+          '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'} · por mês',
+          style: T.small.copyWith(color: c.textSecondary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
 
     return AppCard(
-      titleWidget: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Assinaturas',
-              style: T.body.copyWith(color: c.text),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (subs.isNotEmpty)
-            Text(
-              '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'}',
-              style: T.smallStrong.copyWith(color: c.textSecondary),
-            ),
-        ],
-      ),
+      title: 'Assinaturas',
       onTap: () => push(context, const SubscriptionsScreen()),
       child: subs.isEmpty
           ? Text(
               'Nenhuma assinatura ativa',
               style: T.small.copyWith(color: c.textSecondary),
             )
-          : Column(
+          : w < 260
+          ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CountingMoney(
-                  cents: total,
-                  builder: (v) =>
-                      MoneyText(v, hidden: hidden, style: T.display),
-                ),
-                if (top != null) ...[
-                  const SizedBox(height: Space.sm),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: topColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          '${top.name} · ${fmtMoney(top.cents, hidden: hidden)}',
-                          style: T.small.copyWith(color: c.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                logoStack(),
+                const SizedBox(height: Space.md),
+                summary,
+              ],
+            )
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: summary),
+                const SizedBox(width: Space.md),
+                logoStack(),
               ],
             ),
     );

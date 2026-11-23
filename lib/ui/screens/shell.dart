@@ -75,7 +75,7 @@ const navDestinations = <NavDestination>[
   NavDestination(
     id: 'ritmo',
     label: 'Ritmo',
-    subtitle: 'Meta diária, calendário e sequência',
+    subtitle: 'Meta diária e calendário do ciclo',
     icon: LucideIcons.zap,
   ),
   NavDestination(
