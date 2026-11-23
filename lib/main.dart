@@ -30,7 +30,7 @@ Future<void> main() async {
     MareApp(
       store: store,
       sync: sync,
-      showLaunchAnimation: !DevicePerf.instance.simplifyMotion,
+      showLaunchAnimation: true,
     ),
   );
 }

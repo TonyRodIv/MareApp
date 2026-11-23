@@ -1350,8 +1350,21 @@ class _SubscriptionArcGaugeState extends State<SubscriptionArcGauge> {
     final total = list.fold<int>(0, (t, e) => t + e.cents);
     if (total <= 0) return const SizedBox.shrink();
 
-    // Mostra as 3 principais assinaturas e agrupa as demais em "Outros".
-    final topCount = list.length > 3 ? 3 : list.length;
+    // Mostra até 5 principais quando custam mais de R$ 15,00 (1500 centavos);
+    // valores menores só entram individualmente se houver 4 assinaturas ou menos.
+    var topCount = 0;
+    if (list.length <= 4) {
+      topCount = list.length;
+    } else {
+      for (var i = 0; i < list.length && i < 5; i++) {
+        if (list[i].cents > 1500) {
+          topCount++;
+        } else {
+          break;
+        }
+      }
+      if (topCount == 0) topCount = 1;
+    }
     final entries = <(String, int, Color, Expense?)>[
       for (var i = 0; i < topCount; i++)
         (
@@ -1709,6 +1722,8 @@ class _SparklineBgPainter extends CustomPainter {
 class HistoryLineChart extends StatefulWidget {
   final Finance f;
   final int cycles;
+  final Cycle? anchorCycle;
+  final int Function(Cycle)? valueFor;
   final double height;
   final bool hidden;
   final bool interactive;
@@ -1719,6 +1734,8 @@ class HistoryLineChart extends StatefulWidget {
     super.key,
     required this.f,
     this.cycles = 6,
+    this.anchorCycle,
+    this.valueFor,
     this.height = 180,
     this.hidden = false,
     this.interactive = true,
@@ -1736,7 +1753,10 @@ class _HistoryLineChartState extends State<HistoryLineChart> {
   @override
   void didUpdateWidget(HistoryLineChart old) {
     super.didUpdateWidget(old);
-    if (old.cycles != widget.cycles) _selected = null;
+    if (old.cycles != widget.cycles ||
+        old.anchorCycle?.key != widget.anchorCycle?.key) {
+      _selected = null;
+    }
   }
 
   void _pickAt(double localX, double plotW, int n) {
@@ -1754,8 +1774,13 @@ class _HistoryLineChartState extends State<HistoryLineChart> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final list = widget.f.lastCycles(widget.cycles);
-    final values = [for (final cy in list) widget.f.expensesTotal(cy)];
+    final anchorKey = (widget.anchorCycle ?? widget.f.current).key;
+    final list = [
+      for (var i = widget.cycles - 1; i >= 0; i--)
+        widget.f.fromKey(anchorKey - i),
+    ];
+    final eval = widget.valueFor ?? (Cycle cy) => widget.f.expensesTotal(cy);
+    final values = [for (final cy in list) eval(cy)];
     final maxRaw = values.fold<int>(0, math.max);
     final ticks = HistoryBars._niceTicks(math.max(10000, maxRaw));
     final top = math.max(1, ticks.last);

@@ -81,12 +81,16 @@ class FloatingNavBar extends StatelessWidget {
                       final surface = DecoratedBox(
                         decoration: ShapeDecoration(
                           color: c.isDark
-                              ? const Color(0xFF16161A).withValues(
-                                  alpha: perf.allowBlur ? 0.56 : 0.92,
-                                )
-                              : const Color(0xFFFFFFFF).withValues(
-                                  alpha: perf.allowBlur ? 0.62 : 0.94,
-                                ),
+                              ? (perf.allowBlur
+                                    ? const Color(0xFF16161A).withValues(
+                                        alpha: 0.56,
+                                      )
+                                    : c.card)
+                              : (perf.allowBlur
+                                    ? const Color(0xFFFFFFFF).withValues(
+                                        alpha: 0.62,
+                                      )
+                                    : Palette.neutral0),
                           shape: RoundedSuperellipseBorder(
                             borderRadius: BorderRadius.circular(34),
                             side: BorderSide(

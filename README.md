@@ -7,18 +7,15 @@ Aplicativo Flutter de **controle financeiro pessoal por ciclos de salário**, co
 ## Principais funcionalidades
 
 - **Ciclos de salário configuráveis:** em vez de meses rígidos, o app calcula saldo livre, metas diárias e projeções com base no dia de virada escolhido por você.
-- **Carteira modular (`HomeScreen`):** grade personalizável (1x ou 2x, reordenável e ocultável), com *Seus Gastos*, *Caixinhas*, *Por categoria*, *Assinaturas*, *Para hoje* e *Fim de semana* visíveis por padrão. Cards sem dados aplicáveis são ocultados automaticamente:
-  - *Seus Gastos* (com curva de tendência translúcida verde/vermelha)
-  - *Por categoria* (anel segmentado), *Histórico visual*, *Projeção do ciclo* e faixa opcional *Contas* também podem ser ativados em "Editar grade".
-- **Extrato e busca instantânea:** visualização por ciclo com gráfico acumulado interativo, filtros por categoria e conta/cartão, busca textual com `Hero` e listas *lazy* (`SliverListGroup`).
+- **Carteira modular (`HomeScreen`):** grade personalizável (1x ou 2x, reordenável e ocultável), com todos os widgets ativos por padrão (*Seus Gastos*, *Caixinhas*, *Assinaturas*, *Por categoria*, *Contas* e *Histórico visual*). Cards sem dados aplicáveis são ocultados automaticamente, e se não houver caixinha ativa, *Assinaturas* se acomoda automaticamente ao lado de *Seus Gastos*.
+- **Extrato e busca instantânea:** visualização por ciclo com gráfico comparativo dos 3 ciclos mais recentes, seletor compacto de mês/ano em grade, filtros por categoria e conta/cartão, busca textual com `Hero` e listas *lazy* (`SliverListGroup`).
 - **Caixinhas:** reservas mensais com valor fixo ou percentual do salário, meta opcional com estimativa de prazo, depósitos, gastos diretos da reserva, resgates para o saldo livre e encerramento seguro.
 - **Insights dedicados:**
-  - *Por categoria* (barra segmentada proporcional + detalhamento por categoria)
-  - *Assinaturas* (arco aberto segmentado interativo + atalho **Gerenciar** para principais marcas)
+  - *Por categoria* (barra segmentada proporcional em cápsula + detalhamento direto da lista por categoria)
+  - *Assinaturas* (arco aberto segmentado interativo para até 5 serviços principais > R\$ 15 + atalho **Gerenciar**)
   - *Histórico* (gráfico de linha/área interativo `3M / 6M / 12M` ou barras empilhadas)
-  - *Ritmo* (*Hoje* e *Fim de semana* com barra de uso diário, gastos do dia e calendário do ciclo)
 - **Importação com IA & Backups:** geração de prompt estruturado para importar gastos em lote ou dados completos a partir de texto/JSON, além de exportação e restauração JSON (incluindo formato legado `finapp_v3`).
-- **Google Drive Sync:** backup automático ou manual na pasta oculta `appDataFolder` do Google Drive, com detecção e resolução assistida de conflitos.
+- **Google Drive Sync:** backup automático ou manual na pasta oculta `appDataFolder` do Google Drive, com detecção/resolução assistida de conflitos e opção para apagar os dados salvos na nuvem.
 - **Personalização completa:** tema Claro/Escuro/Automático, cor de destaque gerada via OKLCH com contraste WCAG garantido, barra de navegação inferior personalizável (2 a 5 abas) e recorte circular de avatar.
 
 ---
@@ -84,7 +81,7 @@ O **maré** monitora em tempo real o estado do dispositivo Android via `MainActi
 |---|---|---|
 | **Alto** (`high`) | Hardware moderno com Economia desligada | Shader completo (32 amostras), `BackdropFilter` total e todas as animações |
 | **Balanceado** (`balanced`) | RAM ≤ 5,5 GB, ≤ 4 núcleos ou Android < 10 | Shader leve (14 amostras, >2× menos carga na GPU), blur glass a 55% e cache de imagem de 48 MB |
-| **Economia** (`economy`) | **Economia de Bateria ativa** (ao vivo), `isLowRamDevice` ou RAM ≤ 3,2 GB | Zero passes de blur na GPU (gradientes limpos), animações decorativas desativadas e cache de imagem de 28 MB |
+| **Economia** (`economy`) | **Economia de Bateria ativa** (ao vivo), `isLowRamDevice` ou RAM ≤ 3,2 GB | Zero passes de blur na GPU (superfícies como navbar tornam-se 100% sólidas), animações decorativas desativadas e cache de imagem de 28 MB |
 
 ---
 

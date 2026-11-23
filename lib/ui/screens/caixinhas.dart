@@ -68,13 +68,21 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                     style: T.pageTitle.copyWith(color: c.text),
                   ),
                 ),
-              RoundIconButton(
-                LucideIcons.plus,
-                size: 44,
-                label: 'Nova caixinha',
-                bg: c.primary,
-                fg: c.onPrimary,
-                onTap: () => pushFluid(context, const BoxForm()),
+              Builder(
+                builder: (_) {
+                  final (btnBg, btnFg) = softActionTone(
+                    c.palette.primary[500],
+                    isDark: c.isDark,
+                  );
+                  return RoundIconButton(
+                    LucideIcons.plus,
+                    size: 44,
+                    label: 'Nova caixinha',
+                    bg: btnBg,
+                    fg: btnFg,
+                    onTap: () => pushFluid(context, const BoxForm()),
+                  );
+                },
               ),
             ],
           ),
@@ -176,27 +184,6 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
     final body = Stack(
       children: [
         const GlowBackground(height: 440),
-        // Véu suave na cor do fundo (igual ao Extrato, com menos saturação)
-        IgnorePointer(
-          child: SizedBox(
-            height: 440,
-            width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    c.bg.withValues(alpha: c.isDark ? 0.48 : 0.54),
-                    c.bg.withValues(alpha: c.isDark ? 0.68 : 0.72),
-                    c.bg.withValues(alpha: 0),
-                  ],
-                  stops: const [0.0, 0.55, 1.0],
-                ),
-              ),
-            ),
-          ),
-        ),
         widget.standalone ? CollapsingTitleScope(child: scroll) : scroll,
       ],
     );
@@ -292,28 +279,6 @@ class BoxDetail extends StatelessWidget {
           GlowBackground(
             tint: context.c.tone(box.colorValue, min: 2.5),
             height: 460,
-          ),
-          // Véu suave na cor do fundo (mais leve que o do Extrato para preservar
-          // a identidade de cor da caixinha sem saturar demais)
-          IgnorePointer(
-            child: SizedBox(
-              height: 460,
-              width: double.infinity,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      c.bg.withValues(alpha: c.isDark ? 0.28 : 0.34),
-                      c.bg.withValues(alpha: c.isDark ? 0.42 : 0.48),
-                      c.bg.withValues(alpha: 0),
-                    ],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
-                ),
-              ),
-            ),
           ),
           CustomScrollView(
             physics: const BouncingScrollPhysics(),
@@ -488,17 +453,16 @@ class BoxDetail extends StatelessWidget {
                       ],
                     ),
 
-                    if (moves.isEmpty) ...[
-                      const SectionHeader('Movimentações'),
+                    const SizedBox(height: Space.lg),
+                    if (moves.isEmpty)
                       EmptyState(
                         icon: LucideIcons.arrowLeftRight,
                         title: 'Sem movimentações extras',
                         message:
                             'Guarde um extra, registre um pagamento com esta reserva ou resgate para o saldo livre.',
-                      ),
-                    ] else
+                      )
+                    else
                       ListGroup(
-                        title: 'Movimentações',
                         children: [
                           for (final m in moves)
                             _MoveRow(box: box, m: m, hidden: hidden),

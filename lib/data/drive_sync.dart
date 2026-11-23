@@ -118,14 +118,16 @@ class _DriveAppDataClient {
   final http.Client _http;
   _DriveAppDataClient([http.Client? client]) : _http = client ?? http.Client();
 
-  Future<DriveBackupMeta?> findBackup(Map<String, String> headers) async {
+  Future<List<DriveBackupMeta>> findAllBackups(
+    Map<String, String> headers,
+  ) async {
     final uri = Uri.parse(_filesUrl).replace(
       queryParameters: {
         'spaces': 'appDataFolder',
         'q': "name='$driveBackupFileName' and trashed=false",
         'fields': 'files(id,modifiedTime,size)',
         'orderBy': 'modifiedTime desc',
-        'pageSize': '1',
+        'pageSize': '20',
       },
     );
     final res = await _http
@@ -136,15 +138,35 @@ class _DriveAppDataClient {
     }
     final decoded = jsonDecode(res.body) as Map<String, dynamic>;
     final files = (decoded['files'] as List?) ?? const [];
-    if (files.isEmpty) return null;
-    final f = Map<String, dynamic>.from(files.first as Map);
-    return DriveBackupMeta(
-      fileId: '${f['id']}',
-      modifiedTime: f['modifiedTime'] is String
-          ? DateTime.tryParse(f['modifiedTime'] as String)?.toUtc()
-          : null,
-      sizeBytes: int.tryParse('${f['size'] ?? ''}'),
-    );
+    return [
+      for (final raw in files)
+        () {
+          final f = Map<String, dynamic>.from(raw as Map);
+          return DriveBackupMeta(
+            fileId: '${f['id']}',
+            modifiedTime: f['modifiedTime'] is String
+                ? DateTime.tryParse(f['modifiedTime'] as String)?.toUtc()
+                : null,
+            sizeBytes: int.tryParse('${f['size'] ?? ''}'),
+          );
+        }(),
+    ];
+  }
+
+  Future<DriveBackupMeta?> findBackup(Map<String, String> headers) async {
+    final all = await findAllBackups(headers);
+    return all.isEmpty ? null : all.first;
+  }
+
+  Future<void> deleteBackup(Map<String, String> headers, String fileId) async {
+    final uri = Uri.parse('$_filesUrl/${Uri.encodeComponent(fileId)}');
+    final res = await _http
+        .delete(uri, headers: headers)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 404 &&
+        (res.statusCode < 200 || res.statusCode >= 300)) {
+      throw _DriveHttpError(res.statusCode, res.body);
+    }
   }
 
   Future<String> downloadBackup(
@@ -821,6 +843,69 @@ class SyncService extends ChangeNotifier {
         ok: true,
         decision: SyncDecision.download,
         message: 'Backup restaurado do Google Drive',
+      );
+    } catch (e) {
+      final msg = _friendlyError(e);
+      _lastError = msg;
+      _status = SyncStatus.error;
+      _emit();
+      return SyncResult(ok: false, message: msg);
+    } finally {
+      _inFlight = false;
+    }
+  }
+
+  /// Apaga permanentemente o backup salvo na pasta privada do app no Google Drive
+  /// (mantendo os dados deste aparelho intactos).
+  Future<SyncResult> deleteCloudBackup() async {
+    if (_inFlight) {
+      return const SyncResult(
+        ok: false,
+        message: 'Sincronização já em andamento.',
+      );
+    }
+    _debounce?.cancel();
+    _inFlight = true;
+    _lastError = null;
+    _status = SyncStatus.syncing;
+    _emit();
+    try {
+      final headers = await _authHeaders(silent: false);
+      if (headers == null) {
+        _status = isConnected ? SyncStatus.idle : SyncStatus.disconnected;
+        _emit();
+        return const SyncResult(
+          ok: false,
+          message: 'Conecte sua conta Google para apagar os dados na nuvem.',
+        );
+      }
+      final files = await _api.findAllBackups(headers);
+      if (files.isEmpty) {
+        _pendingConflict = null;
+        _remoteModifiedAt = null;
+        _remoteSizeBytes = null;
+        _lastSyncedAt = null;
+        _status = SyncStatus.idle;
+        _savePrefs();
+        _emit();
+        return const SyncResult(
+          ok: true,
+          message: 'Nenhum dado salvo na nuvem.',
+        );
+      }
+      for (final f in files) {
+        await _api.deleteBackup(headers, f.fileId);
+      }
+      _pendingConflict = null;
+      _remoteModifiedAt = null;
+      _remoteSizeBytes = null;
+      _lastSyncedAt = null;
+      _status = SyncStatus.idle;
+      _savePrefs();
+      _emit();
+      return const SyncResult(
+        ok: true,
+        message: 'Dados salvos na nuvem foram apagados',
       );
     } catch (e) {
       final msg = _friendlyError(e);

@@ -205,6 +205,86 @@ class CardChip extends StatelessWidget {
   }
 }
 
+/// Representação visual de destaque do cartão ou conta no topo da tela de detalhe.
+class _HeroPayCard extends StatelessWidget {
+  final PayCard card;
+  const _HeroPayCard({required this.card});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(card.color);
+    final fg = color.computeLuminance() > 0.5
+        ? Palette.neutral800
+        : Palette.neutral0;
+    final hasLast4 = card.last4.trim().isNotEmpty;
+    final subtitle = card.isCard
+        ? (hasLast4 ? '•••• ${card.last4}' : 'Cartão')
+        : 'Conta corrente';
+    return Container(
+      width: 192,
+      height: 118,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: ShapeDecoration(
+        color: color,
+        shadows: [
+          BoxShadow(
+            color: Palette.neutral950.withValues(
+              alpha: context.c.isDark ? 0.42 : 0.16,
+            ),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: fg.withValues(alpha: 0.14)),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  card.name.isEmpty
+                      ? (card.isCard ? 'Cartão' : 'Conta')
+                      : card.name,
+                  style: T.bodyStrong.copyWith(color: fg),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                card.isCard ? LucideIcons.creditCard : LucideIcons.landmark,
+                size: 18,
+                color: fg.withValues(alpha: 0.85),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  subtitle,
+                  style: T.label.copyWith(
+                    color: fg.withValues(alpha: 0.88),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (card.isCard) BrandBadge(brand: card.brand),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class BrandBadge extends StatelessWidget {
   final CardBrand brand;
   final bool bordered;
@@ -402,9 +482,7 @@ class CardDetailScreen extends StatelessWidget {
     final delta = _deltaText(total, prevTotal, hidden);
 
     final rawColor = Color(card.color);
-    final accent = c.tone(rawColor);
     final pad = sidePadding(context, maxWidth: 680);
-    final avg = items.isEmpty ? 0 : (total / items.length).round();
 
     final kindLabel = card.isCard
         ? (card.last4.trim().isNotEmpty
@@ -458,38 +536,10 @@ class CardDetailScreen extends StatelessWidget {
                   ),
                   sliver: SliverList.list(
                     children: [
-                      // ── Hero circular centralizado (mesmo padrão de Caixinhas)
+                      // ── Hero com o próprio cartão/conta centralizado
                       Column(
                         children: [
-                          SpringBuilder(
-                            value: share,
-                            from: 0,
-                            spring: Springs.settle,
-                            builder: (_, v, _) => ProgressRing(
-                              size: 136,
-                              stroke: 8,
-                              fraction: v,
-                              color: accent,
-                              track: c.cardAlt,
-                              child: Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  color: rawColor.withValues(
-                                    alpha: c.isDark ? 0.18 : 0.12,
-                                  ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  card.isCard
-                                      ? LucideIcons.creditCard
-                                      : LucideIcons.landmark,
-                                  size: 40,
-                                  color: accent,
-                                ),
-                              ),
-                            ),
-                          ),
+                          _HeroPayCard(card: card),
                           const SizedBox(height: Space.lg),
                           CountingMoney(
                             cents: total,
@@ -541,9 +591,9 @@ class CardDetailScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: Space.lg),
 
-                      if (items.isEmpty) ...[
-                        SectionHeader('Gastos em ${cy.label()}'),
+                      if (items.isEmpty)
                         EmptyState(
                           icon: card.isCard
                               ? LucideIcons.creditCard
@@ -556,28 +606,14 @@ class CardDetailScreen extends StatelessWidget {
                             context,
                             initialCardId: card.id,
                           ),
-                        ),
-                      ] else ...[
+                        )
+                      else
                         ListGroup(
-                          title: 'Gastos em ${cy.label()}',
-                          trailing: Text(
-                            '${items.length} ${items.length == 1 ? 'item' : 'itens'}',
-                            style: T.smallStrong.copyWith(
-                              color: c.textSecondary,
-                            ),
-                          ),
                           children: [
                             for (final e in items)
                               ExpenseRow(e: e, f: f, hidden: hidden),
                           ],
                         ),
-                        const SizedBox(height: Space.base),
-                        Text(
-                          'Média de ${fmtMoney(avg, hidden: hidden)} por lançamento neste ciclo.',
-                          textAlign: TextAlign.center,
-                          style: T.small.copyWith(color: c.textTertiary),
-                        ),
-                      ],
                     ],
                   ),
                 ),

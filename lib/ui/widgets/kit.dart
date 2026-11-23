@@ -124,8 +124,12 @@ class PillButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final (primaryBg, primaryFg) = softActionTone(
+      c.palette.primary[500],
+      isDark: c.isDark,
+    );
     final (bg0, fg0, border) = switch (kind) {
-      BtnKind.primary => (c.primary, c.onPrimary, null),
+      BtnKind.primary => (primaryBg, primaryFg, null),
       BtnKind.secondary => (c.secondary, c.onSecondary, null),
       BtnKind.ghost => (c.card, c.text, null),
       BtnKind.outline => (
@@ -232,12 +236,12 @@ class RoundIconButton extends StatelessWidget {
       final sigma = 26.0 * perf.glassSigmaFactor;
       final glassBg = bg ??
           (c.isDark
-              ? const Color(0xFF16161A).withValues(
-                  alpha: perf.allowBlur ? 0.56 : 0.90,
-                )
-              : const Color(0xFFFFFFFF).withValues(
-                  alpha: perf.allowBlur ? 0.62 : 0.92,
-                ));
+              ? (perf.allowBlur
+                    ? const Color(0xFF16161A).withValues(alpha: 0.56)
+                    : c.card)
+              : (perf.allowBlur
+                    ? const Color(0xFFFFFFFF).withValues(alpha: 0.62)
+                    : Palette.neutral0));
       final circle = Container(
         width: size,
         height: size,
@@ -871,8 +875,10 @@ class BrandLogo extends StatelessWidget {
     final fallback = IconBadge(resolvedIcon, color, size: size);
     final spec = brandSpecFor(name);
     if (spec == null) return fallback;
-    final dpr = MediaQuery.devicePixelRatioOf(context);
-    final cachePx = (size * dpr).round().clamp(32, 256);
+    final pad = (size * spec.inset).clamp(0.0, size * 0.25);
+    // Sem cacheWidth dependente de [size]: assim o ImageCache compartilha o
+    // mesmo bitmap 256px entre a lista (40px) e o sheet de detalhes (52px),
+    // abrindo instantaneamente sem piscar nem recarregar.
     return SizedBox(
       width: size,
       height: size,
@@ -884,9 +890,8 @@ class BrandLogo extends StatelessWidget {
             brandLogoUrl(spec.domain),
             width: size,
             height: size,
-            cacheWidth: cachePx,
-            cacheHeight: cachePx,
             fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
             frameBuilder: (context, child, frame, synchronousCall) {
@@ -896,7 +901,10 @@ class BrandLogo extends StatelessWidget {
               return ClipOval(
                 child: ColoredBox(
                   color: spec.bg,
-                  child: SizedBox.square(dimension: size, child: child),
+                  child: Padding(
+                    padding: EdgeInsets.all(pad),
+                    child: SizedBox.expand(child: child),
+                  ),
                 ),
               );
             },
@@ -1085,12 +1093,12 @@ class GlowBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    // No escuro usa o tom profundo da cor (primarySoft) em vez do tom 500 vivo: o
-    // brilho vira um "ar" da cor, sem competir com o texto branco. O degradê
-    // termina exatamente em c.bg, então emenda sem linha com o resto da tela e
-    // com o blur progressivo da barra de cima.
-    final base = tint ?? (c.isDark ? c.primarySoft : c.primary);
-    final warm = c.isDark ? c.secondary : c.accentWarm;
+    // Mistura diretamente a cor pura do tema sobre c.bg (com opacidade suave no
+    // modo escuro em vez de primarySoft, que tinha luminosidade base mais alta
+    // que o novo fundo profundo), garantindo que o degradê morra exatamente em
+    // c.bg sem deixar véu acinzentado.
+    final base = tint ?? c.primary;
+    final warm = c.accentWarm;
     return IgnorePointer(
       child: SizedBox(
         height: height,
@@ -1102,16 +1110,16 @@ class GlowBackground extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Color.alphaBlend(
-                  base.withValues(alpha: c.isDark ? 0.80 : 0.22),
+                  base.withValues(alpha: c.isDark ? 0.22 : 0.20),
                   c.bg,
                 ),
                 Color.alphaBlend(
-                  base.withValues(alpha: c.isDark ? 0.34 : 0.09),
+                  base.withValues(alpha: c.isDark ? 0.08 : 0.08),
                   c.bg,
                 ),
                 c.bg,
               ],
-              stops: const [0.0, 0.55, 1.0],
+              stops: const [0.0, 0.52, 1.0],
             ),
           ),
           child: DecoratedBox(
@@ -1120,7 +1128,7 @@ class GlowBackground extends StatelessWidget {
                 center: const Alignment(-1.05, -0.9),
                 radius: 1.0,
                 colors: [
-                  warm.withValues(alpha: c.isDark ? 0.28 : 0.12),
+                  warm.withValues(alpha: c.isDark ? 0.12 : 0.10),
                   warm.withValues(alpha: 0),
                 ],
               ),
@@ -1386,8 +1394,8 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
         child: ProgressiveBlur(
           direction: AxisDirection.down,
           maxSigma: 20 * eased,
-          tint: c.isDark ? c.bg : null,
-          tintOpacity: (c.isDark ? 0.78 : 0.84) * eased,
+          tint: c.bg,
+          tintOpacity: (c.isDark ? 0.82 : 0.84) * eased,
         ),
       );
     }

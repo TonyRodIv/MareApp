@@ -125,6 +125,12 @@ class Store extends ChangeNotifier {
     _commit();
   }
 
+  void dismissBoxTip() {
+    if (data.dismissedBoxTip) return;
+    data.dismissedBoxTip = true;
+    _commit();
+  }
+
   void setCycleStartDay(int day) {
     final oldKey = cycle.key;
     final nextDay = day.clamp(1, 31);

@@ -3,17 +3,22 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 /// Especificação de uma marca conhecida: domínio para buscar o favicon em alta
 /// resolução (Google S2 Favicons, gratuito e sem chave de API), cor de fundo
-/// opcional para o círculo do logo, cor tema oficial da marca e categoria sugerida.
+/// opcional para o círculo do logo, cor tema oficial da marca, categoria sugerida
+/// e ajuste de escala no círculo ([inset]: margem percentual interna, 0 = sangria
+/// total para ícones que já possuem fundo sólido; > 0 para glifos que precisam de
+/// respiro para não serem cortados pela máscara circular).
 class BrandSpec {
   final String domain;
   final Color bg;
   final String? categoryId;
   final Color? accent;
+  final double inset;
   const BrandSpec(
     this.domain, {
     this.bg = const Color(0xFFFFFFFF),
     this.categoryId,
     this.accent,
+    this.inset = 0.0,
   });
 }
 
@@ -45,6 +50,12 @@ const _xbox = BrandSpec(
   'xbox.com',
   bg: Color(0xFF107C10),
   categoryId: 'jogos',
+);
+const _appleTech = BrandSpec(
+  'apple.com',
+  categoryId: 'tecnologia',
+  accent: Color(0xFFA1A1AA),
+  inset: 0.14,
 );
 
 /// Marcas conhecidas (BR + globais) e jogos exclusivos por plataforma.
@@ -108,11 +119,19 @@ const _brandSpecs = <String, BrandSpec>{
     'youtube.com',
     categoryId: 'assinaturas',
     accent: Color(0xFFFF0033),
+    inset: 0.14,
+  ),
+  'youtube premium': BrandSpec(
+    'youtube.com',
+    categoryId: 'assinaturas',
+    accent: Color(0xFFFF0033),
+    inset: 0.14,
   ),
   'youtube music': BrandSpec(
     'music.youtube.com',
     categoryId: 'assinaturas',
     accent: Color(0xFFFF0033),
+    inset: 0.12,
   ),
   'globoplay': BrandSpec(
     'globoplay.globo.com',
@@ -136,6 +155,18 @@ const _brandSpecs = <String, BrandSpec>{
     categoryId: 'assinaturas',
     accent: Color(0xFF8E8E93),
   ),
+  'apple one': BrandSpec(
+    'apple.com',
+    categoryId: 'assinaturas',
+    accent: Color(0xFFA1A1AA),
+    inset: 0.14,
+  ),
+  'applecare': BrandSpec(
+    'apple.com',
+    categoryId: 'assinaturas',
+    accent: Color(0xFFFA243C),
+    inset: 0.14,
+  ),
   'crunchyroll': BrandSpec(
     'crunchyroll.com',
     categoryId: 'assinaturas',
@@ -156,36 +187,59 @@ const _brandSpecs = <String, BrandSpec>{
     'twitch.tv',
     categoryId: 'lazer',
     accent: Color(0xFF9146FF),
+    inset: 0.12,
   ),
   'audible': BrandSpec(
     'audible.com',
     categoryId: 'assinaturas',
     accent: Color(0xFFFF9900),
   ),
-  'kindle': BrandSpec('amazon.com.br', categoryId: 'educacao'),
-  'cinemark': BrandSpec('cinemark.com.br', categoryId: 'lazer'),
+  'kindle': BrandSpec('amazon.com.br', categoryId: 'educacao', inset: 0.12),
+  'cinemark': BrandSpec('cinemark.com.br', categoryId: 'lazer', inset: 0.12),
   'ingresso': BrandSpec('ingresso.com', categoryId: 'lazer'),
 
-  // IA, nuvem & produtividade
+  // IA, nuvem, Apple & produtividade
   'icloud': BrandSpec(
     'apple.com',
     categoryId: 'assinaturas',
     accent: Color(0xFF3699FF),
+    inset: 0.14,
   ),
-  'apple': BrandSpec(
+  'icloud+': BrandSpec(
     'apple.com',
-    categoryId: 'tecnologia',
-    accent: Color(0xFFA1A1AA),
+    categoryId: 'assinaturas',
+    accent: Color(0xFF3699FF),
+    inset: 0.14,
+  ),
+  'apple': _appleTech,
+  'macbook': _appleTech,
+  'macbook air': _appleTech,
+  'macbook pro': _appleTech,
+  'iphone': _appleTech,
+  'ipad': _appleTech,
+  'airpods': _appleTech,
+  'imac': _appleTech,
+  'mac mini': _appleTech,
+  'mac studio': _appleTech,
+  'apple watch': _appleTech,
+  'airtag': _appleTech,
+  'app store': BrandSpec(
+    'apple.com',
+    categoryId: 'assinaturas',
+    accent: Color(0xFF0A84FF),
+    inset: 0.14,
   ),
   'chatgpt': BrandSpec(
     'openai.com',
     categoryId: 'assinaturas',
     accent: Color(0xFF10A37F),
+    inset: 0.14,
   ),
   'openai': BrandSpec(
     'openai.com',
     categoryId: 'assinaturas',
     accent: Color(0xFF10A37F),
+    inset: 0.14,
   ),
   'claude': BrandSpec(
     'claude.ai',
@@ -470,19 +524,19 @@ const _brandSpecs = <String, BrandSpec>{
   'nomad': BrandSpec('nomadglobal.com', categoryId: 'contas'),
 
   // Telecom, contas & saúde
-  'vivo': BrandSpec('vivo.com.br', categoryId: 'contas'),
-  'claro': BrandSpec('claro.com.br', categoryId: 'contas'),
-  'tim': BrandSpec('tim.com.br', categoryId: 'contas'),
-  'oi': BrandSpec('oi.com.br', categoryId: 'contas'),
+  'vivo': BrandSpec('telefonica.com.br', categoryId: 'contas', inset: 0.14),
+  'claro': BrandSpec('claro.com.br', categoryId: 'contas', inset: 0.12),
+  'tim': BrandSpec('tim.com.br', categoryId: 'contas', inset: 0.12),
+  'oi': BrandSpec('oi.com.br', categoryId: 'contas', inset: 0.12),
   'sky': BrandSpec('sky.com.br', categoryId: 'contas'),
-  'starlink': BrandSpec('starlink.com', categoryId: 'contas'),
-  'enel': BrandSpec('enel.com.br', categoryId: 'contas'),
-  'sabesp': BrandSpec('sabesp.com.br', categoryId: 'contas'),
-  'copel': BrandSpec('copel.com', categoryId: 'contas'),
-  'cemig': BrandSpec('cemig.com.br', categoryId: 'contas'),
-  'comgas': BrandSpec('comgas.com.br', categoryId: 'contas'),
-  'smartfit': BrandSpec('smartfit.com.br', categoryId: 'saude'),
-  'smart fit': BrandSpec('smartfit.com.br', categoryId: 'saude'),
+  'starlink': BrandSpec('starlink.com', categoryId: 'contas', bg: Color(0xFF000000)),
+  'enel': BrandSpec('enel.com', categoryId: 'contas', inset: 0.14),
+  'sabesp': BrandSpec('sabesp.com.br', categoryId: 'contas', inset: 0.12),
+  'copel': BrandSpec('copel.com', categoryId: 'contas', inset: 0.12),
+  'cemig': BrandSpec('cemig.com.br', categoryId: 'contas', inset: 0.12),
+  'comgas': BrandSpec('comgas.com.br', categoryId: 'contas', inset: 0.12),
+  'smartfit': BrandSpec('smartfit.com.br', categoryId: 'saude', bg: Color(0xFFFFB800), inset: 0.10),
+  'smart fit': BrandSpec('smartfit.com.br', categoryId: 'saude', bg: Color(0xFFFFB800), inset: 0.10),
   'bluefit': BrandSpec('bluefit.com.br', categoryId: 'saude'),
   'wellhub': BrandSpec('wellhub.com', categoryId: 'saude'),
   'gympass': BrandSpec('wellhub.com', categoryId: 'saude'),
@@ -725,6 +779,8 @@ const _manageSubscriptionUrls = <String, String>{
   'max': 'https://play.max.com/settings/subscription',
   'globoplay': 'https://minhaconta.globo.com',
   'icloud': 'https://account.apple.com/account/manage',
+  'icloud+': 'https://account.apple.com/account/manage',
+  'apple one': 'https://account.apple.com/account/manage',
   'apple music': 'https://account.apple.com/account/manage',
   'apple tv': 'https://account.apple.com/account/manage',
   'crunchyroll': 'https://www.crunchyroll.com/account/membership',

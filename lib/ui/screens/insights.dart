@@ -1,8 +1,6 @@
 import 'package:flutter/cupertino.dart';
-import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
-import '../../core/cycle.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../data/models.dart';
@@ -111,8 +109,6 @@ class CategoriesScreen extends StatelessWidget {
     final hidden = s.data.hideValues;
     final data = f.byCategory(f.current);
     final total = data.fold<int>(0, (t, e) => t + e.value);
-    final prev = f.byCategory(f.current.prev(s.data.cycleStartDay));
-    final prevMap = {for (final e in prev) e.key.id: e.value};
     return _DetailPage(
       title: 'Por categoria',
       subtitle: '${f.current.label()} · ${fmtMoney(total, hidden: hidden)}',
@@ -162,10 +158,17 @@ class CategoriesScreen extends StatelessWidget {
                     label: 'Outros',
                   ),
               ];
-              return SegmentedCapsuleBar(
-                height: 36,
-                gap: 4,
-                segments: segs,
+              return Container(
+                padding: const EdgeInsets.all(6),
+                decoration: ShapeDecoration(
+                  color: c.card,
+                  shape: const StadiumBorder(),
+                ),
+                child: SegmentedCapsuleBar(
+                  height: 32,
+                  gap: 4,
+                  segments: segs,
+                ),
               );
             },
           ),
@@ -180,11 +183,6 @@ class CategoriesScreen extends StatelessWidget {
                     size: 40,
                   ),
                   title: data[i].key.label,
-                  subtitle: _delta(
-                    data[i].value,
-                    prevMap[data[i].key.id],
-                    hidden,
-                  ),
                   trailing: Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
@@ -211,18 +209,9 @@ class CategoriesScreen extends StatelessWidget {
       ],
     );
   }
-
-  String _delta(int cur, int? prev, bool hidden) {
-    if (prev == null || prev == 0) return 'Novo';
-    final d = cur - prev;
-    if (d == 0) return 'Igual';
-    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)}';
-  }
 }
 
-/// Detalhe de categoria no mesmo padrão visual de `BoxDetail` (Caixinhas):
-/// anel circular centralizado com participação no ciclo, ações rápidas em
-/// botões circulares e lista dos lançamentos da categoria.
+/// Detalhe de categoria focado no valor e na lista de gastos do ciclo.
 class CategoryDetailScreen extends StatelessWidget {
   final String categoryId;
   const CategoryDetailScreen({super.key, required this.categoryId});
@@ -235,7 +224,6 @@ class CategoryDetailScreen extends StatelessWidget {
     final hidden = s.data.hideValues;
     final cat = categoryById(categoryId);
     final cy = f.current;
-    final prevCy = cy.prev(s.data.cycleStartDay);
 
     final items = f
         .expensesIn(cy)
@@ -248,15 +236,7 @@ class CategoryDetailScreen extends StatelessWidget {
     final total = items.fold<int>(0, (t, e) => t + e.cents);
     final cycleTotal = f.expensesTotal(cy);
     final share = cycleTotal > 0 ? (total / cycleTotal).clamp(0.0, 1.0) : 0.0;
-
-    final prevTotal = f
-        .expensesIn(prevCy)
-        .where((e) => e.categoryId == cat.id)
-        .fold<int>(0, (t, e) => t + e.cents);
-    final delta = _deltaText(total, prevTotal, hidden);
-    final accent = c.tone(cat.color);
     final pad = sidePadding(context, maxWidth: 680);
-    final avg = items.isEmpty ? 0 : (total / items.length).round();
 
     return SheetScaler(
       child: CupertinoPageScaffold(
@@ -265,455 +245,107 @@ class CategoryDetailScreen extends StatelessWidget {
           children: [
             GlowBackground(
               tint: c.tone(cat.color, min: 2.5),
-              height: 460,
+              height: 440,
             ),
-            CustomScrollView(
-              physics: const BouncingScrollPhysics(),
-              slivers: [
-                PinnedCupertinoBar(
-                  height: 60,
-                  maxWidth: 680,
-                  builder: (ctx, _) => Row(
-                    children: [
-                      const BackChevron(),
-                      Expanded(
-                        child: Text(
-                          cat.label,
-                          style: T.bodyStrong.copyWith(color: c.text),
-                          textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      RoundIconButton(
-                        LucideIcons.plus,
-                        size: 44,
-                        label: 'Novo gasto em ${cat.label}',
-                        glass: true,
-                        onTap: () => openAddExpense(
-                          context,
-                          initialCategoryId: cat.id,
-                        ),
-                      ),
-                    ],
-                  ),
+            CollapsingTitleScope(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    pad,
-                    Space.lg,
-                    pad,
-                    Space.xl + MediaQuery.paddingOf(context).bottom,
-                  ),
-                  sliver: SliverList.list(
-                    children: [
-                      // ── Hero circular centralizado (reutilizando padrão de Caixinhas)
-                      Column(
-                        children: [
-                          SpringBuilder(
-                            value: share,
-                            from: 0,
-                            spring: Springs.settle,
-                            builder: (_, v, _) => ProgressRing(
-                              size: 136,
-                              stroke: 8,
-                              fraction: v,
-                              color: accent,
-                              track: c.cardAlt,
-                              child: Container(
-                                width: 100,
-                                height: 100,
-                                decoration: BoxDecoration(
-                                  color: cat.color.withValues(
-                                    alpha: c.isDark ? 0.18 : 0.12,
-                                  ),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  cat.icon,
-                                  size: 42,
-                                  color: accent,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: Space.lg),
-                          CountingMoney(
-                            cents: total,
-                            builder: (v) => MoneyText(
-                              v,
-                              hidden: hidden,
-                              style: T.displayLg,
-                            ),
-                          ),
-                          const SizedBox(height: Space.xs),
-                          Text(
-                            cycleTotal > 0
-                                ? '${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
-                                : 'Sem gastos em ${cy.label()}',
-                            textAlign: TextAlign.center,
-                            style: T.label.copyWith(color: c.textSecondary),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: Space.lg),
-
-                      // ── Ações rápidas em botões circulares neutros
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          CircleAction(
-                            icon: LucideIcons.plus,
-                            label: 'Novo gasto',
-                            onTap: () => openAddExpense(
-                              context,
-                              initialCategoryId: cat.id,
-                            ),
-                          ),
-                          CircleAction(
-                            icon: LucideIcons.receiptText,
-                            label: 'No Extrato',
-                            onTap: () {
-                              Navigator.of(context).popUntil((r) => r.isFirst);
-                              shellNav.goTo(
-                                1,
-                                filter: ExtratoFilter(categoryId: cat.id),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-
-                      if (items.isEmpty) ...[
-                        SectionHeader('Gastos em ${cy.label()}'),
-                        EmptyState(
-                          icon: cat.icon,
-                          title: 'Sem gastos nesta categoria',
-                          message:
-                              'Os lançamentos em ${cat.label} neste ciclo aparecem aqui.',
-                          action: 'Adicionar gasto',
-                          onAction: () => openAddExpense(
-                            context,
-                            initialCategoryId: cat.id,
-                          ),
-                        ),
-                      ] else ...[
-                        ListGroup(
-                          title: 'Gastos em ${cy.label()}',
-                          trailing: Text(
-                            '${items.length} ${items.length == 1 ? 'item' : 'itens'}',
-                            style: T.smallStrong.copyWith(
-                              color: c.textSecondary,
-                            ),
-                          ),
-                          children: [
-                            for (final e in items)
-                              ExpenseRow(
-                                e: e,
-                                f: f,
-                                hidden: hidden,
-                                hideCategory: true,
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: Space.base),
-                        Text(
-                          'Média de ${fmtMoney(avg, hidden: hidden)} por lançamento neste ciclo.',
-                          textAlign: TextAlign.center,
-                          style: T.small.copyWith(color: c.textTertiary),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String? _deltaText(int cur, int prev, bool hidden) {
-    if (prev <= 0) return cur > 0 ? 'novo neste ciclo' : null;
-    final d = cur - prev;
-    if (d == 0) return 'igual ao anterior';
-    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. anterior';
-  }
-}
-
-// ── Ritmo do ciclo (Para hoje / Fim de semana / Sequência) ──
-
-enum RhythmFocus { today, weekend }
-
-class RhythmScreen extends StatefulWidget {
-  final bool embedded;
-  final RhythmFocus initialFocus;
-  const RhythmScreen({
-    super.key,
-    this.embedded = false,
-    this.initialFocus = RhythmFocus.today,
-  });
-
-  @override
-  State<RhythmScreen> createState() => _RhythmScreenState();
-}
-
-class _RhythmScreenState extends State<RhythmScreen> {
-  late RhythmFocus _focus = widget.initialFocus;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    final s = context.store;
-    final f = s.f;
-    final hidden = s.data.hideValues;
-    final cy = f.current;
-    final today = f.todayAllowance;
-    final weekendDays = f.upcomingWeekend;
-    final weekend = f.weekendAllowance;
-    final ideal = f.idealDaily(cy);
-    final isWeekend = _focus == RhythmFocus.weekend;
-
-    final now = DateTime.now();
-    final todayItems = [
-      for (final e in f.expensesIn(cy))
-        if (!e.isRecurring && sameDay(e.date, now)) e,
-    ]..sort((a, b) => b.cents.compareTo(a.cents));
-    final spentToday = todayItems.fold<int>(0, (t, e) => t + e.cents);
-    final todayBudget = today + spentToday;
-    final todayRatio = todayBudget > 0
-        ? (spentToday / todayBudget).clamp(0.0, 1.0)
-        : (spentToday > 0 ? 1.0 : 0.0);
-    final perWeekendDay = weekendDays.isEmpty
-        ? 0
-        : ((weekend < 0 ? 0 : weekend) / weekendDays.length).round();
-
-    return _DetailPage(
-      title: widget.embedded
-          ? 'Ritmo'
-          : (isWeekend ? 'Fim de semana' : 'Para hoje'),
-      embedded: widget.embedded,
-      children: [
-        Segmented<RhythmFocus>(
-          value: _focus,
-          options: const {
-            RhythmFocus.today: 'Hoje',
-            RhythmFocus.weekend: 'Fim de semana',
-          },
-          onChanged: (v) => setState(() => _focus = v),
-        ),
-        const SizedBox(height: Space.lg),
-
-        // Hero alinhado à esquerda
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isWeekend
-                  ? 'Disponível no fim de semana'
-                  : (today < 0 ? 'Passou hoje' : 'Disponível hoje'),
-              style: T.label.copyWith(
-                color: !isWeekend && today < 0 ? c.negative : c.textSecondary,
-              ),
-            ),
-            const SizedBox(height: Space.xs),
-            if (isWeekend && weekendDays.isEmpty)
-              Text('—', style: T.displayLg.copyWith(color: c.textSecondary))
-            else
-              CountingMoney(
-                key: ValueKey(_focus),
-                cents: isWeekend
-                    ? (weekend < 0 ? 0 : weekend)
-                    : (today < 0 ? -today : today),
-                builder: (v) => MoneyText(
-                  v,
-                  hidden: hidden,
-                  style: T.displayLg,
-                  color: !isWeekend && today < 0 ? c.negative : null,
-                ),
-              ),
-            const SizedBox(height: Space.xs),
-            Text(
-              isWeekend
-                  ? (weekendDays.isEmpty
-                        ? 'Sem fim de semana restante em ${cy.label()}'
-                        : 'Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday}d restantes')
-                  : 'Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'}',
-              style: T.small.copyWith(color: c.textSecondary),
-            ),
-          ],
-        ),
-        const SizedBox(height: Space.base),
-
-        // Barra de uso do dia (em Hoje) ou cartões dos dias (em Fim de semana)
-        if (!isWeekend) ...[
-          SpringBar(
-            fraction: todayRatio,
-            color: today < 0 ? c.negative : c.primary,
-            track: c.cardAlt,
-            height: 10,
-          ),
-          const SizedBox(height: Space.sm),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Gasto hoje: ${fmtMoney(spentToday, hidden: hidden)}',
-                  style: T.small.copyWith(color: c.textSecondary),
-                ),
-              ),
-              Text(
-                'Teto ${fmtMoney(todayBudget < 0 ? 0 : todayBudget, hidden: hidden)}',
-                style: T.smallStrong.copyWith(color: c.textSecondary),
-              ),
-            ],
-          ),
-          if (todayItems.isNotEmpty)
-            ListGroup(
-              title: 'Gastos de hoje',
-              children: [
-                for (final e in todayItems)
-                  ExpenseRow(e: e, f: f, hidden: hidden),
-              ],
-            ),
-          const SizedBox(height: Space.lg),
-        ] else if (weekendDays.isNotEmpty) ...[
-          Row(
-            children: [
-              for (var i = 0; i < weekendDays.length; i++) ...[
-                if (i > 0) const SizedBox(width: Space.md),
-                Expanded(
-                  child: AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                slivers: [
+                  PinnedCupertinoBar(
+                    height: 60,
+                    maxWidth: 680,
+                    builder: (ctx, progress) => Row(
                       children: [
-                        Text(
-                          _capDay(
-                            DateFormat(
-                              'EEE, d MMM',
-                              'pt_BR',
-                            ).format(weekendDays[i]),
-                          ),
-                          style: T.small.copyWith(color: c.textSecondary),
+                        const BackChevron(),
+                        Expanded(
+                          child: BarTitle(cat.label, progress: progress),
                         ),
-                        const SizedBox(height: Space.xs),
-                        MoneyText(
-                          perWeekendDay,
-                          hidden: hidden,
-                          style: T.headline,
+                        Builder(
+                          builder: (_) {
+                            final (btnBg, btnFg) = softActionTone(
+                              c.palette.primary[500],
+                              isDark: c.isDark,
+                            );
+                            return RoundIconButton(
+                              LucideIcons.plus,
+                              size: 44,
+                              label: 'Novo gasto em ${cat.label}',
+                              bg: btnBg,
+                              fg: btnFg,
+                              onTap: () => openAddExpense(
+                                context,
+                                initialCategoryId: cat.id,
+                              ),
+                            );
+                          },
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: Space.md),
-        ],
+                  SliverPadding(
+                    padding: EdgeInsets.fromLTRB(
+                      pad,
+                      Space.sm,
+                      pad,
+                      Space.xl + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    sliver: SliverList.list(
+                      children: [
+                        LargeTitle(cat.label, style: T.pageTitle),
+                        const SizedBox(height: Space.md),
+                        // Hero enxuto alinhado à esquerda (foco no valor e na lista)
+                        CountingMoney(
+                          cents: total,
+                          builder: (v) => MoneyText(
+                            v,
+                            hidden: hidden,
+                            style: T.displayLg,
+                          ),
+                        ),
+                        if (cycleTotal > 0) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '${(share * 100).round()}% dos gastos de ${cy.label()}',
+                            style: T.small.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                        const SizedBox(height: Space.lg),
 
-        AppCard(
-          title: 'Calendário de ${cy.label()}',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CycleGrid(
-                f: f,
-                columns: 7,
-                highlight: isWeekend ? weekendDays.toSet() : const {},
-              ),
-              const SizedBox(height: Space.md),
-              Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                children: [
-                  _legend(context, c.palette.primary[200], 'Sem gastos'),
-                  _legend(
-                    context,
-                    c.isDark ? c.palette.primary[500] : c.palette.primary[700],
-                    'Na meta',
-                  ),
-                  _legend(context, c.textTertiary, 'Acima'),
-                  _legend(
-                    context,
-                    c.accentWarm,
-                    isWeekend ? 'Fim de semana' : 'Hoje',
+                        if (items.isEmpty)
+                          EmptyState(
+                            icon: cat.icon,
+                            title: 'Sem gastos nesta categoria',
+                            message:
+                                'Os lançamentos em ${cat.label} neste ciclo aparecem aqui.',
+                            action: 'Adicionar gasto',
+                            onAction: () => openAddExpense(
+                              context,
+                              initialCategoryId: cat.id,
+                            ),
+                          )
+                        else
+                          ListGroup(
+                            children: [
+                              for (final e in items)
+                                ExpenseRow(
+                                  e: e,
+                                  f: f,
+                                  hidden: hidden,
+                                  hideCategory: true,
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-
-        ListGroup(
-          title: 'Resumo do ciclo',
-          gap: 12,
-          children: [
-            _line(context, 'Salário', f.salaryFor(cy), hidden),
-            _line(context, 'Fixos', -f.fixedTotal(cy), hidden),
-            _line(context, 'Caixinhas', -f.contributionsTotal(cy), hidden),
-            _line(context, 'Dia a dia', -f.variableTotal(cy), hidden),
-            if (f.committed(cy) - f.fixedTotal(cy) - f.contributionsTotal(cy) !=
-                0)
-              _line(
-                context,
-                'Extras das caixinhas',
-                -(f.committed(cy) -
-                    f.fixedTotal(cy) -
-                    f.contributionsTotal(cy)),
-                hidden,
-              ),
-            _line(
-              context,
-              'Saldo livre',
-              f.freeBalance(cy),
-              hidden,
-              strong: true,
             ),
           ],
         ),
-      ],
-    );
-  }
-
-  String _capDay(String s) =>
-      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
-
-  Widget _legend(BuildContext context, Color color, String label) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 10,
-        height: 10,
-        decoration: ShapeDecoration(
-          color: color,
-          shape: RoundedSuperellipseBorder(
-            borderRadius: BorderRadius.circular(3),
-          ),
-        ),
       ),
-      const SizedBox(width: 6),
-      Text(label, style: T.small.copyWith(color: context.c.textSecondary)),
-    ],
-  );
-
-  Widget _line(
-    BuildContext context,
-    String label,
-    int v,
-    bool hidden, {
-    bool strong = false,
-  }) {
-    final c = context.c;
-    return ListRow(
-      title: label,
-      titleColor: strong ? c.text : c.textSecondary,
-      value: fmtMoney(v, hidden: hidden),
-      valueColor: v < 0 && strong
-          ? c.negative
-          : (strong ? c.text : c.textSecondary),
-      strong: strong,
     );
   }
 }
@@ -742,13 +374,22 @@ class SubscriptionsScreen extends StatelessWidget {
     return _DetailPage(
       title: 'Assinaturas',
       embedded: embedded,
-      trailing: RoundIconButton(
-        LucideIcons.plus,
-        size: 44,
-        label: 'Nova assinatura',
-        bg: c.primary,
-        fg: c.onPrimary,
-        onTap: () => openAddExpense(context, initialCategoryId: 'assinaturas'),
+      trailing: Builder(
+        builder: (_) {
+          final (btnBg, btnFg) = softActionTone(
+            c.palette.primary[500],
+            isDark: c.isDark,
+          );
+          return RoundIconButton(
+            LucideIcons.plus,
+            size: 44,
+            label: 'Nova assinatura',
+            bg: btnBg,
+            fg: btnFg,
+            onTap: () =>
+                openAddExpense(context, initialCategoryId: 'assinaturas'),
+          );
+        },
       ),
       children: [
         if (subs.isEmpty)
@@ -772,10 +413,9 @@ class SubscriptionsScreen extends StatelessWidget {
               onSelect: (e) => showExpenseActions(context, e),
             ),
           ),
-          const SizedBox(height: Space.base),
+          const SizedBox(height: Space.lg),
 
           ListGroup(
-            title: 'Serviços ativos',
             children: [
               for (final e in subs)
                 ExpenseRow(e: e, f: f, hidden: hidden, hideCategory: true),
@@ -956,9 +596,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         ],
 
-        if (cycles.isNotEmpty)
+        if (cycles.isNotEmpty) ...[
+          const SizedBox(height: Space.lg),
           ListGroup(
-            title: 'Ciclos',
             gap: 18,
             children: [
               for (final cy in cycles)
@@ -971,6 +611,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
             ],
           ),
+        ],
       ],
     );
   }

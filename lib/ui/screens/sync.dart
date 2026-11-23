@@ -166,6 +166,18 @@ class SyncScreen extends StatelessWidget {
                               ),
                               ListRow(
                                 leading: Icon(
+                                  LucideIcons.trash2,
+                                  size: 20,
+                                  color: c.negative,
+                                ),
+                                title: 'Apagar dados salvos na nuvem',
+                                titleColor: c.negative,
+                                onTap: sync.isSyncing
+                                    ? null
+                                    : () => _confirmDeleteCloud(context, sync),
+                              ),
+                              ListRow(
+                                leading: Icon(
                                   LucideIcons.logOut,
                                   size: 20,
                                   color: c.negative,
@@ -236,6 +248,27 @@ class SyncScreen extends StatelessWidget {
 
   Future<void> _push(BuildContext context, SyncService sync) async {
     final res = await sync.pushNow();
+    if (!context.mounted) return;
+    toast(
+      context,
+      res.message,
+      icon: res.ok ? LucideIcons.check : LucideIcons.triangleAlert,
+    );
+  }
+
+  Future<void> _confirmDeleteCloud(
+    BuildContext context,
+    SyncService sync,
+  ) async {
+    final ok = await confirm(
+      context,
+      title: 'Apagar dados na nuvem?',
+      message:
+          'O backup salvo no seu Google Drive será excluído permanentemente. Os dados salvos neste celular continuam intactos.',
+      action: 'Apagar da nuvem',
+    );
+    if (!ok || !context.mounted) return;
+    final res = await sync.deleteCloudBackup();
     if (!context.mounted) return;
     toast(
       context,

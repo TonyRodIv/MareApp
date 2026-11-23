@@ -47,10 +47,10 @@ class DashboardGrid extends StatelessWidget {
         final w = box.maxWidth;
         final cols = columnsFor(w);
 
-        // Empacota em linhas na ordem escolhida. Só convivem na mesma linha cards
-        // da mesma "classe de altura" (compactos com compactos, altos com altos),
-        // e cada linha SEMPRE ocupa a largura toda: os cards dividem o espaço em
-        // proporção ao span, então nunca sobra buraco. Alturas iguais por linha.
+        // Empacota em linhas na ordem escolhida: cada linha comporta até [cols]
+        // blocos de largura. Quando dois cards 1x dividem uma linha, ambos se
+        // igualam na mesma altura via IntrinsicHeight; quando um card fica sozinho
+        // na linha, ele ocupa a largura total da linha para nunca sobrar buraco.
         int spanOf(DashTile t) =>
             (spans[t.id] ?? t.defaultSpan).clamp(1, 2).clamp(1, cols);
         final rows = <List<DashTile>>[];
@@ -58,11 +58,7 @@ class DashboardGrid extends StatelessWidget {
         var used = 0;
         for (final t in tiles) {
           final sp = spanOf(t);
-          final cls = _heightClass[t.id] ?? 2;
-          final compatible = current.every(
-            (x) => (_heightClass[x.id] ?? 2) == cls,
-          );
-          if (current.isNotEmpty && (used + sp > cols || !compatible)) {
+          if (current.isNotEmpty && used + sp > cols) {
             rows.add(current);
             current = [];
             used = 0;
@@ -130,28 +126,14 @@ class DashboardGrid extends StatelessWidget {
   }
 }
 
-/// Altura "natural" de cada card: só cards da mesma classe dividem uma linha.
-const _heightClass = <String, int>{
-  'gastos': 1,
-  'caixinhas': 1,
-  'projecao': 1,
-  'hoje': 1,
-  'fds': 1,
-  'categorias': 3,
-  'assinaturas': 3,
-  'historico': 3,
-};
-
 /// Altura mínima por card (px).
 const _minHeight = <String, double>{
   'gastos': 132,
   'caixinhas': 132,
-  'projecao': 112,
-  'hoje': 148,
-  'fds': 148,
-  'categorias': 142,
-  'assinaturas': 124,
-  'historico': 210,
+  'contas': 132,
+  'categorias': 136,
+  'assinaturas': 132,
+  'historico': 184,
 };
 
 /// Envolve o card: segurar → háptico + "respiração" com mola ao trocar o tamanho.

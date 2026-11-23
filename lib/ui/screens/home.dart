@@ -101,18 +101,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               sliver: SliverToBoxAdapter(child: _hero(context, f, hidden)),
             ),
-            // ── Cartões (ocultos por padrão na Carteira; ativáveis em "Editar grade")
-            if (hasCards && !_effectiveHidden(s).contains('contas'))
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: Space.md),
-                  child: CardsStrip(
-                    hidden: hidden,
-                    leftPadding: sidePadding(context, maxWidth: 1200),
-                    rightPadding: sidePadding(context, maxWidth: 1200),
-                  ),
-                ),
-              ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(
                 sidePadding(context, maxWidth: 1200),
@@ -122,41 +110,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               sliver: SliverList.list(
                 children: [
-                  // ── Ações rápidas (cada botão usa uma cor do tema adaptada ao modo claro/escuro)
-                  Builder(
-                    builder: (_) {
-                      final (expBg, expFg) = softActionTone(
-                        c.palette.companion[500],
-                        isDark: c.isDark,
-                      );
-                      final (boxBg, boxFg) = softActionTone(
-                        c.palette.primary[500],
-                        isDark: c.isDark,
-                      );
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: PillButton(
-                              'Gastos',
-                              icon: LucideIcons.receipt,
-                              background: expBg,
-                              foreground: expFg,
-                              onTap: () => openAddExpense(context),
-                            ),
-                          ),
-                          const SizedBox(width: Space.md),
-                          Expanded(
-                            child: PillButton(
-                              'Caixinhas',
-                              icon: LucideIcons.piggyBank,
-                              background: boxBg,
-                              foreground: boxFg,
-                              onTap: () => pushFluid(context, const BoxForm()),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                  // ── Ações rápidas (padrão de cores da tela de sincronização)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: PillButton(
+                          'Gastos',
+                          icon: LucideIcons.receipt,
+                          onTap: () => openAddExpense(context),
+                        ),
+                      ),
+                      const SizedBox(width: Space.md),
+                      Expanded(
+                        child: PillButton(
+                          'Caixinhas',
+                          icon: LucideIcons.piggyBank,
+                          onTap: () => pushFluid(context, const BoxForm()),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: Space.md),
 
@@ -170,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(width: Space.md),
                           Expanded(
                             child: Text(
-                              'Informe seu salário para ver quanto dá para gastar por dia.',
+                              'Informe seu salário para acompanhar o saldo livre do ciclo.',
                               style: T.label.copyWith(color: c.onPrimary),
                             ),
                           ),
@@ -189,13 +161,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   DashboardGrid(
                     gap: Space.md,
                     spans: s.data.cardSpans,
-                    onSpanChanged: s.setCardSpan,
+                    onSpanChanged: (id, newSpan) =>
+                        _handleSpanChanged(s, f, id, newSpan),
                     tiles: _orderedVisibleTiles(
                       context,
                       f,
                       hidden,
-                      noSalary,
                       hasSubs,
+                      hasCards,
                     ),
                   ),
                   const SizedBox(height: Space.sm),
@@ -206,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       kind: BtnKind.ghost,
                       expand: false,
                       height: 44,
-                      onTap: () => _editGrid(context, noSalary),
+                      onTap: () => _editGrid(context),
                     ),
                   ),
                 ],
@@ -219,40 +192,74 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   static const _widgetMeta = <String, (String, IconData, int)>{
-    'contas': ('Contas e cartões', LucideIcons.landmark, 2),
     'gastos': ('Seus Gastos', LucideIcons.receipt, 1),
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
-    'categorias': ('Por categoria', LucideIcons.chartPie, 2),
     'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
-    'hoje': ('Para hoje', LucideIcons.calendarCheck, 1),
-    'fds': ('Fim de semana', LucideIcons.sun, 1),
-    'projecao': ('Projeção do ciclo', LucideIcons.trendingUp, 2),
+    'categorias': ('Por categoria', LucideIcons.chartPie, 2),
+    'contas': ('Contas', LucideIcons.landmark, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
   };
 
   static const _defaultOrder = <String>[
     'gastos',
     'caixinhas',
-    'categorias',
     'assinaturas',
-    'hoje',
-    'fds',
+    'categorias',
     'contas',
-    'projecao',
     'historico',
   ];
 
-  static const _defaultHidden = <String>{'contas', 'projecao', 'historico'};
+  static const _defaultHidden = <String>{};
 
   Set<String> _effectiveHidden(Store s) {
     if (s.data.widgetOrder.isEmpty && s.data.hiddenWidgets.isEmpty) {
       return {..._defaultHidden};
     }
-    final out = s.data.hiddenWidgets.toSet();
-    if (!s.data.widgetOrder.contains('contas')) {
-      out.add('contas');
+    return s.data.hiddenWidgets.toSet();
+  }
+
+  int _defaultSpanFor(String id, bool hasOpenBoxes) {
+    // Sem caixinhas ativas, Assinaturas nasce como 1x ao lado de Seus Gastos.
+    if (id == 'assinaturas' && !hasOpenBoxes) return 1;
+    return _widgetMeta[id]?.$3 ?? 1;
+  }
+
+  /// Ao recolher (2x -> 1x) ou expandir (1x -> 2x), se um card 1x ficaria
+  /// isolado numa linha com vizinho 2x ao lado, ajusta ou reordena de forma
+  /// inteligente para permitir combinar qualquer par de cards 1x na mesma linha.
+  void _handleSpanChanged(Store s, Finance f, String id, int newSpan) {
+    final targetSpan = newSpan.clamp(1, 2);
+    s.setCardSpan(id, targetSpan);
+    if (targetSpan != 1) return;
+
+    final hasOpenBoxes = f.openBoxes.isNotEmpty;
+    final hidden = _effectiveHidden(s);
+    final order = _allIds(s.data.widgetOrder);
+    final visible = [
+      for (final item in order)
+        if (!hidden.contains(item)) item,
+    ];
+    final idx = visible.indexOf(id);
+    if (idx < 0) return;
+
+    int spanOf(String wid) =>
+        (s.data.cardSpans[wid] ?? _defaultSpanFor(wid, hasOpenBoxes)).clamp(1, 2);
+
+    // Se já há outro card 1x imediatamente antes ou depois, eles já formam par!
+    final prevIs1 = idx > 0 && spanOf(visible[idx - 1]) == 1;
+    final nextIs1 = idx + 1 < visible.length && spanOf(visible[idx + 1]) == 1;
+    if (prevIs1 || nextIs1) return;
+
+    // Se há outro card 1x solto na grade (ex.: Seus Gastos lá no topo quando
+    // Caixinhas não existe ou quando outro card 2x está no meio), aproxima os dois!
+    final other1Idx = visible.indexWhere((w) => w != id && spanOf(w) == 1);
+    if (other1Idx >= 0) {
+      final otherId = visible[other1Idx];
+      final newOrder = [...order]..remove(id);
+      final insertAt = (newOrder.indexOf(otherId) + 1).clamp(0, newOrder.length);
+      newOrder.insert(insertAt, id);
+      s.setDashboardLayout(order: newOrder);
     }
-    return out;
   }
 
   List<String> _allIds(List<String> savedOrder) {
@@ -269,8 +276,8 @@ class _HomeScreenState extends State<HomeScreen> {
     BuildContext context,
     Finance f,
     bool hidden,
-    bool noSalary,
     bool hasSubs,
+    bool hasCards,
   ) {
     final s = context.store;
     final cy = f.current;
@@ -280,26 +287,30 @@ class _HomeScreenState extends State<HomeScreen> {
     final hasExpenses = f.expensesTotal(cy) > 0;
     final hasOpenBoxes = f.openBoxes.isNotEmpty;
     final hasCategories = f.byCategory(cy).any((entry) => entry.value > 0);
-    final hasWeekend = f.upcomingWeekend.isNotEmpty;
     final hasHistory = f
         .lastCycles(12)
         .any((cycle) => f.expensesTotal(cycle) > 0);
 
     for (final id in order) {
       if (hiddenSet.contains(id)) continue;
-      if (noSalary && (id == 'hoje' || id == 'fds' || id == 'projecao')) {
-        continue;
-      }
       if (id == 'gastos' && !hasExpenses) continue;
       if (id == 'caixinhas' && !hasOpenBoxes) continue;
       if (id == 'categorias' && !hasCategories) continue;
       if (id == 'assinaturas' && !hasSubs) continue;
-      if (id == 'fds' && !hasWeekend) continue;
+      if (id == 'contas' && !hasCards) continue;
       if (id == 'historico' && !hasHistory) continue;
+
+      final defSpan = _defaultSpanFor(id, hasOpenBoxes);
 
       switch (id) {
         case 'contas':
-          continue; // Renderizado na faixa superior CardsStrip
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: defSpan,
+              builder: (ctx, w, span) => _accountsCard(ctx, s, f, hidden, w),
+            ),
+          );
         case 'gastos':
           final spent = f.expensesTotal(cy);
           final sal = f.salaryFor(cy);
@@ -311,6 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
           tiles.add(
             DashTile(
               id: id,
+              defaultSpan: defSpan,
               builder: (ctx, w, span) => _statCard(
                 ctx,
                 'Seus Gastos',
@@ -331,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
           tiles.add(
             DashTile(
               id: id,
+              defaultSpan: defSpan,
               builder: (ctx, w, span) => _statCard(
                 ctx,
                 'Caixinhas',
@@ -347,37 +360,15 @@ class _HomeScreenState extends State<HomeScreen> {
           tiles.add(
             DashTile(
               id: id,
-              defaultSpan: 2,
+              defaultSpan: defSpan,
               builder: (ctx, w, span) => _categoriesCard(ctx, f, hidden, w),
-            ),
-          );
-        case 'hoje':
-          tiles.add(
-            DashTile(
-              id: id,
-              builder: (ctx, w, span) => _todayCard(ctx, f, hidden, w),
-            ),
-          );
-        case 'fds':
-          tiles.add(
-            DashTile(
-              id: id,
-              builder: (ctx, w, span) => _weekendCard(ctx, f, hidden, w),
-            ),
-          );
-        case 'projecao':
-          tiles.add(
-            DashTile(
-              id: id,
-              defaultSpan: 2,
-              builder: (ctx, w, span) => _projectionCard(ctx, f, hidden),
             ),
           );
         case 'assinaturas':
           tiles.add(
             DashTile(
               id: id,
-              defaultSpan: 2,
+              defaultSpan: defSpan,
               builder: (ctx, w, span) => _subscriptionsCard(ctx, f, hidden, w),
             ),
           );
@@ -385,17 +376,20 @@ class _HomeScreenState extends State<HomeScreen> {
           tiles.add(
             DashTile(
               id: id,
-              defaultSpan: 2,
+              defaultSpan: defSpan,
               builder: (ctx, w, span) => AppCard(
+                expandChild: true,
                 title: 'Histórico visual',
                 onTap: () => push(context, const HistoryScreen()),
-                child: HistoryLineChart(
-                  f: f,
-                  hidden: hidden,
-                  height: 148,
-                  interactive: false,
-                  showAxis: w >= 240,
-                  cycles: w < 220 ? 3 : (w < 420 ? 6 : 12),
+                child: Center(
+                  child: HistoryLineChart(
+                    f: f,
+                    hidden: hidden,
+                    height: w < 220 ? 96 : 148,
+                    interactive: false,
+                    showAxis: w >= 240,
+                    cycles: w < 220 ? 3 : (w < 420 ? 6 : 12),
+                  ),
                 ),
               ),
             ),
@@ -405,41 +399,107 @@ class _HomeScreenState extends State<HomeScreen> {
     return tiles;
   }
 
-  Widget _projectionCard(BuildContext context, Finance f, bool hidden) {
+  Widget _accountsCard(
+    BuildContext context,
+    Store s,
+    Finance f,
+    bool hidden,
+    double w,
+  ) {
     final c = context.c;
-    final cy = f.current;
-    final totalDays = cy.days.length.clamp(1, 31);
-    final elapsed = (totalDays - f.daysLeftInclToday + 1).clamp(1, totalDays);
-    final spentVar = f.variableTotal(cy);
-    final avgDaily = spentVar / elapsed;
-    final projectedRemainingVar = (avgDaily * (f.daysLeftInclToday - 1))
-        .round();
-    final projectedEnd = f.freeBalance(cy) - projectedRemainingVar;
-    final positive = projectedEnd >= 0;
+    final cards = s.data.cards;
+    final compact = w < 240;
+
     return AppCard(
-      title: 'Projeção do ciclo',
-      onTap: () => push(context, const RhythmScreen()),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      expandChild: true,
+      onTap: () => manageCards(context),
+      titleWidget: Row(
         children: [
-          MoneyText(
-            projectedEnd,
-            hidden: hidden,
-            style: T.cardValue,
-            color: positive ? c.positive : c.negative,
+          Expanded(
+            child: Text(
+              'Contas',
+              style: T.body.copyWith(color: c.text),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          const SizedBox(height: Space.xxs),
-          Text(
-            positive ? 'Sobra prevista' : 'Falta prevista',
-            style: T.small.copyWith(color: c.textSecondary),
+          Pressable(
+            semanticLabel: 'Nova conta ou cartão',
+            onTap: () => editCard(context),
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: c.cardAlt,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(LucideIcons.plus, size: 15, color: c.textSecondary),
+            ),
           ),
         ],
       ),
+      child: cards.isEmpty
+          ? Align(
+              alignment: Alignment.bottomLeft,
+              child: Text(
+                'Toque para adicionar',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
+            )
+          : compact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < cards.length; i++) ...[
+                        if (i > 0) const SizedBox(width: Space.xs),
+                        Pressable(
+                          onTap: () => push(
+                            context,
+                            CardDetailScreen(cardId: cards[i].id),
+                          ),
+                          onLongPress: () => editCard(context, card: cards[i]),
+                          child: CardChip(card: cards[i], width: 74),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Align(
+              alignment: Alignment.centerLeft,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < cards.length; i++) ...[
+                      if (i > 0) const SizedBox(width: Space.sm),
+                      Pressable(
+                        onTap: () => push(
+                          context,
+                          CardDetailScreen(cardId: cards[i].id),
+                        ),
+                        onLongPress: () => editCard(context, card: cards[i]),
+                        child: CardChip(card: cards[i], width: 88),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
-  Future<void> _editGrid(BuildContext context, bool noSalary) {
+  Future<void> _editGrid(BuildContext context) {
     final s = context.storeRead;
+    final f = s.f;
     var order = _allIds(s.data.widgetOrder);
     var hidden = _effectiveHidden(s);
 
@@ -448,12 +508,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) {
           final c = ctx.c;
-          final available = [
-            for (final id in order)
-              if (!(noSalary &&
-                  (id == 'hoje' || id == 'fds' || id == 'projecao')))
-                id,
-          ];
+          final hasOpenBoxes = f.openBoxes.isNotEmpty;
+          final available = order;
           return SheetBody(
             bottom: PillButton('Concluir', onTap: () => Navigator.pop(ctx)),
             child: Column(
@@ -495,7 +551,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
-                  'Reordene, redimensione (1x ou 2x) ou oculte os cards da Carteira.',
+                  'Combine dois cards 1x lado a lado ou expanda em 2x.',
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
                 const SizedBox(height: Space.base),
@@ -509,7 +565,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           final id = available[idx];
                           final meta = _widgetMeta[id]!;
                           final visible = !hidden.contains(id);
-                          final span = s.data.cardSpans[id] ?? meta.$3;
+                          final span =
+                              s.data.cardSpans[id] ??
+                              _defaultSpanFor(id, hasOpenBoxes);
                           return ListRow(
                             leading: SizedBox(
                               width: 32,
@@ -530,8 +588,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Pressable(
                                   semanticLabel: 'Largura ${span}x',
                                   onTap: () {
-                                    s.setCardSpan(id, span == 1 ? 2 : 1);
-                                    set(() {});
+                                    _handleSpanChanged(
+                                      s,
+                                      f,
+                                      id,
+                                      span == 1 ? 2 : 1,
+                                    );
+                                    set(() {
+                                      order = _allIds(s.data.widgetOrder);
+                                    });
                                   },
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -828,112 +893,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     return AppCard(
+      expandChild: true,
       title: 'Por categoria',
       onTap: () => push(context, const CategoriesScreen()),
       child: total <= 0
-          ? Text(
-              'Sem gastos neste ciclo',
-              style: T.small.copyWith(color: c.textSecondary),
+          ? Align(
+              alignment: Alignment.bottomLeft,
+              child: Text(
+                'Sem gastos neste ciclo',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
             )
           : w < 240
           ? Column(
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Center(child: ring()),
-                const SizedBox(height: Space.md),
+                const SizedBox(height: Space.sm),
                 legend(2),
               ],
             )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ring(),
-                const SizedBox(width: Space.lg),
-                Expanded(child: legend(4)),
-              ],
+          : Center(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ring(),
+                  const SizedBox(width: Space.lg),
+                  Expanded(child: legend(4)),
+                ],
+              ),
             ),
-    );
-  }
-
-  Widget _todayCard(BuildContext context, Finance f, bool hidden, double w) {
-    final c = context.c;
-    final v = f.todayAllowance;
-    return AppCard(
-      expandChild: true,
-      title: 'Para hoje',
-      onTap: () => push(
-        context,
-        const RhythmScreen(initialFocus: RhythmFocus.today),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MiniWeekStrip(
-            highlightedWeekdays: {DateTime.now().weekday},
-            highlightColor: v < 0 ? c.negative : c.primary,
-          ),
-          const Spacer(),
-          const SizedBox(height: Space.sm),
-          CountingMoney(
-            cents: v < 0 ? 0 : v,
-            builder: (x) => MoneyText(
-              x,
-              hidden: hidden,
-              style: T.cardValue,
-              color: v < 0 ? c.negative : null,
-            ),
-          ),
-          if (v < 0) ...[
-            const SizedBox(height: Space.xxs),
-            Text(
-              'Passou ${fmtMoney(-v, hidden: hidden)}',
-              style: T.small.copyWith(color: c.negative),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _weekendCard(BuildContext context, Finance f, bool hidden, double w) {
-    final c = context.c;
-    final days = f.upcomingWeekend;
-    final v = f.weekendAllowance;
-    return AppCard(
-      expandChild: true,
-      title: 'Fim de semana',
-      onTap: () => push(
-        context,
-        const RhythmScreen(initialFocus: RhythmFocus.weekend),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MiniWeekStrip(
-            highlightedWeekdays: days.isEmpty
-                ? const {}
-                : {for (final d in days) d.weekday},
-            highlightColor: c.accentWarm,
-          ),
-          const Spacer(),
-          const SizedBox(height: Space.sm),
-          if (days.isEmpty) ...[
-            Text('—', style: T.cardValue.copyWith(color: c.textSecondary)),
-            const SizedBox(height: Space.xxs),
-            Text(
-              'Fora do ciclo',
-              style: T.small.copyWith(color: c.textSecondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ] else
-            CountingMoney(
-              cents: v < 0 ? 0 : v,
-              builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
-            ),
-        ],
-      ),
     );
   }
 
@@ -946,11 +935,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final c = context.c;
     final subs = f.subscriptions(f.current);
     final total = subs.fold<int>(0, (s, e) => s + e.cents);
+    final compact = w < 260;
 
     Widget logoStack() {
-      const iconSz = 38.0;
-      const step = 28.0;
-      final maxLogos = w < 240 ? 3 : 4;
+      final iconSz = compact ? 28.0 : 38.0;
+      final step = compact ? 20.0 : 28.0;
+      final maxLogos = compact ? 3 : 4;
       final shown = subs.take(maxLogos).toList();
       final extra = subs.length - shown.length;
       final count = shown.length + (extra > 0 ? 1 : 0);
@@ -988,7 +978,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   alignment: Alignment.center,
                   child: Text(
                     '+$extra',
-                    style: T.smallStrong.copyWith(color: c.textSecondary),
+                    style: (compact ? T.tiny : T.smallStrong).copyWith(
+                      color: c.textSecondary,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -1027,13 +1020,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: T.small.copyWith(color: c.textSecondary),
               ),
             )
-          : w < 260
+          : compact
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const Spacer(),
                 logoStack(),
-                const SizedBox(height: Space.md),
+                const SizedBox(height: Space.xs),
                 summary,
               ],
             )

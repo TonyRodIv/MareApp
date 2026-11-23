@@ -83,11 +83,11 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
     'Caixinhas',
     'Por categoria',
     'Assinaturas',
+    'Contas',
+    'Histórico visual',
   ]) {
     expect(tile(label), findsNothing, reason: '$label sem dados');
   }
-  expect(tile('Para hoje'), findsOneWidget);
-  expect(tile('Fim de semana'), findsOneWidget);
 
   // Sem caixinhas: aba Caixinhas fica oculta na navbar e vira sugestão no Perfil
   expect(
@@ -250,10 +250,10 @@ void main() {
     final defaultLabels = [
       'Seus Gastos',
       'Caixinhas',
-      'Por categoria',
       'Assinaturas',
-      'Para hoje',
-      'Fim de semana',
+      'Por categoria',
+      'Contas',
+      'Histórico visual',
     ];
     for (final label in defaultLabels) {
       expect(

@@ -162,8 +162,8 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
 
-                  // ── Sugestão de primeira caixinha (some após criar uma)
-                  if (d.boxes.isEmpty) ...[
+                  // ── Sugestão de primeira caixinha (some após criar uma ou dispensar)
+                  if (d.boxes.isEmpty && !d.dismissedBoxTip) ...[
                     const SectionHeader('Sugestão'),
                     AppCard(
                       onTap: () => pushFluid(context, const BoxForm()),
@@ -189,11 +189,13 @@ class ProfileScreen extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const SizedBox(width: Space.sm),
-                          Icon(
-                            LucideIcons.chevronRight,
-                            size: 18,
-                            color: c.textSecondary,
+                          const SizedBox(width: Space.xs),
+                          RoundIconButton(
+                            LucideIcons.x,
+                            size: 32,
+                            bg: c.cardAlt,
+                            label: 'Dispensar sugestão',
+                            onTap: s.dismissBoxTip,
                           ),
                         ],
                       ),

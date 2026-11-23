@@ -597,6 +597,9 @@ class AppData {
   /// IDs das abas fixadas na barra de navegação inferior (vazio = padrão).
   List<String> navTabs;
 
+  /// Se o usuário dispensou o card de sugestão de primeira caixinha no Perfil.
+  bool dismissedBoxTip;
+
   /// Última alteração local (UTC), usada para sincronização com o Google Drive.
   DateTime? updatedAt;
 
@@ -609,6 +612,7 @@ class AppData {
     this.accentColor,
     this.hideValues = false,
     this.onboardingDone = false,
+    this.dismissedBoxTip = false,
     List<SalaryEntry>? salaries,
     List<Expense>? expenses,
     List<Caixinha>? boxes,
@@ -641,6 +645,7 @@ class AppData {
     'accentColor': accentColor,
     'hideValues': hideValues,
     'onboardingDone': onboardingDone,
+    'dismissedBoxTip': dismissedBoxTip,
     'salaries': salaries.map((e) => e.toJson()).toList(),
     'expenses': expenses.map((e) => e.toJson()).toList(),
     'boxes': boxes.map((e) => e.toJson()).toList(),
@@ -668,6 +673,7 @@ class AppData {
       accentColor: (j['accentColor'] as num?)?.toInt(),
       hideValues: j['hideValues'] == true,
       onboardingDone: j['onboardingDone'] == true,
+      dismissedBoxTip: j['dismissedBoxTip'] == true,
       salaries: list('salaries', SalaryEntry.fromJson),
       expenses: list('expenses', Expense.fromJson),
       boxes: list('boxes', Caixinha.fromJson),

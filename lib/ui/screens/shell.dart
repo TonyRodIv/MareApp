@@ -73,12 +73,6 @@ const navDestinations = <NavDestination>[
     icon: LucideIcons.chartColumn,
   ),
   NavDestination(
-    id: 'ritmo',
-    label: 'Ritmo',
-    subtitle: 'Meta diária e calendário do ciclo',
-    icon: LucideIcons.zap,
-  ),
-  NavDestination(
     id: 'perfil',
     label: 'Seu Perfil',
     subtitle: 'Finanças e configurações',
@@ -192,7 +186,6 @@ class _ShellState extends State<Shell> {
         'categorias' => const CategoriesScreen(embedded: true),
         'assinaturas' => const SubscriptionsScreen(embedded: true),
         'historico' => const HistoryScreen(embedded: true),
-        'ritmo' => const RhythmScreen(embedded: true),
         'perfil' => const ProfileScreen(),
         _ => const HomeScreen(),
       },
@@ -323,8 +316,8 @@ class _ShellState extends State<Shell> {
                 child: ProgressiveBlur(
                   direction: AxisDirection.up,
                   maxSigma: 22,
-                  tint: c.isDark ? c.bg : null,
-                  tintOpacity: c.isDark ? 0.82 : 0.84,
+                  tint: c.bg,
+                  tintOpacity: c.isDark ? 0.86 : 0.84,
                 ),
               ),
               // Botão flutuante de adicionar gasto na aba Extrato (ACIMA do blur!)
@@ -351,27 +344,35 @@ class _ShellState extends State<Shell> {
                             semanticLabel: 'Adicionar gasto',
                             scale: 0.92,
                             onTap: () => openAddExpense(context),
-                            child: Container(
-                              width: 56,
-                              height: 56,
-                              decoration: BoxDecoration(
-                                color: c.primary,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Palette.neutral950.withValues(
-                                      alpha: c.isDark ? 0.48 : 0.18,
-                                    ),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 8),
+                            child: Builder(
+                              builder: (_) {
+                                final (fabBg, fabFg) = softActionTone(
+                                  c.palette.primary[500],
+                                  isDark: c.isDark,
+                                );
+                                return Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: fabBg,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Palette.neutral950.withValues(
+                                          alpha: c.isDark ? 0.48 : 0.18,
+                                        ),
+                                        blurRadius: 20,
+                                        offset: const Offset(0, 8),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: Icon(
-                                LucideIcons.plus,
-                                size: 24,
-                                color: c.onPrimary,
-                              ),
+                                  child: Icon(
+                                    LucideIcons.plus,
+                                    size: 24,
+                                    color: fabFg,
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         ),

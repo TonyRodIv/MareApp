@@ -123,27 +123,6 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final body = Stack(
       children: [
         const GlowBackground(height: 440),
-        // Véu suave na cor do fundo (escuro no dark, claro no light)
-        IgnorePointer(
-          child: SizedBox(
-            height: 440,
-            width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    c.bg.withValues(alpha: c.isDark ? 0.48 : 0.54),
-                    c.bg.withValues(alpha: c.isDark ? 0.68 : 0.72),
-                    c.bg.withValues(alpha: 0),
-                  ],
-                  stops: const [0.0, 0.55, 1.0],
-                ),
-              ),
-            ),
-          ),
-        ),
         CollapsingTitleScope(
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(
@@ -191,11 +170,6 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _range(cy),
-                        style: T.label.copyWith(color: c.textSecondary),
-                      ),
-                      const SizedBox(height: Space.xs),
                       CountingMoney(
                         cents: total,
                         builder: (v) => MoneyText(
@@ -215,10 +189,30 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                   ),
                   if (items.isNotEmpty) ...[
                     const SizedBox(height: Space.md),
-                    CycleExpenseLineChart(
-                      cycle: cy,
-                      items: items,
+                    HistoryLineChart(
+                      f: f,
+                      cycles: 3,
+                      anchorCycle: cy,
+                      height: 136,
                       hidden: hidden,
+                      valueFor: (cItem) {
+                        var list = f.expensesIn(cItem);
+                        if (_cat != null) {
+                          list = list.where((e) => e.categoryId == _cat).toList();
+                        }
+                        if (effectiveCardId != null) {
+                          list = list
+                              .where((e) => e.cardId == effectiveCardId)
+                              .toList();
+                        }
+                        if (_kind == 1) {
+                          list = list.where((e) => e.isRecurring).toList();
+                        }
+                        if (_kind == 2) {
+                          list = list.where((e) => !e.isRecurring).toList();
+                        }
+                        return list.fold<int>(0, (t, e) => t + e.cents);
+                      },
                     ),
                   ],
                   const SizedBox(height: Space.lg),
@@ -414,23 +408,31 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
               semanticLabel: 'Adicionar gasto',
               scale: 0.92,
               onTap: () => openAddExpense(context),
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: c.primary,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Palette.neutral950.withValues(
-                        alpha: c.isDark ? 0.48 : 0.18,
-                      ),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
+              child: Builder(
+                builder: (_) {
+                  final (fabBg, fabFg) = softActionTone(
+                    c.palette.primary[500],
+                    isDark: c.isDark,
+                  );
+                  return Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: fabBg,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Palette.neutral950.withValues(
+                            alpha: c.isDark ? 0.48 : 0.18,
+                          ),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Icon(LucideIcons.plus, size: 24, color: c.onPrimary),
+                    child: Icon(LucideIcons.plus, size: 24, color: fabFg),
+                  );
+                },
               ),
             ),
           ),
@@ -446,8 +448,8 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
   void _openSearch(BuildContext context, Cycle cy) {
     Navigator.of(context).push<void>(
       PageRouteBuilder<void>(
-        transitionDuration: const Duration(milliseconds: 280),
-        reverseTransitionDuration: const Duration(milliseconds: 220),
+        transitionDuration: const Duration(milliseconds: 340),
+        reverseTransitionDuration: const Duration(milliseconds: 240),
         pageBuilder: (_, _, _) => ExtratoSearchScreen(
           cycle: cy,
           initialCard: _card,
@@ -459,156 +461,211 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
             curve: easeOutExpo,
             reverseCurve: Curves.easeInCubic,
           );
-          return FadeTransition(opacity: curve, child: child);
+          return FadeTransition(
+            opacity: curve,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, 0.025),
+                end: Offset.zero,
+              ).animate(curve),
+              child: child,
+            ),
+          );
         },
       ),
     );
   }
 
   Future<void> _openCyclePicker(BuildContext context, Finance f) {
-    final offsets = [for (var i = 3; i >= -11; i--) i];
-    return showSheet<void>(
+    const monthNames = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez',
+    ];
+    final curKey = f.current.key;
+    final activeKey = curKey + _offset;
+    var viewYear = activeKey ~/ 12;
+    final minYear = (curKey ~/ 12) - 4;
+    final maxYear = (curKey ~/ 12) + 2;
+
+    return showIosSheet<void>(
       context,
-      edgeToEdge: true,
-      builder: (ctx) {
-        final c = ctx.c;
-        final wellBg = c.isDark ? c.bg : c.surfaceLow;
-        return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Escolher ciclo',
-                      style: T.title.copyWith(
-                        color: c.text,
-                        decoration: TextDecoration.none,
-                      ),
-                    ),
-                  ),
-                  if (_offset != 0)
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(horizontal: Space.sm),
-                      onPressed: () {
-                        setState(() => _offset = 0);
-                        Navigator.pop(ctx);
-                      },
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final c = ctx.c;
+          final (selBg, selFg) = softActionTone(
+            c.palette.primary[500],
+            isDark: c.isDark,
+          );
+          return SheetBody(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
                       child: Text(
-                        'Ciclo atual',
-                        style: T.labelStrong.copyWith(color: c.primary),
+                        'Escolher ciclo',
+                        style: T.title.copyWith(color: c.text),
                       ),
                     ),
-                  RoundIconButton(
-                    LucideIcons.x,
-                    size: 36,
-                    bg: c.cardAlt,
-                    label: 'Fechar',
-                    onTap: () => Navigator.pop(ctx),
+                    if (_offset != 0)
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.sm,
+                        ),
+                        onPressed: () {
+                          setState(() => _offset = 0);
+                          Navigator.pop(ctx);
+                        },
+                        child: Text(
+                          'Ciclo atual',
+                          style: T.labelStrong.copyWith(color: c.primary),
+                        ),
+                      ),
+                    RoundIconButton(
+                      LucideIcons.x,
+                      size: 36,
+                      bg: c.cardAlt,
+                      label: 'Fechar',
+                      onTap: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Space.md),
+                // Seletor de ano compacto
+                Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: Space.xs),
+                  decoration: ShapeDecoration(
+                    color: c.isDark ? c.bg : c.surfaceLow,
+                    shape: const StadiumBorder(),
                   ),
-                ],
-              ),
-              const SizedBox(height: Space.md),
-              Container(
-                padding: const EdgeInsets.all(Space.sm),
-                decoration: ShapeDecoration(
-                  color: wellBg,
-                  shape: RoundedSuperellipseBorder(
-                    borderRadius: BorderRadius.circular(22),
+                  child: Row(
+                    children: [
+                      RoundIconButton(
+                        LucideIcons.chevronLeft,
+                        size: 34,
+                        bg: const Color(0x00000000),
+                        fg: viewYear > minYear ? c.text : c.textTertiary,
+                        label: 'Ano anterior',
+                        onTap: viewYear > minYear
+                            ? () => set(() => viewYear--)
+                            : null,
+                      ),
+                      Expanded(
+                        child: Text(
+                          '$viewYear',
+                          textAlign: TextAlign.center,
+                          style: T.bodyStrong.copyWith(color: c.text),
+                        ),
+                      ),
+                      RoundIconButton(
+                        LucideIcons.chevronRight,
+                        size: 34,
+                        bg: const Color(0x00000000),
+                        fg: viewYear < maxYear ? c.text : c.textTertiary,
+                        label: 'Próximo ano',
+                        onTap: viewYear < maxYear
+                            ? () => set(() => viewYear++)
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  children: [
-                    for (final off in offsets)
-                      () {
-                        final itemCy = f.fromKey(f.current.key + off);
-                        final selected = off == _offset;
-                        final isCurrent = off == 0;
-                        return Pressable(
-                          scale: 0.985,
-                          onTap: () {
-                            setState(() => _offset = off);
-                            Navigator.pop(ctx);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: Space.md,
-                              vertical: 12,
-                            ),
-                            decoration: ShapeDecoration(
-                              color: selected
-                                  ? (c.isDark ? c.cardAlt : c.card)
-                                  : null,
-                              shape: RoundedSuperellipseBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
+                const SizedBox(height: Space.md),
+                // Grade 3x4 dos 12 meses do ano
+                LayoutBuilder(
+                  builder: (_, box) {
+                    const gap = 8.0;
+                    final tileW = (box.maxWidth - gap * 2) / 3;
+                    return Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: [
+                        for (var m = 0; m < 12; m++)
+                          () {
+                            final key = viewYear * 12 + m;
+                            final off = key - curKey;
+                            final selected = key == activeKey;
+                            final isCurrent = key == curKey;
+                            return Pressable(
+                              scale: 0.96,
+                              onTap: () {
+                                setState(() => _offset = off);
+                                Navigator.pop(ctx);
+                              },
+                              child: Container(
+                                width: tileW,
+                                height: 54,
+                                decoration: ShapeDecoration(
+                                  color: selected
+                                      ? selBg
+                                      : (c.isDark ? c.bg : c.surfaceLow),
+                                  shape: RoundedSuperellipseBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: isCurrent && !selected
+                                        ? BorderSide(
+                                            color: c.primary.withValues(
+                                              alpha: 0.55,
+                                            ),
+                                            width: 1.5,
+                                          )
+                                        : BorderSide.none,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      monthNames[m],
+                                      style:
+                                          (selected
+                                                  ? T.bodyStrong
+                                                  : T.bodyMedium)
+                                              .copyWith(
+                                                color: selected
+                                                    ? selFg
+                                                    : (isCurrent
+                                                          ? c.primary
+                                                          : c.text),
+                                              ),
+                                    ),
+                                    if (isCurrent) ...[
+                                      const SizedBox(height: 2),
                                       Text(
-                                        itemCy.label(),
-                                        style:
-                                            (selected
-                                                    ? T.bodyStrong
-                                                    : T.bodyMedium)
-                                                .copyWith(
-                                                  color: selected
-                                                      ? c.primary
-                                                      : c.text,
-                                                  decoration:
-                                                      TextDecoration.none,
-                                                ),
-                                      ),
-                                      Text(
-                                        _range(itemCy),
-                                        style: T.small.copyWith(
-                                          color: c.textSecondary,
-                                          decoration: TextDecoration.none,
+                                        'Atual',
+                                        style: T.tiny.copyWith(
+                                          color: selected ? selFg : c.primary,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                     ],
-                                  ),
+                                  ],
                                 ),
-                                if (isCurrent)
-                                  Tag(
-                                    'Atual',
-                                    bg: c.primarySoft,
-                                    fg: c.primary,
-                                  ),
-                                if (selected) ...[
-                                  const SizedBox(width: Space.sm),
-                                  Icon(
-                                    LucideIcons.check,
-                                    size: 18,
-                                    color: c.primary,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        );
-                      }(),
-                  ],
+                              ),
+                            );
+                          }(),
+                      ],
+                    );
+                  },
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
-  }
-
-  String _range(Cycle cy) {
-    final last = cy.end.subtract(const Duration(days: 1));
-    return '${cy.start.day}/${cy.start.month} – ${last.day}/${last.month}';
   }
 
   String _dayLabel(DateTime d) {
@@ -670,8 +727,12 @@ class _CycleBarPill extends StatelessWidget {
     final perf = context.perf;
     final sigma = 24.0 * perf.glassSigmaFactor;
     final glassBg = c.isDark
-        ? const Color(0xFF16161A).withValues(alpha: perf.allowBlur ? 0.56 : 0.90)
-        : const Color(0xFFFFFFFF).withValues(alpha: perf.allowBlur ? 0.62 : 0.92);
+        ? (perf.allowBlur
+              ? const Color(0xFF16161A).withValues(alpha: 0.56)
+              : c.card)
+        : (perf.allowBlur
+              ? const Color(0xFFFFFFFF).withValues(alpha: 0.62)
+              : Palette.neutral0);
     final pill = Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -1188,13 +1249,25 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
               )
             else ...[
               SliverPadding(
-                padding: EdgeInsets.fromLTRB(pad, Space.base, pad, 0),
+                padding: EdgeInsets.fromLTRB(pad, Space.md, pad, Space.xs),
                 sliver: SliverToBoxAdapter(
-                  child: SectionHeader(
-                    '${results.length} ${results.length == 1 ? 'resultado' : 'resultados'}',
-                    trailing: Text(
-                      fmtMoney(total, hidden: hidden),
-                      style: T.smallStrong.copyWith(color: c.textSecondary),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: Space.xs),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${results.length} ${results.length == 1 ? 'resultado' : 'resultados'}',
+                            style: T.bodyMedium.copyWith(
+                              color: c.textSecondary,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          fmtMoney(total, hidden: hidden),
+                          style: T.smallStrong.copyWith(color: c.textSecondary),
+                        ),
+                      ],
                     ),
                   ),
                 ),
