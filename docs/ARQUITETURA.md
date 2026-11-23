@@ -69,4 +69,4 @@ Este documento detalha os principais módulos, contratos de dados e decisões de
 - `AndroidManifest.xml`: habilita gestos preditivos nativos do Android (`android:enableOnBackInvokedCallback="true"`), integrados às rotas em `shell.dart` (`PredictiveBackPageTransitionsBuilder`) e `PopScope` nos fluxos multi-etapas.
 
 ### Logos de marcas (`brands.dart`, `kit.dart`)
-- `BrandLogo` resolve domínios e ícones inteligentes em `brands.dart` e carrega favicons 256×256 via Google S2 (`https://www.google.com/s2/favicons?domain=$domain&sz=256`), decodificados exatamente no tamanho físico (`cacheWidth`/`cacheHeight`), centralizados com `BoxFit.contain` e `paddingRatio` por marca dentro de `ClipOval`.
+- `BrandLogo` resolve domínios e ícones inteligentes em `brands.dart` e carrega favicons 256×256 via Google S2 (`https://www.google.com/s2/favicons?domain=$domain&sz=256`), decodificados no tamanho físico. O logo preenche o círculo sem aro ou padding extra, preservando a proporção com `BoxFit.cover`; pixels RGBA da imagem são quantizados em RGB de 5 bits para escolher a cor dominante usada sob áreas transparentes, com a cor da marca como fallback.

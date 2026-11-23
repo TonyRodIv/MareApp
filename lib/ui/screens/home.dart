@@ -223,21 +223,26 @@ class _HomeScreenState extends State<HomeScreen> {
     'gastos': ('Seus Gastos', LucideIcons.receipt, 1),
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
     'categorias': ('Por categoria', LucideIcons.chartPie, 2),
+    'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
     'hoje': ('Para hoje', LucideIcons.calendarCheck, 1),
     'fds': ('Fim de semana', LucideIcons.sun, 1),
     'projecao': ('Projeção do ciclo', LucideIcons.trendingUp, 2),
-    'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
   };
 
-  /// Por padrão, a tela inicial mostra apenas os 5 widgets essenciais (contas
-  /// e extras ficam ocultos até serem ativados em "Editar grade").
-  static const _defaultHidden = <String>{
+  static const _defaultOrder = <String>[
+    'gastos',
+    'caixinhas',
+    'categorias',
+    'assinaturas',
+    'hoje',
+    'fds',
     'contas',
     'projecao',
-    'assinaturas',
     'historico',
-  };
+  ];
+
+  static const _defaultHidden = <String>{'contas', 'projecao', 'historico'};
 
   Set<String> _effectiveHidden(Store s) {
     if (s.data.widgetOrder.isEmpty && s.data.hiddenWidgets.isEmpty) {
@@ -251,11 +256,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<String> _allIds(List<String> savedOrder) {
-    final defaults = _widgetMeta.keys.toList();
     final ordered = [
       for (final id in savedOrder)
         if (_widgetMeta.containsKey(id)) id,
-      for (final id in defaults)
+      for (final id in _defaultOrder)
         if (!savedOrder.contains(id)) id,
     ];
     return ordered;
@@ -273,22 +277,25 @@ class _HomeScreenState extends State<HomeScreen> {
     final hiddenSet = _effectiveHidden(s);
     final order = _allIds(s.data.widgetOrder);
     final tiles = <DashTile>[];
+    final hasExpenses = f.expensesTotal(cy) > 0;
+    final hasOpenBoxes = f.openBoxes.isNotEmpty;
+    final hasCategories = f.byCategory(cy).any((entry) => entry.value > 0);
+    final hasWeekend = f.upcomingWeekend.isNotEmpty;
+    final hasHistory = f
+        .lastCycles(12)
+        .any((cycle) => f.expensesTotal(cycle) > 0);
 
     for (final id in order) {
       if (hiddenSet.contains(id)) continue;
       if (noSalary && (id == 'hoje' || id == 'fds' || id == 'projecao')) {
         continue;
       }
-      if (id == 'categorias' &&
-          f.byCategory(cy).isEmpty &&
-          !s.data.widgetOrder.contains('categorias')) {
-        continue;
-      }
-      if (id == 'assinaturas' &&
-          !hasSubs &&
-          !s.data.widgetOrder.contains('assinaturas')) {
-        continue;
-      }
+      if (id == 'gastos' && !hasExpenses) continue;
+      if (id == 'caixinhas' && !hasOpenBoxes) continue;
+      if (id == 'categorias' && !hasCategories) continue;
+      if (id == 'assinaturas' && !hasSubs) continue;
+      if (id == 'fds' && !hasWeekend) continue;
+      if (id == 'historico' && !hasHistory) continue;
 
       switch (id) {
         case 'contas':
@@ -465,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: () {
                         s.resetDashboardLayout();
                         set(() {
-                          order = _widgetMeta.keys.toList();
+                          order = _defaultOrder.toList();
                           hidden = {..._defaultHidden};
                         });
                       },
@@ -959,18 +966,11 @@ class _HomeScreenState extends State<HomeScreen> {
               Positioned(
                 left: i * step,
                 top: 2,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: c.card,
-                    shape: BoxShape.circle,
-                  ),
-                  child: BrandLogo(
-                    name: shown[i].name,
-                    size: iconSz - 4,
-                    icon: shown[i].category.icon,
-                    color: subscriptionBrandColor(c, shown[i], i),
-                  ),
+                child: BrandLogo(
+                  name: shown[i].name,
+                  size: iconSz,
+                  icon: shown[i].category.icon,
+                  color: subscriptionBrandColor(c, shown[i], i),
                 ),
               ),
             if (extra > 0)

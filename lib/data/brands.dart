@@ -7,13 +7,11 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 class BrandSpec {
   final String domain;
   final Color bg;
-  final double paddingRatio;
   final String? categoryId;
   final Color? accent;
   const BrandSpec(
     this.domain, {
     this.bg = const Color(0xFFFFFFFF),
-    this.paddingRatio = 0.16,
     this.categoryId,
     this.accent,
   });
@@ -55,14 +53,12 @@ const _brandSpecs = <String, BrandSpec>{
   'netflix': BrandSpec(
     'netflix.com',
     bg: Color(0xFF000000),
-    paddingRatio: 0.22,
     categoryId: 'assinaturas',
     accent: Color(0xFFE50914),
   ),
   'spotify': BrandSpec(
     'spotify.com',
     bg: Color(0xFF121212),
-    paddingRatio: 0.20,
     categoryId: 'assinaturas',
     accent: Color(0xFF1DB954),
   ),
@@ -110,13 +106,11 @@ const _brandSpecs = <String, BrandSpec>{
   ),
   'youtube': BrandSpec(
     'youtube.com',
-    paddingRatio: 0.20,
     categoryId: 'assinaturas',
     accent: Color(0xFFFF0033),
   ),
   'youtube music': BrandSpec(
     'music.youtube.com',
-    paddingRatio: 0.20,
     categoryId: 'assinaturas',
     accent: Color(0xFFFF0033),
   ),

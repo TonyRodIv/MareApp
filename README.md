@@ -7,9 +7,9 @@ Aplicativo Flutter de **controle financeiro pessoal por ciclos de salário**, co
 ## Principais funcionalidades
 
 - **Ciclos de salário configuráveis:** em vez de meses rígidos, o app calcula saldo livre, metas diárias e projeções com base no dia de virada escolhido por você.
-- **Carteira modular (`HomeScreen`):** grade personalizável (1x ou 2x, reordenável e ocultável) com cards de resumo:
+- **Carteira modular (`HomeScreen`):** grade personalizável (1x ou 2x, reordenável e ocultável), com *Seus Gastos*, *Caixinhas*, *Por categoria*, *Assinaturas*, *Para hoje* e *Fim de semana* visíveis por padrão. Cards sem dados aplicáveis são ocultados automaticamente:
   - *Seus Gastos* (com curva de tendência translúcida verde/vermelha)
-  - *Caixinhas*, *Por categoria* (anel segmentado), *Para hoje*, *Fim de semana*, *Assinaturas*, *Histórico visual*, *Projeção do ciclo* e faixa opcional *Contas*.
+  - *Por categoria* (anel segmentado), *Histórico visual*, *Projeção do ciclo* e faixa opcional *Contas* também podem ser ativados em "Editar grade".
 - **Extrato e busca instantânea:** visualização por ciclo com gráfico acumulado interativo, filtros por categoria e conta/cartão, busca textual com `Hero` e listas *lazy* (`SliverListGroup`).
 - **Caixinhas:** reservas mensais com valor fixo ou percentual do salário, meta opcional com estimativa de prazo, depósitos, gastos diretos da reserva, resgates para o saldo livre e encerramento seguro.
 - **Insights dedicados:**

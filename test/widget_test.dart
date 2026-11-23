@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:mare/data/models.dart';
 import 'package:mare/data/store.dart';
 import 'package:mare/main.dart';
+import 'package:mare/ui/widgets/dashboard.dart';
 import 'package:mare/ui/widgets/kit.dart';
 import 'package:mare/ui/widgets/nav_keypad.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -74,6 +75,19 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.data.userName, 'Marina');
   expect(store.f.salary, 500000);
   expect(find.text('Contas'), findsNothing); // oculto quando nenhuma conta foi adicionada
+  final dashboard = find.byType(DashboardGrid);
+  Finder tile(String label) =>
+      find.descendant(of: dashboard, matching: find.text(label));
+  for (final label in [
+    'Seus Gastos',
+    'Caixinhas',
+    'Por categoria',
+    'Assinaturas',
+  ]) {
+    expect(tile(label), findsNothing, reason: '$label sem dados');
+  }
+  expect(tile('Para hoje'), findsOneWidget);
+  expect(tile('Fim de semana'), findsOneWidget);
 
   // Sem caixinhas: aba Caixinhas fica oculta na navbar e vira sugestão no Perfil
   expect(
@@ -135,6 +149,10 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.data.boxes.length, 1);
   expect(store.data.boxes.single.name, 'Viagem');
   expect(store.f.contributionFor(store.data.boxes.single, store.cycle), 10000);
+  expect(tile('Seus Gastos'), findsOneWidget);
+  expect(tile('Caixinhas'), findsOneWidget);
+  expect(tile('Por categoria'), findsOneWidget);
+  expect(tile('Assinaturas'), findsNothing);
 
   // Após criar caixinha: aba aparece na navbar e a sugestão some do Perfil
   expect(
@@ -225,21 +243,43 @@ void main() {
         brand: CardBrand.other,
       ),
     );
-    store.setDashboardLayout(
-      order: [
-        'gastos',
-        'caixinhas',
-        'categorias',
-        'hoje',
-        'fds',
-        'assinaturas',
-      ],
-      hidden: [],
-    );
     await tester.pumpWidget(MareApp(store: store));
     await settle(tester, 1500);
     expect(find.text('Carteira'), findsWidgets);
-    expect(find.text('Assinaturas'), findsWidgets);
+    final dashboard = find.byType(DashboardGrid);
+    final defaultLabels = [
+      'Seus Gastos',
+      'Caixinhas',
+      'Por categoria',
+      'Assinaturas',
+      'Para hoje',
+      'Fim de semana',
+    ];
+    for (final label in defaultLabels) {
+      expect(
+        find.descendant(of: dashboard, matching: find.text(label)),
+        findsWidgets,
+        reason: 'widget padrão $label',
+      );
+    }
+    final positions = [
+      for (final label in defaultLabels)
+        tester.getTopLeft(
+          find
+              .descendant(of: dashboard, matching: find.text(label))
+              .first,
+        ),
+    ];
+    for (var i = 1; i < positions.length; i++) {
+      final previous = positions[i - 1];
+      final current = positions[i];
+      expect(
+        current.dy > previous.dy ||
+            (current.dy == previous.dy && current.dx > previous.dx),
+        isTrue,
+        reason: '${defaultLabels[i]} deve seguir ${defaultLabels[i - 1]}',
+      );
+    }
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     await settle(tester, 300);
