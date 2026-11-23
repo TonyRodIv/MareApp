@@ -1214,26 +1214,28 @@ class ExpenseRow extends StatelessWidget {
   final Expense e;
   final Finance f;
   final bool hidden;
+  final bool hideCategory;
   const ExpenseRow({
     super.key,
     required this.e,
     required this.f,
     required this.hidden,
+    this.hideCategory = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
     final card = context.storeRead.card(e.cardId);
-    final meta = [
-      e.category.label,
-      if (e.isRecurring)
-        e.endDate == null
-            ? 'todo mês'
-            : 'até ${DateFormat('MM/yy').format(e.endDate!)}',
-      if (card != null)
-        card.last4.isNotEmpty ? '${card.name} •${card.last4}' : card.name,
-    ].join(' · ');
+    final parts = <String>[
+      if (!hideCategory) e.category.label,
+      if (e.isRecurring && e.endDate != null)
+        'até ${DateFormat('MM/yy').format(e.endDate!)}'
+      else if (hideCategory && e.isRecurring && card == null)
+        'Todo mês',
+      if (card != null) card.name,
+    ];
+    final meta = parts.isEmpty ? null : parts.take(2).join(' · ');
     return ListRow(
       leading: BrandLogo(
         name: e.name,

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/cycle.dart';
@@ -112,7 +113,6 @@ class CategoriesScreen extends StatelessWidget {
     final total = data.fold<int>(0, (t, e) => t + e.value);
     final prev = f.byCategory(f.current.prev(s.data.cycleStartDay));
     final prevMap = {for (final e in prev) e.key.id: e.value};
-    final mono = categoryMonochromeColors(c, data.length);
     return _DetailPage(
       title: 'Por categoria',
       subtitle: '${f.current.label()} · ${fmtMoney(total, hidden: hidden)}',
@@ -150,7 +150,7 @@ class CategoriesScreen extends StatelessWidget {
                 for (var i = 0; i < topCount; i++)
                   CapsuleSegment(
                     value: data[i].value.toDouble(),
-                    color: mono[i],
+                    color: c.tone(data[i].key.color),
                     label: data[i].key.label,
                   ),
                 if (data.length > topCount)
@@ -169,12 +169,16 @@ class CategoriesScreen extends StatelessWidget {
               );
             },
           ),
+          const SizedBox(height: Space.lg),
           ListGroup(
-            title: 'Categorias',
             children: [
               for (var i = 0; i < data.length; i++)
                 ListRow(
-                  leading: IconBadge(data[i].key.icon, mono[i], size: 40),
+                  leading: IconBadge(
+                    data[i].key.icon,
+                    c.tone(data[i].key.color),
+                    size: 40,
+                  ),
                   title: data[i].key.label,
                   subtitle: _delta(
                     data[i].value,
@@ -209,10 +213,10 @@ class CategoriesScreen extends StatelessWidget {
   }
 
   String _delta(int cur, int? prev, bool hidden) {
-    if (prev == null || prev == 0) return 'Novo neste ciclo';
+    if (prev == null || prev == 0) return 'Novo';
     final d = cur - prev;
-    if (d == 0) return 'Igual ao ciclo anterior';
-    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. ciclo anterior';
+    if (d == 0) return 'Igual';
+    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)}';
   }
 }
 
@@ -404,7 +408,12 @@ class CategoryDetailScreen extends StatelessWidget {
                           ),
                           children: [
                             for (final e in items)
-                              ExpenseRow(e: e, f: f, hidden: hidden),
+                              ExpenseRow(
+                                e: e,
+                                f: f,
+                                hidden: hidden,
+                                hideCategory: true,
+                              ),
                           ],
                         ),
                         const SizedBox(height: Space.base),
@@ -466,8 +475,24 @@ class _RhythmScreenState extends State<RhythmScreen> {
     final ideal = f.idealDaily(cy);
     final isWeekend = _focus == RhythmFocus.weekend;
 
+    final now = DateTime.now();
+    final todayItems = [
+      for (final e in f.expensesIn(cy))
+        if (!e.isRecurring && sameDay(e.date, now)) e,
+    ]..sort((a, b) => b.cents.compareTo(a.cents));
+    final spentToday = todayItems.fold<int>(0, (t, e) => t + e.cents);
+    final todayBudget = today + spentToday;
+    final todayRatio = todayBudget > 0
+        ? (spentToday / todayBudget).clamp(0.0, 1.0)
+        : (spentToday > 0 ? 1.0 : 0.0);
+    final perWeekendDay = weekendDays.isEmpty
+        ? 0
+        : ((weekend < 0 ? 0 : weekend) / weekendDays.length).round();
+
     return _DetailPage(
-      title: 'Ritmo',
+      title: widget.embedded
+          ? 'Ritmo'
+          : (isWeekend ? 'Fim de semana' : 'Para hoje'),
       embedded: widget.embedded,
       children: [
         Segmented<RhythmFocus>(
@@ -480,14 +505,14 @@ class _RhythmScreenState extends State<RhythmScreen> {
         ),
         const SizedBox(height: Space.lg),
 
-        // Hero alinhado à esquerda (foco em Hoje ou Fim de semana)
+        // Hero alinhado à esquerda
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               isWeekend
-                  ? 'Para o fim de semana'
-                  : (today < 0 ? 'Passou hoje' : 'Pode gastar hoje'),
+                  ? 'Disponível no fim de semana'
+                  : (today < 0 ? 'Passou hoje' : 'Disponível hoje'),
               style: T.label.copyWith(
                 color: !isWeekend && today < 0 ? c.negative : c.textSecondary,
               ),
@@ -513,13 +538,80 @@ class _RhythmScreenState extends State<RhythmScreen> {
               isWeekend
                   ? (weekendDays.isEmpty
                         ? 'Sem fim de semana restante em ${cy.label()}'
-                        : '${weekendDays.length == 1 ? '1 dia' : '${weekendDays.length} dias'} · Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday}d no ciclo')
+                        : 'Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday}d restantes')
                   : 'Meta ${fmtMoney(ideal, hidden: hidden)}/dia · ${f.daysLeftInclToday} ${f.daysLeftInclToday == 1 ? 'dia restante' : 'dias restantes'}',
               style: T.small.copyWith(color: c.textSecondary),
             ),
           ],
         ),
-        const SizedBox(height: Space.lg),
+        const SizedBox(height: Space.base),
+
+        // Barra de uso do dia (em Hoje) ou cartões dos dias (em Fim de semana)
+        if (!isWeekend) ...[
+          SpringBar(
+            fraction: todayRatio,
+            color: today < 0 ? c.negative : c.primary,
+            track: c.cardAlt,
+            height: 10,
+          ),
+          const SizedBox(height: Space.sm),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Gasto hoje: ${fmtMoney(spentToday, hidden: hidden)}',
+                  style: T.small.copyWith(color: c.textSecondary),
+                ),
+              ),
+              Text(
+                'Teto ${fmtMoney(todayBudget < 0 ? 0 : todayBudget, hidden: hidden)}',
+                style: T.smallStrong.copyWith(color: c.textSecondary),
+              ),
+            ],
+          ),
+          if (todayItems.isNotEmpty)
+            ListGroup(
+              title: 'Gastos de hoje',
+              children: [
+                for (final e in todayItems)
+                  ExpenseRow(e: e, f: f, hidden: hidden),
+              ],
+            ),
+          const SizedBox(height: Space.lg),
+        ] else if (weekendDays.isNotEmpty) ...[
+          Row(
+            children: [
+              for (var i = 0; i < weekendDays.length; i++) ...[
+                if (i > 0) const SizedBox(width: Space.md),
+                Expanded(
+                  child: AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _capDay(
+                            DateFormat(
+                              'EEE, d MMM',
+                              'pt_BR',
+                            ).format(weekendDays[i]),
+                          ),
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                        const SizedBox(height: Space.xs),
+                        MoneyText(
+                          perWeekendDay,
+                          hidden: hidden,
+                          style: T.headline,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: Space.md),
+        ],
 
         AppCard(
           title: 'Calendário de ${cy.label()}',
@@ -584,6 +676,9 @@ class _RhythmScreenState extends State<RhythmScreen> {
       ],
     );
   }
+
+  String _capDay(String s) =>
+      s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';
 
   Widget _legend(BuildContext context, Color color, String label) => Row(
     mainAxisSize: MainAxisSize.min,
@@ -682,7 +777,8 @@ class SubscriptionsScreen extends StatelessWidget {
           ListGroup(
             title: 'Serviços ativos',
             children: [
-              for (final e in subs) ExpenseRow(e: e, f: f, hidden: hidden),
+              for (final e in subs)
+                ExpenseRow(e: e, f: f, hidden: hidden, hideCategory: true),
             ],
           ),
         ],
@@ -869,7 +965,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ListRow(
                   title: cy.label(),
                   subtitle:
-                      '${sameDay(cy.start, f.current.start) ? 'Livre até agora · ' : ''}Gastos ${fmtMoney(f.expensesTotal(cy), hidden: hidden)} · Guardado ${fmtMoney(f.contributionsTotal(cy), hidden: hidden)}',
+                      'Gastos ${fmtMoney(f.expensesTotal(cy), hidden: hidden)}',
                   value: fmtMoney(f.freeBalance(cy), hidden: hidden),
                   valueColor: f.freeBalance(cy) < 0 ? c.negative : c.text,
                 ),

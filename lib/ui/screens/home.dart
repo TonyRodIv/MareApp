@@ -300,12 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final isHigh = prevSpent > 0
               ? spent > prevSpent
               : (sal > 0 && spent / sal > 0.80);
-          final recent = [
-            for (final cItem in f.lastCycles(6))
-              f.expensesTotal(cItem).toDouble(),
-          ];
-          final hasHistory = recent.where((v) => v > 0).length >= 2;
-          final sparkPoints = hasHistory ? recent : _dailySpark(f);
+          final sparkPoints = _spendingSpark(f);
           tiles.add(
             DashTile(
               id: id,
@@ -701,11 +696,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  List<double> _dailySpark(Finance f) {
+  /// Pontos de gastos por faixa do ciclo (não cumulativo, para subir e descer
+  /// naturalmente como um gráfico real de movimentação).
+  List<double> _spendingSpark(Finance f) {
     final cy = f.current;
     final items = f.expensesIn(cy);
     final days = cy.days;
-    const buckets = 6;
+    const buckets = 8;
     final perBucket = (days.length / buckets).ceil().clamp(1, 31);
     final totals = List<double>.filled(buckets, 0.0);
     for (final e in items) {
@@ -713,8 +710,12 @@ class _HomeScreenState extends State<HomeScreen> {
       final idx = (diff < 0 ? 0 : diff ~/ perBucket).clamp(0, buckets - 1);
       totals[idx] += e.cents.toDouble();
     }
-    var running = 0.0;
-    return [for (final v in totals) running += v];
+    if (totals.where((v) => v > 0).length >= 3) return totals;
+    // Fallback para histórico dos últimos ciclos se o ciclo atual ainda tem poucos pontos.
+    final hist = [
+      for (final cItem in f.lastCycles(6)) f.expensesTotal(cItem).toDouble(),
+    ];
+    return hist.where((v) => v > 0).length >= 2 ? hist : totals;
   }
 
   Widget _statCard(
@@ -859,9 +860,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CycleGrid(f: f, width: w, columns: _gridCols(w)),
+          MiniWeekStrip(
+            highlightedWeekdays: {DateTime.now().weekday},
+            highlightColor: v < 0 ? c.negative : c.primary,
+          ),
           const Spacer(),
-          const SizedBox(height: Space.base),
+          const SizedBox(height: Space.sm),
           CountingMoney(
             cents: v < 0 ? 0 : v,
             builder: (x) => MoneyText(
@@ -899,19 +903,19 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CycleGrid(
-            f: f,
-            highlight: days.toSet(),
-            width: w,
-            columns: _gridCols(w),
+          MiniWeekStrip(
+            highlightedWeekdays: days.isEmpty
+                ? const {}
+                : {for (final d in days) d.weekday},
+            highlightColor: c.accentWarm,
           ),
           const Spacer(),
-          const SizedBox(height: Space.base),
+          const SizedBox(height: Space.sm),
           if (days.isEmpty) ...[
             Text('—', style: T.cardValue.copyWith(color: c.textSecondary)),
             const SizedBox(height: Space.xxs),
             Text(
-              'Fora deste ciclo',
+              'Fora do ciclo',
               style: T.small.copyWith(color: c.textSecondary),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -925,8 +929,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
-  int _gridCols(double w) => w < 200 ? 8 : (w < 420 ? 16 : 31);
 
   Widget _subscriptionsCard(
     BuildContext context,

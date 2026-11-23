@@ -509,7 +509,6 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.palette,
                               title: 'Cor de destaque',
-                              subtitle: 'A cor secundária se ajusta ao tema',
                               trailing: Container(
                                 width: 22,
                                 height: 22,
@@ -524,7 +523,6 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.panelBottom,
                               title: 'Barra de navegação',
-                              subtitle: 'Escolher e ordenar abas fixadas',
                               value: '${navTabs.length} abas',
                               onTap: () => _editNavBar(context),
                             ),
@@ -536,7 +534,6 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.cloud,
                               title: 'Google Drive',
-                              subtitle: syncSummaryLabel(sync),
                               value: sync.isConnected
                                   ? (sync.pendingConflict != null
                                         ? 'Conflito'
@@ -547,19 +544,16 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.sparkles,
                               title: 'Importar com IA',
-                              subtitle: 'Gastos em lote ou dados completos',
                               onTap: () => _openAiImportMenu(context),
                             ),
                             _Row(
                               icon: LucideIcons.download,
                               title: 'Exportar backup',
-                              subtitle: 'Salvar cópia em JSON',
                               onTap: () => exportBackupFlow(context),
                             ),
                             _Row(
                               icon: LucideIcons.upload,
                               title: 'Restaurar backup',
-                              subtitle: 'Arquivo JSON do maré ou FinApp',
                               onTap: () => importBackupFlow(context),
                             ),
                           ],
@@ -570,7 +564,7 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.info,
                               title: 'Sobre o maré',
-                              subtitle: 'Versão 1.0 · Desenvolvedor e créditos',
+                              value: 'v1.0',
                               onTap: () => push(context, const AboutScreen()),
                             ),
                           ],
@@ -582,8 +576,8 @@ class SettingsScreen extends StatelessWidget {
                               icon: LucideIcons.logOut,
                               title: 'Sair',
                               subtitle: sync.isConnected
-                                  ? 'Desconectar conta e limpar aparelho'
-                                  : 'Encerrar sessão local neste aparelho',
+                                  ? 'Desconectar e limpar dados'
+                                  : 'Limpar dados deste aparelho',
                               danger: true,
                               onTap: () => _signOut(context),
                             ),

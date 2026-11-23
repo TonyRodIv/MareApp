@@ -1626,21 +1626,23 @@ class _SparklineBgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (size.width <= 0 || size.height <= 0) return;
-    final pts = values.length >= 2 ? values : const [0.4, 0.55, 0.45, 0.6];
+    final pts = values.length >= 2 ? values : const [0.35, 0.62, 0.44, 0.72, 0.50, 0.64];
     final minV = pts.reduce(math.min);
     final maxV = pts.reduce(math.max);
     final span = (maxV - minV).abs();
 
+    // Centralizado na faixa vazia entre o cabeçalho e o valor embaixo, com
+    // margem confortável nas laterais para o ponto não encostar na borda.
     final topY = size.height * 0.34;
-    final botY = size.height * 0.86;
+    final botY = size.height * 0.62;
     final usableH = math.max(1.0, botY - topY);
 
     final coords = <Offset>[];
-    final padX = size.width * 0.04;
-    final usableW = size.width - padX * 2;
+    final padX = 16.0;
+    final usableW = math.max(1.0, size.width - padX * 2);
     for (var i = 0; i < pts.length; i++) {
       final x = padX + usableW * (i / (pts.length - 1));
-      final norm = span < 0.0001 ? 0.45 : (pts[i] - minV) / span;
+      final norm = span < 0.0001 ? 0.5 : (pts[i] - minV) / span;
       final y = botY - norm * usableH;
       coords.add(Offset(x, y));
     }
@@ -1653,9 +1655,10 @@ class _SparklineBgPainter extends CustomPainter {
       linePath.cubicTo(midX, p0.dy, midX, p1.dy, p1.dx, p1.dy);
     }
 
+    final fadeBottom = math.min(size.height, botY + size.height * 0.24);
     final areaPath = Path.from(linePath)
-      ..lineTo(coords.last.dx, size.height)
-      ..lineTo(coords.first.dx, size.height)
+      ..lineTo(coords.last.dx, fadeBottom)
+      ..lineTo(coords.first.dx, fadeBottom)
       ..close();
 
     canvas.drawPath(
@@ -1665,18 +1668,18 @@ class _SparklineBgPainter extends CustomPainter {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            color.withValues(alpha: isDark ? 0.16 : 0.13),
+            color.withValues(alpha: isDark ? 0.10 : 0.09),
             color.withValues(alpha: 0.0),
           ],
-        ).createShader(Rect.fromLTWH(0, topY, size.width, size.height - topY)),
+        ).createShader(Rect.fromLTWH(0, topY, size.width, fadeBottom - topY)),
     );
 
     canvas.drawPath(
       linePath,
       Paint()
-        ..color = color.withValues(alpha: isDark ? 0.34 : 0.28)
+        ..color = color.withValues(alpha: isDark ? 0.22 : 0.20)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.0
+        ..strokeWidth = 1.8
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round,
     );
@@ -1684,8 +1687,8 @@ class _SparklineBgPainter extends CustomPainter {
     final last = coords.last;
     canvas.drawCircle(
       last,
-      3.5,
-      Paint()..color = color.withValues(alpha: isDark ? 0.62 : 0.55),
+      3.0,
+      Paint()..color = color.withValues(alpha: isDark ? 0.42 : 0.38),
     );
   }
 
@@ -2103,9 +2106,61 @@ class MiniDonutRing extends StatelessWidget {
               ),
             ),
           ),
-          if (center != null) center!,
+          ?center,
         ],
       ),
+    );
+  }
+}
+
+/// Faixa limpa dos 7 dias da semana (S T Q Q S S D) para os cards
+/// "Para hoje" e "Fim de semana" — substitui a grade apertada de 31 pontos.
+class MiniWeekStrip extends StatelessWidget {
+  final Set<int> highlightedWeekdays; // 1 = seg .. 7 = dom
+  final Color? highlightColor;
+  const MiniWeekStrip({
+    super.key,
+    required this.highlightedWeekdays,
+    this.highlightColor,
+  });
+
+  static const _labels = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final activeColor = highlightColor ?? c.primary;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        for (var i = 0; i < 7; i++)
+          Builder(
+            builder: (_) {
+              final active = highlightedWeekdays.contains(i + 1);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: active ? 10 : 7,
+                    height: active ? 10 : 7,
+                    decoration: BoxDecoration(
+                      color: active ? activeColor : c.cardAlt,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    _labels[i],
+                    style: T.tiny.copyWith(
+                      color: active ? c.text : c.textTertiary,
+                      fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+      ],
     );
   }
 }

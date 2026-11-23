@@ -704,3 +704,53 @@ Color? brandAccentColorFor(String name) => brandSpecFor(name)?.accent;
 /// Logo 128px do domínio (favicon em alta resolução via Google S2, gratuito).
 String brandLogoUrl(String domain) =>
     'https://www.google.com/s2/favicons?domain=$domain&sz=128';
+
+/// URLs oficiais de gerenciamento para as principais assinaturas recorrentes.
+const _manageSubscriptionUrls = <String, String>{
+  'netflix': 'https://www.netflix.com/youraccount',
+  'spotify': 'https://www.spotify.com/account/overview/',
+  'youtube': 'https://www.youtube.com/paid_memberships',
+  'youtube music': 'https://www.youtube.com/paid_memberships',
+  'chatgpt': 'https://chatgpt.com/#settings/Subscription',
+  'openai': 'https://chatgpt.com/#settings/Subscription',
+  'claude': 'https://claude.ai/settings/billing',
+  'anthropic': 'https://claude.ai/settings/billing',
+  'gemini': 'https://one.google.com/settings',
+  'google one': 'https://one.google.com/settings',
+  'amazon prime': 'https://www.amazon.com.br/mc/pipelines/manage',
+  'prime video': 'https://www.amazon.com.br/mc/pipelines/manage',
+  'prime': 'https://www.amazon.com.br/mc/pipelines/manage',
+  'disney': 'https://www.disneyplus.com/account',
+  'disney+': 'https://www.disneyplus.com/account',
+  'star+': 'https://www.disneyplus.com/account',
+  'hbo': 'https://play.max.com/settings/subscription',
+  'max': 'https://play.max.com/settings/subscription',
+  'globoplay': 'https://minhaconta.globo.com',
+  'icloud': 'https://account.apple.com/account/manage',
+  'apple music': 'https://account.apple.com/account/manage',
+  'apple tv': 'https://account.apple.com/account/manage',
+  'crunchyroll': 'https://www.crunchyroll.com/account/membership',
+  'paramount': 'https://www.paramountplus.com/account/',
+  'deezer': 'https://www.deezer.com/account/subscription',
+  'adobe': 'https://account.adobe.com/plans',
+  'microsoft': 'https://account.microsoft.com/services',
+  'office': 'https://account.microsoft.com/services',
+  'xbox': 'https://account.microsoft.com/services',
+  'game pass': 'https://account.microsoft.com/services',
+  'playstation': 'https://www.playstation.com/acct/management',
+  'ps plus': 'https://www.playstation.com/acct/management',
+  'nintendo': 'https://accounts.nintendo.com',
+  'canva': 'https://www.canva.com/settings/billing-and-teams',
+  'figma': 'https://www.figma.com/settings',
+  'notion': 'https://www.notion.so/my-account',
+  'github': 'https://github.com/settings/billing',
+  'discord': 'https://discord.com/app',
+  'meli+': 'https://www.mercadolivre.com.br/assinaturas',
+  'mercado livre': 'https://www.mercadolivre.com.br/assinaturas',
+  'uber one': 'https://riders.uber.com',
+  'ifood': 'https://www.ifood.com.br',
+};
+
+/// Link oficial de gerenciamento da assinatura para marcas principais, ou null.
+String? subscriptionManageUrlFor(String name) =>
+    _matchWord(name, _manageSubscriptionUrls);

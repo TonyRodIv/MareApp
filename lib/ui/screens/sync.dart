@@ -117,8 +117,6 @@ class SyncScreen extends StatelessWidget {
                                   color: c.textSecondary,
                                 ),
                                 title: 'Sincronização automática',
-                                subtitle:
-                                    'Envia alterações e busca atualizações sozinho',
                                 trailing: SpringSwitch(
                                   value: sync.autoSync,
                                   label: 'Sincronização automática',
@@ -149,8 +147,6 @@ class SyncScreen extends StatelessWidget {
                                   color: c.textSecondary,
                                 ),
                                 title: 'Restaurar do Google Drive',
-                                subtitle:
-                                    'Substitui os dados deste aparelho pela cópia da nuvem',
                                 arrow: true,
                                 onTap: sync.isSyncing
                                     ? null
@@ -163,8 +159,6 @@ class SyncScreen extends StatelessWidget {
                                   color: c.textSecondary,
                                 ),
                                 title: 'Enviar backup agora',
-                                subtitle:
-                                    'Salva uma nova cópia deste aparelho no Drive',
                                 arrow: true,
                                 onTap: sync.isSyncing
                                     ? null
@@ -178,8 +172,6 @@ class SyncScreen extends StatelessWidget {
                                 ),
                                 title: 'Desconectar conta Google',
                                 titleColor: c.negative,
-                                subtitle:
-                                    'Seus dados continuam salvos aqui e no Drive',
                                 onTap: sync.isSyncing
                                     ? null
                                     : () => _confirmDisconnect(context, sync),

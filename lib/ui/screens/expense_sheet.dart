@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -91,8 +92,9 @@ class _ExpenseSheetState extends State<ExpenseSheet> {
               ? 'Neste ciclo'
               : (entryCycle.key < cur.key ? 'Ciclo anterior' : 'Ciclo futuro'));
     final dateLabel = e.isRecurring
-        ? 'Todo ciclo, desde ${DateFormat("d 'de' MMM 'de' y", 'pt_BR').format(e.date)}'
+        ? 'Todo mês, desde ${DateFormat("d 'de' MMM 'de' y", 'pt_BR').format(e.date)}'
         : _cap(DateFormat("EEE, d 'de' MMM 'de' y", 'pt_BR').format(e.date));
+    final manageUrl = e.isRecurring ? subscriptionManageUrlFor(e.name) : null;
 
     void close() => Navigator.of(context).pop();
 
@@ -203,24 +205,32 @@ class _ExpenseSheetState extends State<ExpenseSheet> {
                     },
                   ),
                 ),
-                CircleAction(
-                  icon: LucideIcons.copy,
-                  label: 'Duplicar',
-                  size: canEnd ? 56 : 62,
-                  onTap: () {
-                    s.addExpense(
-                      Expense(
-                        name: e.name,
-                        cents: e.cents,
-                        categoryId: e.categoryId,
-                        cardId: e.cardId,
-                        date: DateTime.now(),
-                      ),
-                    );
-                    close();
-                    toast(widget.host, 'Duplicado para hoje');
-                  },
-                ),
+                if (manageUrl != null)
+                  CircleAction(
+                    icon: LucideIcons.externalLink,
+                    label: 'Gerenciar',
+                    size: canEnd ? 56 : 62,
+                    onTap: () => _openManageUrl(context, manageUrl),
+                  )
+                else
+                  CircleAction(
+                    icon: LucideIcons.copy,
+                    label: 'Duplicar',
+                    size: canEnd ? 56 : 62,
+                    onTap: () {
+                      s.addExpense(
+                        Expense(
+                          name: e.name,
+                          cents: e.cents,
+                          categoryId: e.categoryId,
+                          cardId: e.cardId,
+                          date: DateTime.now(),
+                        ),
+                      );
+                      close();
+                      toast(widget.host, 'Duplicado para hoje');
+                    },
+                  ),
                 if (canEnd)
                   CircleAction(
                     icon: LucideIcons.calendarOff,
@@ -350,8 +360,8 @@ class _ExpenseSheetState extends State<ExpenseSheet> {
                   const SizedBox(height: 8),
                   Text(
                     remainingInstallments == 0
-                        ? 'Último ciclo · Total ${fmtMoney(e.cents * totalInstallments, hidden: hidden)}'
-                        : 'Faltam $remainingInstallments ${remainingInstallments == 1 ? 'ciclo' : 'ciclos'} · ${fmtMoney(e.cents * remainingInstallments, hidden: hidden)} restante',
+                        ? 'Último mês · Total ${fmtMoney(e.cents * totalInstallments, hidden: hidden)}'
+                        : 'Faltam $remainingInstallments ${remainingInstallments == 1 ? 'mês' : 'meses'} · ${fmtMoney(e.cents * remainingInstallments, hidden: hidden)} restante',
                     style: T.small.copyWith(color: c.textSecondary),
                   ),
                 ],
@@ -395,7 +405,7 @@ class _ExpenseSheetState extends State<ExpenseSheet> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$activeRecurringCycles ${activeRecurringCycles == 1 ? 'ciclo' : 'ciclos'}',
+                        '$activeRecurringCycles ${activeRecurringCycles == 1 ? 'mês' : 'meses'}',
                         style: T.bodyStrong.copyWith(color: c.text),
                       ),
                     ],
@@ -477,6 +487,23 @@ class _ExpenseSheetState extends State<ExpenseSheet> {
     close();
     if (widget.host.mounted) {
       toast(widget.host, 'Gasto excluído', icon: LucideIcons.trash2);
+    }
+  }
+
+  static const _linksChannel = MethodChannel('com.mare.mare/links');
+
+  Future<void> _openManageUrl(BuildContext context, String url) async {
+    try {
+      final ok =
+          await _linksChannel.invokeMethod<bool>('openUrl', {'url': url}) ??
+          false;
+      if (!ok && context.mounted) {
+        await Clipboard.setData(ClipboardData(text: url));
+        if (context.mounted) toast(context, 'Link copiado');
+      }
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: url));
+      if (context.mounted) toast(context, 'Link copiado');
     }
   }
 }

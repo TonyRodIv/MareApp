@@ -126,8 +126,8 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                         const SizedBox(height: Space.xs),
                         Text(
                           totalGoals > 0
-                              ? 'de ${fmtMoney(totalGoals, hidden: hidden)} em metas · +${fmtMoney(monthly, hidden: hidden)}/ciclo'
-                              : '+${fmtMoney(monthly, hidden: hidden)} entram por ciclo',
+                              ? 'de ${fmtMoney(totalGoals, hidden: hidden)} em metas'
+                              : '+${fmtMoney(monthly, hidden: hidden)} por mês',
                           textAlign: TextAlign.center,
                           style: T.label.copyWith(color: c.textSecondary),
                         ),
@@ -139,13 +139,13 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                   if (closed.isNotEmpty) ...[
                     Segmented<bool>(
                       value: _showClosed,
-                      options: {
-                        false: 'Ativas (${open.length})',
-                        true: 'Encerradas (${closed.length})',
+                      options: const {
+                        false: 'Ativas',
+                        true: 'Encerradas',
                       },
                       onChanged: (v) => setState(() => _showClosed = v),
                     ),
-                    const SizedBox(height: Space.base),
+                    const SizedBox(height: Space.md),
                   ],
 
                   if (list.isEmpty)
@@ -156,17 +156,12 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                           : 'Nenhuma caixinha ainda',
                       message: _showClosed
                           ? 'Quando você encerrar uma caixinha, ela aparece aqui.'
-                          : 'Uma caixinha recebe um valor fixo ou % do salário todo ciclo e acumula automaticamente.',
+                          : 'Guarde um valor todo mês para metas ou reservas.',
                       action: _showClosed ? null : 'Criar caixinha',
                       onAction: () => pushFluid(context, const BoxForm()),
                     )
                   else
                     ListGroup(
-                      title: _showClosed ? 'Encerradas' : 'Suas caixinhas',
-                      trailing: Text(
-                        '${list.length} ${list.length == 1 ? 'caixinha' : 'caixinhas'}',
-                        style: T.smallStrong.copyWith(color: c.textSecondary),
-                      ),
                       children: [
                         for (final box in list)
                           _BoxRow(box: box, f: f, hidden: hidden),
@@ -248,16 +243,9 @@ class _BoxRow extends StatelessWidget {
       ),
       title: box.name,
       subtitle: hasGoal
-          ? '${fmtMoney(bal, hidden: hidden)} de ${fmtMoney(goal, hidden: hidden)}'
-          : '+${fmtMoney(per, hidden: hidden)} por ciclo',
-      value: hasGoal ? null : fmtMoney(bal, hidden: hidden),
-      trailing: hasGoal
-          ? Tag(
-              '${(bal / goal * 100).clamp(0, 999).round()}%',
-              bg: box.colorValue.withValues(alpha: c.isDark ? 0.22 : 0.14),
-              fg: c.tone(box.colorValue, min: 4.5),
-            )
-          : null,
+          ? '${(bal / goal * 100).clamp(0, 999).round()}% de ${fmtMoney(goal, hidden: hidden)}'
+          : '+${fmtMoney(per, hidden: hidden)}/mês',
+      value: fmtMoney(bal, hidden: hidden),
       arrow: true,
       onTap: () => push(context, BoxDetail(id: box.id)),
     );
@@ -409,10 +397,10 @@ class BoxDetail extends StatelessWidget {
                           hasGoal
                               ? bal >= goal
                                     ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
-                                    : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
+                                    : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'mês' : 'meses'}' : ''}'
                               : plan.mode == PlanMode.percent
-                              ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/ciclo'
-                              : '+${fmtMoney(per, hidden: hidden)} por ciclo',
+                              ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/mês'
+                              : '+${fmtMoney(per, hidden: hidden)} por mês',
                           textAlign: TextAlign.center,
                           style: T.label.copyWith(color: c.textSecondary),
                         ),
