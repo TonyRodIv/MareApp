@@ -117,6 +117,11 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   await settle(tester, 700);
   await tapText(tester, 'Continuar');
   await settle(tester, 700);
+  expect(find.text('Quase lá'), findsOneWidget);
+  expect(find.text('Frequência do gasto'), findsOneWidget);
+  expect(find.text('Total'), findsOneWidget);
+  await tester.drag(find.byType(ListView).first, const Offset(0, -120));
+  await settle(tester, 300);
   expect(tester.takeException(), isNull);
   await tapText(tester, 'Salvar gasto');
   await settle(tester, 1200);
@@ -248,11 +253,11 @@ void main() {
     final dashboard = find.byType(DashboardGrid);
     final defaultLabels = [
       'Seus Gastos',
-      'Caixinhas',
       'Assinaturas',
+      'Caixinhas',
       'Por categoria',
-      'Histórico visual',
       'Contas',
+      'Histórico visual',
     ];
     for (final label in defaultLabels) {
       expect(

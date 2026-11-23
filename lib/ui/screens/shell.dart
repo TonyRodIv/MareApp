@@ -304,10 +304,7 @@ class _ShellState extends State<Shell> {
                     for (final id in tabs)
                       _pageCache[id] ?? const SizedBox.shrink(),
                   ];
-                  return _FluidTabStack(
-                    index: safeIdx,
-                    children: orderedPages,
-                  );
+                  return IndexedStack(index: safeIdx, children: orderedPages);
                 },
               ),
               // Progressive blur mais encorpado atrás da barra inferior flutuante
@@ -598,52 +595,4 @@ class _FilledNavPainter extends CustomPainter {
   @override
   bool shouldRepaint(_FilledNavPainter old) =>
       old.kind != kind || old.color != color || old.cutout != cutout;
-}
-
-/// Transição física Fluid Motion ao trocar de aba na navbar inferior,
-/// preservando o estado e o scroll de todas as abas no [IndexedStack].
-class _FluidTabStack extends StatefulWidget {
-  final int index;
-  final List<Widget> children;
-  const _FluidTabStack({required this.index, required this.children});
-
-  @override
-  State<_FluidTabStack> createState() => _FluidTabStackState();
-}
-
-class _FluidTabStackState extends State<_FluidTabStack> {
-  int _gen = 0;
-  double _dir = 0;
-
-  @override
-  void didUpdateWidget(_FluidTabStack old) {
-    super.didUpdateWidget(old);
-    if (old.index != widget.index) {
-      _dir = widget.index > old.index ? 1.0 : -1.0;
-      _gen++;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final stack = IndexedStack(index: widget.index, children: widget.children);
-    return SpringBuilder(
-      value: _gen.toDouble(),
-      spring: Springs.of(32, 0.92),
-      builder: (_, v, _) {
-        final rem = (_gen - v).clamp(0.0, 1.0);
-        if (rem < 0.002) return stack;
-        return Opacity(
-          opacity: clampOpacity(1.0 - 0.22 * rem),
-          child: Transform.translate(
-            offset: Offset(10.0 * _dir * rem, 0),
-            child: Transform.scale(
-              scale: 1.0 - 0.008 * rem,
-              child: stack,
-            ),
-          ),
-        );
-      },
-    );
-  }
 }

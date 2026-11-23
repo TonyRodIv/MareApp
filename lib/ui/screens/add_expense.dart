@@ -213,6 +213,10 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                         reverseDuration: const Duration(milliseconds: 200),
                         switchInCurve: easeOutExpo,
                         switchOutCurve: Curves.easeInCubic,
+                        layoutBuilder: (cur, prev) => Stack(
+                          fit: StackFit.expand,
+                          children: [...prev, if (cur != null) cur],
+                        ),
                         transitionBuilder: (child, anim) {
                           final incoming = child.key == ValueKey(_step);
                           final dir =
@@ -264,25 +268,27 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                     ),
                   ),
                   if (_step == 3)
-                    ValueListenableBuilder<double>(
-                      valueListenable: _detailsScroll,
-                      builder: (_, px, _) {
-                        final t = (px / 36.0).clamp(0.0, 1.0);
-                        if (t <= 0.005) return const SizedBox.shrink();
-                        final eased = Curves.easeOutCubic.transform(t);
-                        return Positioned(
-                          left: 0,
-                          right: 0,
-                          top: 0,
-                          height: 116,
-                          child: ProgressiveBlur(
-                            direction: AxisDirection.down,
-                            maxSigma: 20 * eased,
-                            tint: c.bg,
-                            tintOpacity: (c.isDark ? 0.82 : 0.84) * eased,
-                          ),
-                        );
-                      },
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: 116,
+                      child: IgnorePointer(
+                        child: ValueListenableBuilder<double>(
+                          valueListenable: _detailsScroll,
+                          builder: (_, px, _) {
+                            final t = (px / 36.0).clamp(0.0, 1.0);
+                            if (t <= 0.005) return const SizedBox.shrink();
+                            final eased = Curves.easeOutCubic.transform(t);
+                            return ProgressiveBlur(
+                              direction: AxisDirection.down,
+                              maxSigma: 20 * eased,
+                              tint: c.bg,
+                              tintOpacity: (c.isDark ? 0.82 : 0.84) * eased,
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   Positioned(
                     left: pad - Space.sm,

@@ -467,7 +467,6 @@ class CardDetailScreen extends StatelessWidget {
     final f = s.f;
     final hidden = s.data.hideValues;
     final cy = f.current;
-    final prevCy = cy.prev(s.data.cycleStartDay);
 
     final items = f
         .expensesIn(cy)
@@ -481,20 +480,8 @@ class CardDetailScreen extends StatelessWidget {
     final cycleTotal = f.expensesTotal(cy);
     final share = cycleTotal > 0 ? (total / cycleTotal).clamp(0.0, 1.0) : 0.0;
 
-    final prevTotal = f
-        .expensesIn(prevCy)
-        .where((e) => e.cardId == card.id)
-        .fold<int>(0, (t, e) => t + e.cents);
-    final delta = _deltaText(total, prevTotal, hidden);
-
     final rawColor = Color(card.color);
     final pad = sidePadding(context, maxWidth: 680);
-
-    final kindLabel = card.isCard
-        ? (card.last4.trim().isNotEmpty
-              ? 'Cartão •••${card.last4}'
-              : 'Cartão ${_brandLabel(card.brand)}')
-        : 'Conta';
 
     return SheetScaler(
       child: CupertinoPageScaffold(
@@ -557,9 +544,9 @@ class CardDetailScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: Space.xs),
                           Text(
-                            cycleTotal > 0
-                                ? '$kindLabel · ${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
-                                : '$kindLabel · Sem gastos em ${cy.label()}',
+                            items.isEmpty
+                                ? 'Sem gastos em ${cy.label()}'
+                                : '${(share * 100).round()}% dos gastos em ${cy.label()}',
                             textAlign: TextAlign.center,
                             style: T.label.copyWith(color: c.textSecondary),
                           ),
@@ -629,20 +616,6 @@ class CardDetailScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _brandLabel(CardBrand b) => switch (b) {
-    CardBrand.mastercard => 'Mastercard',
-    CardBrand.visa => 'Visa',
-    CardBrand.elo => 'Elo',
-    CardBrand.other => '',
-  };
-
-  String? _deltaText(int cur, int prev, bool hidden) {
-    if (prev <= 0) return cur > 0 ? 'novo neste ciclo' : null;
-    final d = cur - prev;
-    if (d == 0) return 'igual ao anterior';
-    return '${d > 0 ? '+' : '−'}${fmtMoney(d.abs(), hidden: hidden)} vs. anterior';
   }
 
   Future<void> _more(BuildContext context, PayCard card) async {

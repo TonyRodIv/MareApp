@@ -229,22 +229,34 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _widgetMeta = <String, (String, IconData, int)>{
     'gastos': ('Seus Gastos', LucideIcons.receipt, 1),
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
-    'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
+    'assinaturas': ('Assinaturas', LucideIcons.tv, 1),
     'categorias': ('Por categoria', LucideIcons.chartPie, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
     'contas': ('Contas', LucideIcons.landmark, 2),
   };
 
-  static const _defaultOrder = <String>[
+  static const _defaultOrderNoCards = <String>[
     'gastos',
-    'caixinhas',
     'assinaturas',
+    'caixinhas',
     'categorias',
     'historico',
     'contas',
   ];
 
+  static const _defaultOrderWithCards = <String>[
+    'gastos',
+    'assinaturas',
+    'caixinhas',
+    'categorias',
+    'contas',
+    'historico',
+  ];
+
   static const _defaultHidden = <String>{};
+
+  List<String> _defaultOrderFor(bool hasCards) =>
+      hasCards ? _defaultOrderWithCards : _defaultOrderNoCards;
 
   Set<String> _effectiveHidden(Store s) {
     if (s.data.widgetOrder.isEmpty && s.data.hiddenWidgets.isEmpty) {
@@ -253,17 +265,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return s.data.hiddenWidgets.toSet();
   }
 
-  int _defaultSpanFor(String id, bool hasOpenBoxes) {
-    // Sem caixinhas ativas, Assinaturas nasce como 1x ao lado de Seus Gastos.
-    if (id == 'assinaturas' && !hasOpenBoxes) return 1;
-    return _widgetMeta[id]?.$3 ?? 1;
-  }
+  int _defaultSpanFor(String id) => _widgetMeta[id]?.$3 ?? 1;
 
-  List<String> _allIds(List<String> savedOrder) {
+  List<String> _allIds(List<String> savedOrder, {required bool hasCards}) {
+    final def = _defaultOrderFor(hasCards);
     final ordered = [
       for (final id in savedOrder)
         if (_widgetMeta.containsKey(id)) id,
-      for (final id in _defaultOrder)
+      for (final id in def)
         if (!savedOrder.contains(id)) id,
     ];
     return ordered;
@@ -279,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final s = context.store;
     final cy = f.current;
     final hiddenSet = _effectiveHidden(s);
-    final order = _allIds(s.data.widgetOrder);
+    final order = _allIds(s.data.widgetOrder, hasCards: hasCards);
     final tiles = <DashTile>[];
     final hasOpenBoxes = f.openBoxes.isNotEmpty;
 
@@ -288,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Somente Caixinhas fica oculto automaticamente quando não há caixinhas ativas.
       if (id == 'caixinhas' && !hasOpenBoxes) continue;
 
-      final defSpan = _defaultSpanFor(id, hasOpenBoxes);
+      final defSpan = _defaultSpanFor(id);
 
       switch (id) {
         case 'contas':
@@ -465,7 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _editGrid(BuildContext context) {
     final s = context.storeRead;
     final f = s.f;
-    var order = _allIds(s.data.widgetOrder);
+    var order = _allIds(s.data.widgetOrder, hasCards: s.data.cards.isNotEmpty);
     var hidden = _effectiveHidden(s);
 
     return showIosSheet<void>(
@@ -496,8 +505,7 @@ class _HomeScreenState extends State<HomeScreen> {
           };
 
           int spanOf(String id) =>
-              (s.data.cardSpans[id] ?? _defaultSpanFor(id, hasOpenBoxes))
-                  .clamp(1, 2);
+              (s.data.cardSpans[id] ?? _defaultSpanFor(id)).clamp(1, 2);
 
           // Monta as linhas da miniatura exatamente como o DashboardGrid faz
           final activeIds = [
@@ -538,7 +546,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onPressed: () {
                         s.resetDashboardLayout();
                         set(() {
-                          order = _defaultOrder.toList();
+                          order = _defaultOrderFor(hasCards).toList();
                           hidden = {..._defaultHidden};
                         });
                       },
@@ -1319,9 +1327,33 @@ class _AccountsDashCardState extends State<_AccountsDashCard> {
       child: cards.isEmpty
           ? Align(
               alignment: Alignment.bottomLeft,
-              child: Text(
-                'Toque para adicionar',
-                style: T.small.copyWith(color: c.textSecondary),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      for (var i = 0; i < (compact ? 2 : 3); i++) ...[
+                        if (i > 0) SizedBox(width: compact ? Space.xs : Space.sm),
+                        Container(
+                          width: compact ? 58 : 78,
+                          height: 38,
+                          decoration: ShapeDecoration(
+                            color: c.isDark ? c.cardAlt : c.surfaceLow,
+                            shape: RoundedSuperellipseBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: Space.xs),
+                  Text(
+                    'Toque para adicionar',
+                    style: T.small.copyWith(color: c.textSecondary),
+                  ),
+                ],
               ),
             )
           : Align(
