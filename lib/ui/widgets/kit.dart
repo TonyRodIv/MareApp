@@ -8,11 +8,11 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
+import '../../core/perf.dart';
 import '../../data/brands.dart';
 import '../../core/color_engine.dart';
 import '../../core/theme.dart';
-import 'motion.dart'
-    show BlurSwitcher, HeroText, SpringBuilder, Springs, easeOutExpo;
+import 'motion.dart' show BlurSwitcher, SpringBuilder, Springs, easeOutExpo;
 
 // ── Toque com feedback (escala + háptico) ───────────────────
 
@@ -228,29 +228,38 @@ class RoundIconButton extends StatelessWidget {
     );
     final Widget body;
     if (glass) {
+      final perf = context.perf;
+      final sigma = 26.0 * perf.glassSigmaFactor;
       final glassBg = bg ??
           (c.isDark
-              ? const Color(0xFF16161A).withValues(alpha: 0.56)
-              : const Color(0xFFFFFFFF).withValues(alpha: 0.62));
-      body = ClipOval(
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-          child: Container(
-            width: size,
-            height: size,
-            decoration: BoxDecoration(
-              color: glassBg,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: c.isDark
-                    ? Palette.neutral0.withValues(alpha: 0.12)
-                    : Palette.neutral950.withValues(alpha: 0.08),
-              ),
-            ),
-            child: iconChild,
+              ? const Color(0xFF16161A).withValues(
+                  alpha: perf.allowBlur ? 0.56 : 0.90,
+                )
+              : const Color(0xFFFFFFFF).withValues(
+                  alpha: perf.allowBlur ? 0.62 : 0.92,
+                ));
+      final circle = Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: glassBg,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: c.isDark
+                ? Palette.neutral0.withValues(alpha: 0.12)
+                : Palette.neutral950.withValues(alpha: 0.08),
           ),
         ),
+        child: iconChild,
       );
+      body = perf.allowBlur && sigma >= 1.0
+          ? ClipOval(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+                child: circle,
+              ),
+            )
+          : circle;
     } else {
       body = Container(
         width: size,
@@ -846,6 +855,8 @@ class BrandLogo extends StatelessWidget {
     final fallback = IconBadge(resolvedIcon, color, size: size);
     final spec = brandSpecFor(name);
     if (spec == null) return fallback;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cachePx = (size * dpr).round().clamp(32, 256);
     return SizedBox(
       width: size,
       height: size,
@@ -860,6 +871,8 @@ class BrandLogo extends StatelessWidget {
             brandLogoUrl(spec.domain),
             width: size,
             height: size,
+            cacheWidth: cachePx,
+            cacheHeight: cachePx,
             fit: BoxFit.cover,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -900,8 +913,9 @@ class Avatar extends StatelessWidget {
     final isNetwork =
         path != null &&
         (path!.startsWith('http://') || path!.startsWith('https://'));
-    final file = (path == null || isNetwork) ? null : File(path!);
-    final hasFile = file != null && file.existsSync();
+    final hasPath = path != null && path!.isNotEmpty;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cachePx = (size * dpr).round().clamp(48, 384);
     final fallback = Center(
       child: initials.isEmpty
           ? Icon(
@@ -931,10 +945,20 @@ class Avatar extends StatelessWidget {
               fit: BoxFit.cover,
               width: size,
               height: size,
+              cacheWidth: cachePx,
+              cacheHeight: cachePx,
               errorBuilder: (_, _, _) => fallback,
             )
-          : hasFile
-          ? Image.file(file, fit: BoxFit.cover, width: size, height: size)
+          : hasPath
+          ? Image.file(
+              File(path!),
+              fit: BoxFit.cover,
+              width: size,
+              height: size,
+              cacheWidth: cachePx,
+              cacheHeight: cachePx,
+              errorBuilder: (_, _, _) => fallback,
+            )
           : fallback,
     );
   }
@@ -1161,10 +1185,15 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final perf = context.perf;
     final baseColor = widget.tint ?? c.bg;
     final fromTop = widget.direction == AxisDirection.down;
     final begin = fromTop ? Alignment.topCenter : Alignment.bottomCenter;
     final end = fromTop ? Alignment.bottomCenter : Alignment.topCenter;
+    final useBlur = perf.allowBlur && widget.maxSigma > 0.15;
+    final effectiveTint = useBlur
+        ? widget.tintOpacity
+        : (widget.tintOpacity * 1.18).clamp(0.0, 0.96);
 
     final scrim = DecoratedBox(
       decoration: BoxDecoration(
@@ -1172,9 +1201,9 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
           begin: begin,
           end: end,
           colors: [
-            baseColor.withValues(alpha: widget.tintOpacity),
-            baseColor.withValues(alpha: widget.tintOpacity * 0.58),
-            baseColor.withValues(alpha: widget.tintOpacity * 0.18),
+            baseColor.withValues(alpha: effectiveTint),
+            baseColor.withValues(alpha: effectiveTint * 0.62),
+            baseColor.withValues(alpha: effectiveTint * 0.20),
             baseColor.withValues(alpha: 0),
           ],
           stops: const [0.0, 0.36, 0.72, 1.0],
@@ -1182,13 +1211,17 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
       ),
     );
 
+    if (!useBlur) {
+      // Modo economia de bateria / aparelho low-RAM: zero passes de blur na GPU,
+      // mantendo leitura limpa com gradiente suave na cor do fundo.
+      return IgnorePointer(child: scrim);
+    }
+
     final shader = _shader;
     if (shader == null || !ui.ImageFilter.isShaderFilterSupported) {
-      // Fallback (web / Skia): sem shader, simula o blur progressivo com faixas
-      // de BackdropFilter cujo sigma cai até 0 na borda interna. Assim o desfoque
-      // chega a sumir de verdade, em vez de ficar num sigma fixo com só o tint
-      // esmaecendo.
-      const strips = 28;
+      // Fallback leve (web / Skia sem shader): no máximo 8 faixas para não
+      // sobrecarregar GPUs mais antigas.
+      const strips = 8;
       return IgnorePointer(
         child: RepaintBoundary(
           child: Stack(
@@ -1202,11 +1235,16 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
                     children: [
                       for (var i = 0; i < strips; i++)
                         () {
-                          // t = 1 na borda externa, 0 na interna
                           final centre = (i + 0.5) / strips;
                           final t = fromTop ? 1 - centre : centre;
-                          final sigma = widget.maxSigma * 0.8 * t * t * t;
-                          if (sigma < 0.4) return const SizedBox.shrink();
+                          final sigma =
+                              widget.maxSigma *
+                              0.8 *
+                              perf.glassSigmaFactor *
+                              t *
+                              t *
+                              t;
+                          if (sigma < 0.6) return const SizedBox.shrink();
                           return Positioned(
                             left: 0,
                             right: 0,
@@ -1236,20 +1274,19 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
     }
 
     // Uniformes após u_size (injetado pelo Impeller nos índices 0 e 1):
-    // índice 2 = u_max_radius, índice 3 = u_direction (0 = top->bottom, 1 = bottom->top),
-    // índice 4 = u_band_px (altura da faixa em pixels físicos).
+    // 2 = u_max_radius, 3 = u_direction, 4 = u_band_px, 5 = u_samples.
     final dpr = MediaQuery.devicePixelRatioOf(context);
+    final samples = perf.progressiveBlurSamples.toDouble();
     return IgnorePointer(
       child: RepaintBoundary(
         child: LayoutBuilder(
           builder: (context, box) {
             final bandPx = (box.maxHeight.isFinite ? box.maxHeight : 160.0) * dpr;
-            // Converte o raio lógico para pixels físicos (permite rampa suave
-            // a partir de 0px ao iniciar a rolagem).
             final radiusPx = (widget.maxSigma * dpr * 1.30).clamp(0.0, 68.0);
             shader.setFloat(2, radiusPx);
             shader.setFloat(3, fromTop ? 0.0 : 1.0);
             shader.setFloat(4, bandPx);
+            shader.setFloat(5, samples);
             return ClipRect(
               child: BackdropFilter(
                 filter: ui.ImageFilter.shader(shader),
@@ -1781,10 +1818,11 @@ class _EdgeSheetRoute<V> extends PopupRoute<V> {
                 final scrim = ColoredBox(
                   color: const Color(0xFF000000).withValues(alpha: 0.48 * t),
                 );
-                // Na web, animar sigma do BackdropFilter recompila o shader a cada
-                // frame e causa engasgo; o véu escuro mantém 60fps constantes.
-                if (kIsWeb) return scrim;
-                final sigma = 6.0 * t;
+                // Na web ou no modo economia/low-RAM, o véu escuro evita blur
+                // em tela cheia e mantém 60fps constantes.
+                final perf = context.perfRead;
+                if (kIsWeb || !perf.allowBlur) return scrim;
+                final sigma = 6.0 * perf.glassSigmaFactor * t;
                 if (sigma < 0.3) return scrim;
                 return BackdropFilter(
                   filter: ui.ImageFilter.blur(
@@ -2161,10 +2199,58 @@ class ListGroup extends StatelessWidget {
   }
 }
 
+/// Versão lazy (`SliverList.builder`) de [ListGroup] para listas longas
+/// (como Extrato e Busca): constrói apenas as linhas visíveis na tela mantendo
+/// o mesmo cartão arredondado de 28px e espaçamento entre itens.
+class SliverListGroup extends StatelessWidget {
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final double gap;
+  final Color? bg;
+  const SliverListGroup({
+    super.key,
+    required this.itemCount,
+    required this.itemBuilder,
+    this.gap = 20,
+    this.bg,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final fill = bg ?? c.card;
+    return SliverList.builder(
+      itemCount: itemCount,
+      itemBuilder: (ctx, i) {
+        final isFirst = i == 0;
+        final isLast = i == itemCount - 1;
+        final radius = BorderRadius.vertical(
+          top: isFirst ? const Radius.circular(28) : Radius.zero,
+          bottom: isLast ? const Radius.circular(28) : Radius.zero,
+        );
+        return DecoratedBox(
+          decoration: ShapeDecoration(
+            color: fill,
+            shape: RoundedSuperellipseBorder(borderRadius: radius),
+          ),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              isFirst ? 16 : 0,
+              16,
+              isLast ? 16 : gap,
+            ),
+            child: itemBuilder(ctx, i),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class ListRow extends StatelessWidget {
   final Widget? leading;
   final String title;
-  final String? titleHeroTag;
   final String? subtitle;
   final String? value;
   final Color? titleColor;
@@ -2177,7 +2263,6 @@ class ListRow extends StatelessWidget {
     super.key,
     this.leading,
     required this.title,
-    this.titleHeroTag,
     this.subtitle,
     this.value,
     this.titleColor,
@@ -2205,13 +2290,14 @@ class ListRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                HeroText(
+                Text(
                   title,
-                  tag: titleHeroTag,
                   style: (strong
                           ? T.bodyStrong
                           : (iconless ? T.bodyMedium : T.body))
                       .copyWith(color: titleColor ?? c.text),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
@@ -2498,8 +2584,13 @@ class _IosSheetRoute<R> extends PopupRoute<R> {
           builder: (_, sheetChild) {
             final s = secCurve.value.clamp(0.0, 1.0);
             if (s < 0.001) return sheetChild!;
+            final mq = MediaQuery.of(context);
+            final top = mq.padding.top + 14;
+            final sheetHeight = math.max(240.0, mq.size.height - top);
+            final c = context.c;
+            final dimAlpha = (c.isDark ? 0.56 : 0.36) * s;
             final scale = 1.0 - 0.055 * s;
-            final dy = -10.0 * s;
+            final dy = -12.0 * s;
             final matrix = Matrix4.identity()
               ..setTranslationRaw(0.0, dy, 0.0)
               ..scaleByDouble(scale, scale, 1.0, 1.0);
@@ -2520,10 +2611,14 @@ class _IosSheetRoute<R> extends PopupRoute<R> {
                             borderRadius: const BorderRadius.vertical(
                               top: Radius.circular(28),
                             ),
-                            child: ColoredBox(
-                              color: const Color(
-                                0xFF000000,
-                              ).withValues(alpha: 0.42 * s),
+                            child: SizedBox(
+                              width: double.infinity,
+                              height: sheetHeight,
+                              child: ColoredBox(
+                                color: const Color(
+                                  0xFF000000,
+                                ).withValues(alpha: dimAlpha),
+                              ),
                             ),
                           ),
                         ),

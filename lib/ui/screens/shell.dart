@@ -1,4 +1,7 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform, kIsWeb;
+import 'package:flutter/material.dart' show PredictiveBackPageTransitionsBuilder;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme.dart';
@@ -108,19 +111,43 @@ List<String> effectiveNavTabs(AppData d) {
   return out;
 }
 
-/// Navega com transição fluida e gesto preditivo nativo no Android (e swipe Cupertino no iOS).
-Future<V?> push<V>(BuildContext context, Widget page) =>
-    Navigator.of(context).push<V>(MarePageRoute<V>(builder: (_) => page));
+/// Rota com gesto preditivo nativo do Android (mantendo a transição Cupertino
+/// nativa no iOS/macOS).
+class _PredictivePageRoute<V> extends CupertinoPageRoute<V> {
+  _PredictivePageRoute({required super.builder});
 
-/// Navega para uma subpágina com transição "só de elementos" (sem cortina deslizando):
-/// o fundo permanece estável enquanto elementos `Hero` voam e se transformam no lugar,
-/// mantendo o gesto preditivo nativo no Android.
-Future<V?> pushMorph<V>(BuildContext context, Widget page) =>
-    Navigator.of(context).push<V>(
-      MarePageRoute<V>(builder: (_) => page, morph: true),
+  static const _androidBuilder = PredictiveBackPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return _androidBuilder.buildTransitions<V>(
+        this,
+        context,
+        animation,
+        secondaryAnimation,
+        child,
+      );
+    }
+    return super.buildTransitions(
+      context,
+      animation,
+      secondaryAnimation,
+      child,
     );
+  }
+}
 
-/// Abre fluxos de criação com transição modal fluida e gesto preditivo no Android.
+/// Navega com gesto preditivo nativo no Android e swipe Cupertino no iOS.
+Future<V?> push<V>(BuildContext context, Widget page) =>
+    Navigator.of(context).push<V>(_PredictivePageRoute<V>(builder: (_) => page));
+
+/// Abre fluxos de criação com transição modal ultraleve.
 Future<V?> pushFluid<V>(BuildContext context, Widget page) =>
     Navigator.of(context).push<V>(FluidModalRoute(builder: (_) => page));
 
@@ -153,18 +180,24 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   final _tabId = ValueNotifier<String>('home');
   final _extratoFilter = ValueNotifier<ExtratoFilter?>(null);
-  late final Map<String, Widget> _pageCache = {
-    'home': const RepaintBoundary(child: HomeScreen()),
-    'extrato': RepaintBoundary(child: ExtratoScreen(filter: _extratoFilter)),
-    'caixinhas': const RepaintBoundary(child: CaixinhasScreen()),
-    'categorias': const RepaintBoundary(child: CategoriesScreen(embedded: true)),
-    'assinaturas': const RepaintBoundary(
-      child: SubscriptionsScreen(embedded: true),
+  final Map<String, Widget> _pageCache = {};
+
+  Widget _pageFor(String id) => _pageCache.putIfAbsent(
+    id,
+    () => RepaintBoundary(
+      child: switch (id) {
+        'home' => const HomeScreen(),
+        'extrato' => ExtratoScreen(filter: _extratoFilter),
+        'caixinhas' => const CaixinhasScreen(),
+        'categorias' => const CategoriesScreen(embedded: true),
+        'assinaturas' => const SubscriptionsScreen(embedded: true),
+        'historico' => const HistoryScreen(embedded: true),
+        'ritmo' => const RhythmScreen(embedded: true),
+        'perfil' => const ProfileScreen(),
+        _ => const HomeScreen(),
+      },
     ),
-    'historico': const RepaintBoundary(child: HistoryScreen(embedded: true)),
-    'ritmo': const RepaintBoundary(child: RhythmScreen(embedded: true)),
-    'perfil': const RepaintBoundary(child: ProfileScreen()),
-  };
+  );
 
   @override
   void initState() {
@@ -249,7 +282,6 @@ class _ShellState extends State<Shell> {
     final s = context.store;
     final tabs = effectiveNavTabs(s.data);
     final bottom = MediaQuery.paddingOf(context).bottom;
-    final orderedPages = [for (final id in tabs) _pageCache[id]!];
 
     return ShellScope(
       goTo: _goTo,
@@ -263,6 +295,7 @@ class _ShellState extends State<Shell> {
                 builder: (_, activeId, _) {
                   final idx = tabs.indexOf(activeId);
                   final safeIdx = idx < 0 ? 0 : idx;
+                  final effectiveId = tabs[safeIdx];
                   if (idx < 0) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted && !tabs.contains(_tabId.value)) {
@@ -270,6 +303,14 @@ class _ShellState extends State<Shell> {
                       }
                     });
                   }
+                  // Monta cada aba sob demanda na primeira visita (reduz tempo
+                  // de abertura e RAM inicial em aparelhos modestos) e mantém
+                  // em cache após visitada para troca instantânea.
+                  _pageFor(effectiveId);
+                  final orderedPages = [
+                    for (final id in tabs)
+                      _pageCache[id] ?? const SizedBox.shrink(),
+                  ];
                   return IndexedStack(index: safeIdx, children: orderedPages);
                 },
               ),

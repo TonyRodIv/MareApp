@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'core/perf.dart';
 import 'core/theme.dart';
 import 'data/drive_sync.dart';
 import 'data/models.dart';
@@ -17,11 +18,21 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   GoogleFonts.config.allowRuntimeFetching = false;
-  await initializeDateFormatting('pt_BR');
-  await ProgressiveBlur.preload();
-  final store = await Store.load();
+  late final Store store;
+  await Future.wait([
+    initializeDateFormatting('pt_BR'),
+    DevicePerf.instance.init(),
+    ProgressiveBlur.preload(),
+    Store.load().then((s) => store = s),
+  ]);
   final sync = SyncService.attach(store);
-  runApp(MareApp(store: store, sync: sync, showLaunchAnimation: true));
+  runApp(
+    MareApp(
+      store: store,
+      sync: sync,
+      showLaunchAnimation: !DevicePerf.instance.simplifyMotion,
+    ),
+  );
 }
 
 class MareApp extends StatefulWidget {
@@ -55,6 +66,7 @@ class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      DevicePerf.instance.refresh();
       _sync.onAppResumed();
     }
   }
@@ -68,7 +80,9 @@ class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return StoreScope(
+    return PerfScope(
+      perf: DevicePerf.instance,
+      child: StoreScope(
       store: widget.store,
       child: SyncScope(
         sync: _sync,
@@ -124,6 +138,7 @@ class _MareAppState extends State<MareApp> with WidgetsBindingObserver {
             );
           },
         ),
+      ),
       ),
     );
   }

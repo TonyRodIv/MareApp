@@ -541,6 +541,12 @@ class _SubBubble extends StatelessWidget {
             Image.network(
               brandLogoUrl(domain),
               fit: BoxFit.contain,
+              cacheWidth: (badgeSize * MediaQuery.devicePixelRatioOf(context))
+                  .round()
+                  .clamp(32, 160),
+              cacheHeight: (badgeSize * MediaQuery.devicePixelRatioOf(context))
+                  .round()
+                  .clamp(32, 160),
               gaplessPlayback: true,
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
               frameBuilder: (ctx, child, frame, sync) => frame == null && !sync

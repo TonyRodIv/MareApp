@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
+import '../../core/perf.dart';
 import '../../core/theme.dart';
 import '../../data/validation.dart';
 import 'kit.dart';
@@ -73,23 +74,38 @@ class FloatingNavBar extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 RepaintBoundary(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 26, sigmaY: 26),
-                    child: DecoratedBox(
-                      decoration: ShapeDecoration(
-                        color: c.isDark
-                            ? const Color(0xFF16161A).withValues(alpha: 0.56)
-                            : const Color(0xFFFFFFFF).withValues(alpha: 0.62),
-                        shape: RoundedSuperellipseBorder(
-                          borderRadius: BorderRadius.circular(34),
-                          side: BorderSide(
-                            color: c.isDark
-                                ? Palette.neutral0.withValues(alpha: 0.10)
-                                : Palette.neutral950.withValues(alpha: 0.08),
+                  child: Builder(
+                    builder: (ctx) {
+                      final perf = ctx.perf;
+                      final sigma = 26.0 * perf.glassSigmaFactor;
+                      final surface = DecoratedBox(
+                        decoration: ShapeDecoration(
+                          color: c.isDark
+                              ? const Color(0xFF16161A).withValues(
+                                  alpha: perf.allowBlur ? 0.56 : 0.92,
+                                )
+                              : const Color(0xFFFFFFFF).withValues(
+                                  alpha: perf.allowBlur ? 0.62 : 0.94,
+                                ),
+                          shape: RoundedSuperellipseBorder(
+                            borderRadius: BorderRadius.circular(34),
+                            side: BorderSide(
+                              color: c.isDark
+                                  ? Palette.neutral0.withValues(alpha: 0.10)
+                                  : Palette.neutral950.withValues(alpha: 0.08),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                      if (!perf.allowBlur || sigma < 1.0) return surface;
+                      return BackdropFilter(
+                        filter: ui.ImageFilter.blur(
+                          sigmaX: sigma,
+                          sigmaY: sigma,
+                        ),
+                        child: surface,
+                      );
+                    },
                   ),
                 ),
                 RepaintBoundary(

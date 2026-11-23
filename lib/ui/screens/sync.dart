@@ -547,6 +547,8 @@ class _GoogleAvatar extends StatelessWidget {
     final c = context.c;
     final fallback = Avatar(name: fallbackName, size: 44);
     if (photoUrl == null || photoUrl!.isEmpty) return fallback;
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final cachePx = (44 * dpr).round().clamp(48, 256);
     return SizedBox(
       width: 44,
       height: 44,
@@ -554,6 +556,8 @@ class _GoogleAvatar extends StatelessWidget {
         child: Image.network(
           photoUrl!,
           fit: BoxFit.cover,
+          cacheWidth: cachePx,
+          cacheHeight: cachePx,
           errorBuilder: (_, _, _) => fallback,
           loadingBuilder: (_, child, progress) =>
               progress == null ? child : Container(color: c.cardAlt),

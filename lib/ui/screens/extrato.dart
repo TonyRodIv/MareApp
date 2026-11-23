@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/cycle.dart';
 import '../../core/money.dart';
+import '../../core/perf.dart';
 import '../../core/theme.dart';
 import '../../data/brands.dart';
 import '../../data/finance.dart';
@@ -288,19 +289,21 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                 ],
               ),
             ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                pad,
-                Space.base,
-                pad,
-                (widget.standalone ? Space.xl + bottomInset : navClearance(context)) +
-                    68,
-              ),
-              sliver: SliverList.list(
-                children: [
-                  if (items.isEmpty) ...[
-                    const SizedBox(height: Space.sm),
-                    EmptyState(
+            if (items.isEmpty)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.base,
+                  pad,
+                  (widget.standalone
+                          ? Space.xl + bottomInset
+                          : navClearance(context)) +
+                      68,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: Space.sm),
+                    child: EmptyState(
                       icon: LucideIcons.receipt,
                       title: _cat != null || _card != null
                           ? 'Nenhum gasto com esse filtro'
@@ -313,56 +316,82 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                           : (_offset == 0 ? 'Adicionar gasto' : null),
                       onAction: _cat != null || _card != null
                           ? () => setState(() {
-                                _cat = null;
-                                _card = null;
-                              })
+                              _cat = null;
+                              _card = null;
+                            })
                           : () => openAddExpense(context),
                     ),
-                  ] else if (_kind == 0) ...[
-                    // Aba "Todos": recorrentes e únicos juntos numa só lista, sem título redundante
-                    ListGroup(
-                      children: [
-                        for (final e in unified)
-                          ExpenseRow(e: e, f: f, hidden: hidden),
-                      ],
-                    ),
-                  ] else if (_kind == 1) ...[
-                    // Aba "Recorrentes"
-                    ListGroup(
-                      title: 'Recorrentes',
+                  ),
+                ),
+              )
+            else if (_kind == 0)
+              // Aba "Todos" lazy: constrói só os gastos visíveis na tela.
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.base,
+                  pad,
+                  (widget.standalone
+                          ? Space.xl + bottomInset
+                          : navClearance(context)) +
+                      68,
+                ),
+                sliver: SliverListGroup(
+                  itemCount: unified.length,
+                  itemBuilder: (_, i) =>
+                      ExpenseRow(e: unified[i], f: f, hidden: hidden),
+                ),
+              )
+            else if (_kind == 1)
+              // Aba "Recorrentes" lazy (sem título redundante acima da lista)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.base,
+                  pad,
+                  (widget.standalone
+                          ? Space.xl + bottomInset
+                          : navClearance(context)) +
+                      68,
+                ),
+                sliver: SliverListGroup(
+                  itemCount: recurringOnly.length,
+                  itemBuilder: (_, i) =>
+                      ExpenseRow(e: recurringOnly[i], f: f, hidden: hidden),
+                ),
+              ) else
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.base,
+                  pad,
+                  (widget.standalone
+                          ? Space.xl + bottomInset
+                          : navClearance(context)) +
+                      68,
+                ),
+                sliver: SliverList.builder(
+                  itemCount: byDay.length,
+                  itemBuilder: (_, idx) {
+                    final day = byDay.keys.elementAt(idx);
+                    final dayItems = byDay[day]!;
+                    return ListGroup(
+                      title: _dayLabel(day),
                       trailing: Text(
                         fmtMoney(
-                          recurringOnly.fold(0, (t, e) => t + e.cents),
+                          dayItems.fold(0, (t, e) => t + e.cents),
                           hidden: hidden,
                         ),
                         style: T.smallStrong.copyWith(color: c.textSecondary),
                       ),
                       children: [
-                        for (final e in recurringOnly)
+                        for (final e in dayItems)
                           ExpenseRow(e: e, f: f, hidden: hidden),
                       ],
-                    ),
-                  ] else ...[
-                    // Aba "Únicos" agrupada por dia
-                    for (final day in byDay.keys)
-                      ListGroup(
-                        title: _dayLabel(day),
-                        trailing: Text(
-                          fmtMoney(
-                            byDay[day]!.fold(0, (t, e) => t + e.cents),
-                            hidden: hidden,
-                          ),
-                          style: T.smallStrong.copyWith(color: c.textSecondary),
-                        ),
-                        children: [
-                          for (final e in byDay[day]!)
-                            ExpenseRow(e: e, f: f, hidden: hidden),
-                        ],
-                      ),
-                  ],
-                ],
+                    );
+                  },
+                ),
               ),
-            ),
           ],
           ),
         ),
@@ -405,12 +434,23 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
   }
 
   void _openSearch(BuildContext context, Cycle cy) {
-    pushMorph<void>(
-      context,
-      ExtratoSearchScreen(
-        cycle: cy,
-        initialCard: _card,
-        initialCat: _cat,
+    Navigator.of(context).push<void>(
+      PageRouteBuilder<void>(
+        transitionDuration: const Duration(milliseconds: 280),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (_, _, _) => ExtratoSearchScreen(
+          cycle: cy,
+          initialCard: _card,
+          initialCat: _cat,
+        ),
+        transitionsBuilder: (_, anim, _, child) {
+          final curve = CurvedAnimation(
+            parent: anim,
+            curve: easeOutExpo,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(opacity: curve, child: child);
+        },
       ),
     );
   }
@@ -617,54 +657,59 @@ class _CycleBarPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final perf = context.perf;
+    final sigma = 24.0 * perf.glassSigmaFactor;
     final glassBg = c.isDark
-        ? const Color(0xFF16161A).withValues(alpha: 0.56)
-        : const Color(0xFFFFFFFF).withValues(alpha: 0.62);
+        ? const Color(0xFF16161A).withValues(alpha: perf.allowBlur ? 0.56 : 0.90)
+        : const Color(0xFFFFFFFF).withValues(alpha: perf.allowBlur ? 0.62 : 0.92);
+    final pill = Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: ShapeDecoration(
+        color: glassBg,
+        shape: RoundedSuperellipseBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: c.isDark
+                ? Palette.neutral0.withValues(alpha: 0.12)
+                : Palette.neutral950.withValues(alpha: 0.08),
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BlurSwitcher(
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              key: ValueKey(label),
+              style: T.labelStrong.copyWith(color: c.text),
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Icon(
+            LucideIcons.chevronDown,
+            size: 15,
+            color: c.textSecondary,
+          ),
+        ],
+      ),
+    );
     return Pressable(
       semanticLabel: 'Escolher ciclo',
       scale: 0.95,
       onTap: onPick,
-      child: ClipRSuperellipse(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: ShapeDecoration(
-              color: glassBg,
-              shape: RoundedSuperellipseBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: c.isDark
-                      ? Palette.neutral0.withValues(alpha: 0.12)
-                      : Palette.neutral950.withValues(alpha: 0.08),
-                ),
+      child: perf.allowBlur && sigma >= 1.0
+          ? ClipRSuperellipse(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+                child: pill,
               ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                BlurSwitcher(
-                  alignment: Alignment.center,
-                  child: Text(
-                    label,
-                    key: ValueKey(label),
-                    style: T.labelStrong.copyWith(color: c.text),
-                    maxLines: 1,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Icon(
-                  LucideIcons.chevronDown,
-                  size: 15,
-                  color: c.textSecondary,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+            )
+          : pill,
     );
   }
 }
@@ -1102,45 +1147,62 @@ class _ExtratoSearchScreenState extends State<ExtratoSearchScreen> {
                 ],
               ),
             ),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(pad, Space.base, pad, Space.xl),
-              sliver: SliverList.list(
-                children: [
-                  if (results.isEmpty)
-                    EmptyState(
-                      icon: LucideIcons.search,
-                      title: 'Nenhum resultado',
-                      message: _q.isNotEmpty
-                          ? 'Não encontrei gastos para "$_q".'
-                          : 'Nenhum lançamento encontrado com esse filtro.',
-                      action: !_allCycles && _q.isNotEmpty
-                          ? 'Buscar em todos os ciclos'
-                          : (activeFilterCount > 0 ? 'Limpar filtros' : null),
-                      onAction: !_allCycles && _q.isNotEmpty
-                          ? () => setState(() => _allCycles = true)
-                          : (activeFilterCount > 0
-                                ? () => setState(() {
-                                    _cat = null;
-                                    _card = null;
-                                  })
-                                : null),
-                    )
-                  else
-                    ListGroup(
-                      title:
-                          '${results.length} ${results.length == 1 ? 'resultado' : 'resultados'}',
-                      trailing: Text(
-                        fmtMoney(total, hidden: hidden),
-                        style: T.smallStrong.copyWith(color: c.textSecondary),
-                      ),
-                      children: [
-                        for (final e in results)
-                          ExpenseRow(e: e, f: f, hidden: hidden),
-                      ],
+            if (results.isEmpty)
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  Space.base,
+                  pad,
+                  Space.xl + MediaQuery.paddingOf(context).bottom,
+                ),
+                sliver: SliverToBoxAdapter(
+                  child: EmptyState(
+                    icon: LucideIcons.search,
+                    title: 'Nenhum resultado',
+                    message: _q.isNotEmpty
+                        ? 'Não encontrei gastos para "$_q".'
+                        : 'Nenhum lançamento encontrado com esse filtro.',
+                    action: !_allCycles && _q.isNotEmpty
+                        ? 'Buscar em todos os ciclos'
+                        : (activeFilterCount > 0 ? 'Limpar filtros' : null),
+                    onAction: !_allCycles && _q.isNotEmpty
+                        ? () => setState(() => _allCycles = true)
+                        : (activeFilterCount > 0
+                              ? () => setState(() {
+                                  _cat = null;
+                                  _card = null;
+                                })
+                              : null),
+                  ),
+                ),
+              )
+            else ...[
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(pad, Space.base, pad, 0),
+                sliver: SliverToBoxAdapter(
+                  child: SectionHeader(
+                    '${results.length} ${results.length == 1 ? 'resultado' : 'resultados'}',
+                    trailing: Text(
+                      fmtMoney(total, hidden: hidden),
+                      style: T.smallStrong.copyWith(color: c.textSecondary),
                     ),
-                ],
+                  ),
+                ),
               ),
-            ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  pad,
+                  0,
+                  pad,
+                  Space.xl + MediaQuery.paddingOf(context).bottom,
+                ),
+                sliver: SliverListGroup(
+                  itemCount: results.length,
+                  itemBuilder: (_, i) =>
+                      ExpenseRow(e: results[i], f: f, hidden: hidden),
+                ),
+              ),
+            ],
           ],
         ),
       ),

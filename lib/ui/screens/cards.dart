@@ -122,24 +122,12 @@ class _CardsStripState extends State<CardsStrip> {
                         separatorBuilder: (_, _) =>
                             const SizedBox(width: Space.sm),
                         itemBuilder: (_, i) => Pressable(
-                          onTap: () => pushMorph(
+                          onTap: () => push(
                             context,
-                            CardDetailScreen(
-                              cardId: cards[i].id,
-                              heroPrefix: 'home-card',
-                            ),
+                            CardDetailScreen(cardId: cards[i].id),
                           ),
                           onLongPress: () => editCard(context, card: cards[i]),
-                          child: Hero(
-                            tag: 'home-card-badge-${cards[i].id}',
-                            flightShuttleBuilder:
-                                (_, anim, _, _, _) => _cardToCircleShuttle(
-                                  cards[i],
-                                  anim,
-                                  c,
-                                ),
-                            child: CardChip(card: cards[i]),
-                          ),
+                          child: CardChip(card: cards[i]),
                         ),
                       ),
                     ),
@@ -369,69 +357,12 @@ const _knownBankColors = <(List<String>, Color)>[
   (['dinheiro', 'carteira', 'especie'], Color(0xFF2E7D32)),
 ];
 
-Widget _cardToCircleShuttle(
-  PayCard card,
-  Animation<double> animation,
-  AppColors c,
-) {
-  final rawColor = Color(card.color);
-  final accent = c.tone(rawColor);
-  final targetFill = rawColor.withValues(alpha: c.isDark ? 0.18 : 0.12);
-  final icon = card.isCard ? LucideIcons.creditCard : LucideIcons.landmark;
-  return AnimatedBuilder(
-    animation: animation,
-    builder: (_, _) {
-      final t = Curves.easeInOutCubic.transform(animation.value);
-      final bg = Color.lerp(rawColor, targetFill, t) ?? targetFill;
-      final iconColor = Color.lerp(
-        rawColor.computeLuminance() > 0.5
-            ? Palette.neutral800
-            : Palette.neutral0,
-        accent,
-        t,
-      )!;
-      return LayoutBuilder(
-        builder: (_, constraints) {
-          final w = constraints.maxWidth.clamp(48.0, 120.0);
-          final h = constraints.maxHeight.clamp(44.0, 120.0);
-          final radius =
-              Space.radiusSm + ((h / 2) - Space.radiusSm) * t;
-          return Center(
-            child: Container(
-              width: w,
-              height: h,
-              decoration: ShapeDecoration(
-                color: bg,
-                shape: RoundedSuperellipseBorder(
-                  borderRadius: BorderRadius.circular(radius),
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  icon,
-                  size: (18.0 + 22.0 * t).clamp(16.0, 42.0),
-                  color: iconColor,
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
 /// Detalhe de conta ou cartão no mesmo padrão visual de `BoxDetail` (Caixinhas):
 /// anel circular centralizado com participação no ciclo, ações rápidas e lista
 /// dos lançamentos ligados à conta/cartão.
 class CardDetailScreen extends StatelessWidget {
   final String cardId;
-  final String? heroPrefix;
-  const CardDetailScreen({
-    super.key,
-    required this.cardId,
-    this.heroPrefix,
-  });
+  const CardDetailScreen({super.key, required this.cardId});
 
   @override
   Widget build(BuildContext context) {
@@ -534,8 +465,13 @@ class CardDetailScreen extends StatelessWidget {
                             value: share,
                             from: 0,
                             spring: Springs.settle,
-                            builder: (_, v, _) {
-                              final badge = Container(
+                            builder: (_, v, _) => ProgressRing(
+                              size: 136,
+                              stroke: 8,
+                              fraction: v,
+                              color: accent,
+                              track: c.cardAlt,
+                              child: Container(
                                 width: 100,
                                 height: 100,
                                 decoration: BoxDecoration(
@@ -551,95 +487,59 @@ class CardDetailScreen extends StatelessWidget {
                                   size: 40,
                                   color: accent,
                                 ),
-                              );
-                              return ProgressRing(
-                                size: 136,
-                                stroke: 8,
-                                fraction: v,
-                                color: accent,
-                                track: c.cardAlt,
-                                child: heroPrefix != null
-                                    ? Hero(
-                                        tag: '$heroPrefix-badge-${card.id}',
-                                        flightShuttleBuilder:
-                                            (_, anim, _, _, _) =>
-                                                _cardToCircleShuttle(
-                                                  card,
-                                                  anim,
-                                                  c,
-                                                ),
-                                        child: badge,
-                                      )
-                                    : badge,
-                              );
-                            },
+                              ),
+                            ),
                           ),
                           const SizedBox(height: Space.lg),
-                          Reveal(
-                            index: 0,
-                            dy: 10,
-                            child: Column(
-                              children: [
-                                CountingMoney(
-                                  cents: total,
-                                  builder: (v) => MoneyText(
-                                    v,
-                                    hidden: hidden,
-                                    style: T.displayLg,
-                                  ),
-                                ),
-                                const SizedBox(height: Space.xs),
-                                Text(
-                                  cycleTotal > 0
-                                      ? '$kindLabel · ${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
-                                      : '$kindLabel · Sem gastos em ${cy.label()}',
-                                  textAlign: TextAlign.center,
-                                  style: T.label.copyWith(
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                              ],
+                          CountingMoney(
+                            cents: total,
+                            builder: (v) => MoneyText(
+                              v,
+                              hidden: hidden,
+                              style: T.displayLg,
                             ),
+                          ),
+                          const SizedBox(height: Space.xs),
+                          Text(
+                            cycleTotal > 0
+                                ? '$kindLabel · ${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
+                                : '$kindLabel · Sem gastos em ${cy.label()}',
+                            textAlign: TextAlign.center,
+                            style: T.label.copyWith(color: c.textSecondary),
                           ),
                         ],
                       ),
                       const SizedBox(height: Space.lg),
 
                       // ── Ações rápidas em botões circulares neutros
-                      Reveal(
-                        index: 1,
-                        dy: 12,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            CircleAction(
-                              icon: LucideIcons.plus,
-                              label: 'Novo gasto',
-                              onTap: () => openAddExpense(
-                                context,
-                                initialCardId: card.id,
-                              ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          CircleAction(
+                            icon: LucideIcons.plus,
+                            label: 'Novo gasto',
+                            onTap: () => openAddExpense(
+                              context,
+                              initialCardId: card.id,
                             ),
-                            CircleAction(
-                              icon: LucideIcons.pencil,
-                              label: 'Editar',
-                              onTap: () => editCard(context, card: card),
-                            ),
-                            CircleAction(
-                              icon: LucideIcons.receiptText,
-                              label: 'No Extrato',
-                              onTap: () {
-                                Navigator.of(
-                                  context,
-                                ).popUntil((r) => r.isFirst);
-                                shellNav.goTo(
-                                  1,
-                                  filter: ExtratoFilter(cardId: card.id),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                          ),
+                          CircleAction(
+                            icon: LucideIcons.pencil,
+                            label: 'Editar',
+                            onTap: () => editCard(context, card: card),
+                          ),
+                          CircleAction(
+                            icon: LucideIcons.receiptText,
+                            label: 'No Extrato',
+                            onTap: () {
+                              Navigator.of(context).popUntil((r) => r.isFirst);
+                              shellNav.goTo(
+                                1,
+                                filter: ExtratoFilter(cardId: card.id),
+                              );
+                            },
+                          ),
+                        ],
                       ),
 
                       if (items.isEmpty) ...[

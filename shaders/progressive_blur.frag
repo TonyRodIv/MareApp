@@ -4,6 +4,7 @@ uniform vec2 u_size;
 uniform float u_max_radius;
 uniform float u_direction; // 0.0 = top -> bottom (top bar), 1.0 = bottom -> top (bottom navbar)
 uniform float u_band_px;   // altura real do widget ProgressiveBlur em pixels físicos
+uniform float u_samples;   // 32.0 (alto) ou 14.0 (balanceado) — adaptativo ao aparelho
 uniform sampler2D u_texture;
 
 out vec4 frag_color;
@@ -39,11 +40,12 @@ void main() {
         return;
     }
 
-    // Amostragem em disco de Vogel (32 amostras) com rotação por pixel via
-    // Interleaved Gradient Noise e peso gaussiano: blur cremoso e forte
-    // sem anéis/pontos fantasmas, mantendo 120fps fluidos ao rolar ou trocar abas.
+    // Amostragem em disco de Vogel (adaptativa: 32 amostras em aparelhos
+    // fortes ou 14 em intermediários) com rotação por pixel via IGN e peso
+    // gaussiano: blur cremoso sem anéis/pontos fantasmas.
     const float GOLDEN_ANGLE = 2.39996323;
-    const int SAMPLES = 32;
+    const int MAX_SAMPLES = 32;
+    float samples = clamp(u_samples, 8.0, 32.0);
 
     float ign = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
     float angle_offset = ign * 6.2831853;
@@ -51,8 +53,9 @@ void main() {
     vec4 acc = sharp;
     float total_weight = 1.0;
 
-    for (int i = 1; i <= SAMPLES; i++) {
-        float fi = float(i) / float(SAMPLES);
+    for (int i = 1; i <= MAX_SAMPLES; i++) {
+        if (float(i) > samples) break;
+        float fi = float(i) / samples;
         float r = sqrt(fi) * radius;
         float theta = float(i) * GOLDEN_ANGLE + angle_offset;
         vec2 offset = vec2(cos(theta), sin(theta)) * r / u_size;

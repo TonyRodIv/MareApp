@@ -48,7 +48,6 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
     );
     final pad = sidePadding(context, maxWidth: 720);
 
-    final heroPrefix = widget.standalone ? 'standalone-box' : 'tab-box';
     final scroll = CustomScrollView(
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
@@ -170,12 +169,7 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
                       ),
                       children: [
                         for (final box in list)
-                          _BoxRow(
-                            box: box,
-                            f: f,
-                            hidden: hidden,
-                            heroPrefix: heroPrefix,
-                          ),
+                          _BoxRow(box: box, f: f, hidden: hidden),
                       ],
                     ),
                 ],
@@ -186,7 +180,28 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
 
     final body = Stack(
       children: [
-        const GlowBackground(height: 460),
+        const GlowBackground(height: 440),
+        // Véu suave na cor do fundo (igual ao Extrato, com menos saturação)
+        IgnorePointer(
+          child: SizedBox(
+            height: 440,
+            width: double.infinity,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    c.bg.withValues(alpha: c.isDark ? 0.48 : 0.54),
+                    c.bg.withValues(alpha: c.isDark ? 0.68 : 0.72),
+                    c.bg.withValues(alpha: 0),
+                  ],
+                  stops: const [0.0, 0.55, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
         widget.standalone ? CollapsingTitleScope(child: scroll) : scroll,
       ],
     );
@@ -197,55 +212,12 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
   }
 }
 
-/// Shuttle vetorial do anel + ícone da caixinha: escala sem pixelização nem
-/// overflow de `40px` (lista) até `136px` (detalhe).
-Widget _boxRingShuttle(
-  Caixinha box,
-  double fraction,
-  Color accent,
-  Color track,
-  bool isDark,
-) {
-  return LayoutBuilder(
-    builder: (_, constraints) {
-      final s = constraints.biggest.shortestSide.clamp(32.0, 160.0);
-      final stroke = (s * 0.06).clamp(3.0, 8.0);
-      final inner = s * 0.74;
-      final iconSz = s * 0.31;
-      return Center(
-        child: ProgressRing(
-          size: s,
-          stroke: stroke,
-          fraction: fraction,
-          color: accent,
-          track: track,
-          child: Container(
-            width: inner,
-            height: inner,
-            decoration: BoxDecoration(
-              color: box.colorValue.withValues(alpha: isDark ? 0.20 : 0.13),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(box.iconData, size: iconSz, color: accent),
-          ),
-        ),
-      );
-    },
-  );
-}
-
 /// Linha de caixinha no novo padrão agrupado, com anel circular de progresso de 40px.
 class _BoxRow extends StatelessWidget {
   final Caixinha box;
   final Finance f;
   final bool hidden;
-  final String heroPrefix;
-  const _BoxRow({
-    required this.box,
-    required this.f,
-    required this.hidden,
-    required this.heroPrefix,
-  });
+  const _BoxRow({required this.box, required this.f, required this.hidden});
 
   @override
   Widget build(BuildContext context) {
@@ -256,38 +228,25 @@ class _BoxRow extends StatelessWidget {
     final hasGoal = goal != null && goal > 0;
     final pct = hasGoal ? (bal / goal).clamp(0.0, 1.0) : 0.35;
     final accent = c.tone(box.colorValue);
-    final ringTag = '$heroPrefix-ring-${box.id}';
-    final titleTag = '$heroPrefix-title-${box.id}';
 
     return ListRow(
-      leading: Hero(
-        tag: ringTag,
-        flightShuttleBuilder: (_, _, _, _, _) => _boxRingShuttle(
-          box,
-          hasGoal ? pct : 0.72,
-          accent,
-          c.cardAlt,
-          c.isDark,
-        ),
-        child: ProgressRing(
-          size: 40,
-          stroke: 3,
-          fraction: pct,
-          color: accent,
-          track: c.cardAlt,
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: box.colorValue.withValues(alpha: c.isDark ? 0.22 : 0.14),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(box.iconData, size: 16, color: accent),
+      leading: ProgressRing(
+        size: 40,
+        stroke: 3,
+        fraction: pct,
+        color: accent,
+        track: c.cardAlt,
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: box.colorValue.withValues(alpha: c.isDark ? 0.22 : 0.14),
+            shape: BoxShape.circle,
           ),
+          child: Icon(box.iconData, size: 16, color: accent),
         ),
       ),
       title: box.name,
-      titleHeroTag: titleTag,
       subtitle: hasGoal
           ? '${fmtMoney(bal, hidden: hidden)} de ${fmtMoney(goal, hidden: hidden)}'
           : '+${fmtMoney(per, hidden: hidden)} por ciclo',
@@ -300,10 +259,7 @@ class _BoxRow extends StatelessWidget {
             )
           : null,
       arrow: true,
-      onTap: () => pushMorph(
-        context,
-        BoxDetail(id: box.id, heroPrefix: heroPrefix),
-      ),
+      onTap: () => push(context, BoxDetail(id: box.id)),
     );
   }
 }
@@ -312,8 +268,7 @@ class _BoxRow extends StatelessWidget {
 /// ações em pílulas limpas e lista espaçada de movimentações.
 class BoxDetail extends StatelessWidget {
   final String id;
-  final String? heroPrefix;
-  const BoxDetail({super.key, required this.id, this.heroPrefix});
+  const BoxDetail({super.key, required this.id});
 
   @override
   Widget build(BuildContext context) {
@@ -360,13 +315,12 @@ class BoxDetail extends StatelessWidget {
                   children: [
                     const BackChevron(),
                     Expanded(
-                      child: HeroText(
+                      child: Text(
                         box.name,
-                        tag: heroPrefix != null
-                            ? '$heroPrefix-title-${box.id}'
-                            : null,
                         style: T.bodyStrong.copyWith(color: c.text),
                         textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     RoundIconButton(
@@ -391,91 +345,61 @@ class BoxDetail extends StatelessWidget {
                     // ── Hero circular centralizado (inspirado na tela central de Savings)
                     Column(
                       children: [
-                        Builder(
-                          builder: (_) {
-                            final accent = c.tone(box.colorValue);
-                            final targetFrac = hasGoal ? fraction : 0.72;
-                            final ring = SpringBuilder(
-                              value: targetFrac,
-                              from: heroPrefix != null ? targetFrac : 0,
-                              spring: Springs.settle,
-                              builder: (_, v, _) => ProgressRing(
-                                size: 136,
-                                stroke: 8,
-                                fraction: v,
-                                color: accent,
-                                track: c.cardAlt,
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: box.colorValue.withValues(
-                                      alpha: c.isDark ? 0.18 : 0.12,
-                                    ),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    box.iconData,
-                                    size: 42,
-                                    color: accent,
-                                  ),
+                        SpringBuilder(
+                          value: hasGoal ? fraction : 0.72,
+                          from: 0,
+                          spring: Springs.settle,
+                          builder: (_, v, _) => ProgressRing(
+                            size: 136,
+                            stroke: 8,
+                            fraction: v,
+                            color: c.tone(box.colorValue),
+                            track: c.cardAlt,
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: box.colorValue.withValues(
+                                  alpha: c.isDark ? 0.18 : 0.12,
                                 ),
+                                shape: BoxShape.circle,
                               ),
-                            );
-                            if (heroPrefix == null) return ring;
-                            return Hero(
-                              tag: '$heroPrefix-ring-${box.id}',
-                              flightShuttleBuilder: (_, _, _, _, _) =>
-                                  _boxRingShuttle(
-                                    box,
-                                    targetFrac,
-                                    accent,
-                                    c.cardAlt,
-                                    c.isDark,
-                                  ),
-                              child: ring,
-                            );
-                          },
+                              child: Icon(
+                                box.iconData,
+                                size: 42,
+                                color: c.tone(box.colorValue),
+                              ),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: Space.lg),
-                        Reveal(
-                          index: 0,
-                          dy: 10,
-                          child: Column(
-                            children: [
-                              CountingMoney(
-                                cents: bal,
-                                builder: (v) => MoneyText(
-                                  v,
-                                  hidden: hidden,
-                                  style: T.displayLg,
-                                  color: bal < 0 ? c.negative : null,
-                                ),
-                              ),
-                              const SizedBox(height: Space.xs),
-                              Text(
-                                hasGoal
-                                    ? bal >= goal
-                                          ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
-                                          : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
-                                    : plan.mode == PlanMode.percent
-                                    ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/ciclo'
-                                    : '+${fmtMoney(per, hidden: hidden)} por ciclo',
-                                textAlign: TextAlign.center,
-                                style: T.label.copyWith(color: c.textSecondary),
-                              ),
-                            ],
+                        CountingMoney(
+                          cents: bal,
+                          builder: (v) => MoneyText(
+                            v,
+                            hidden: hidden,
+                            style: T.displayLg,
+                            color: bal < 0 ? c.negative : null,
                           ),
+                        ),
+                        const SizedBox(height: Space.xs),
+                        Text(
+                          hasGoal
+                              ? bal >= goal
+                                    ? 'Meta de ${fmtMoney(goal, hidden: hidden)} alcançada!'
+                                    : 'de ${fmtMoney(goal, hidden: hidden)}${eta != null ? ' · ~$eta ${eta == 1 ? 'ciclo' : 'ciclos'}' : ''}'
+                              : plan.mode == PlanMode.percent
+                              ? '${(plan.amount / 100).toStringAsFixed(plan.amount % 100 == 0 ? 0 : 1)}% do salário · ${fmtMoney(per, hidden: hidden)}/ciclo'
+                              : '+${fmtMoney(per, hidden: hidden)} por ciclo',
+                          textAlign: TextAlign.center,
+                          style: T.label.copyWith(color: c.textSecondary),
                         ),
                       ],
                     ),
                     const SizedBox(height: Space.lg),
 
                     // ── Ações rápidas em botões circulares neutros
-                    Reveal(
-                      index: 1,
-                      dy: 12,
-                      child: Row(
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         CircleAction(
@@ -552,7 +476,6 @@ class BoxDetail extends StatelessWidget {
                           },
                         ),
                       ],
-                    ),
                     ),
 
                     if (moves.isEmpty) ...[

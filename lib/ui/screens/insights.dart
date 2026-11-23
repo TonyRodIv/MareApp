@@ -98,33 +98,9 @@ class _DetailPage extends StatelessWidget {
 
 // ── Categorias ──────────────────────────────────────────────
 
-Widget _catCircleShuttle(IconData icon, Color rawColor, Color accent, bool isDark) {
-  return LayoutBuilder(
-    builder: (_, constraints) {
-      final s = constraints.biggest.shortestSide.clamp(32.0, 120.0);
-      return Center(
-        child: Container(
-          width: s,
-          height: s,
-          decoration: BoxDecoration(
-            color: rawColor.withValues(alpha: isDark ? 0.20 : 0.13),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, size: s * 0.42, color: accent),
-        ),
-      );
-    },
-  );
-}
-
 class CategoriesScreen extends StatelessWidget {
   final bool embedded;
-  final String? waffleHeroTag;
-  const CategoriesScreen({
-    super.key,
-    this.embedded = false,
-    this.waffleHeroTag,
-  });
+  const CategoriesScreen({super.key, this.embedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -137,10 +113,6 @@ class CategoriesScreen extends StatelessWidget {
     final prev = f.byCategory(f.current.prev(s.data.cycleStartDay));
     final prevMap = {for (final e in prev) e.key.id: e.value};
     final mono = categoryMonochromeColors(c, data.length);
-    final catHeroPrefix = embedded
-        ? 'tab-cat'
-        : (waffleHeroTag != null ? 'home-cat' : 'push-cat');
-    final waffle = SizedBox(width: 220, child: CategoryWaffle(data: data));
     return _DetailPage(
       title: 'Por categoria',
       subtitle: '${f.current.label()} · ${fmtMoney(total, hidden: hidden)}',
@@ -156,81 +128,57 @@ class CategoriesScreen extends StatelessWidget {
         else ...[
           AppCard(
             child: Center(
-              child: waffleHeroTag != null
-                  ? Hero(
-                      tag: waffleHeroTag!,
-                      flightShuttleBuilder: heroFittedShuttle,
-                      child: waffle,
-                    )
-                  : waffle,
+              child: SizedBox(width: 220, child: CategoryWaffle(data: data)),
             ),
           ),
-          Reveal(
-            index: 1,
-            dy: 12,
-            child: ListGroup(
-              title: 'Categorias',
-              trailing: Text(
-                fmtMoney(total, hidden: hidden),
-                style: T.smallStrong.copyWith(color: c.textSecondary),
-              ),
-              children: [
-                for (var i = 0; i < data.length; i++)
-                  Column(
-                    children: [
-                      ListRow(
-                        leading: Hero(
-                          tag: '$catHeroPrefix-icon-${data[i].key.id}',
-                          flightShuttleBuilder: (_, _, _, _, _) =>
-                              _catCircleShuttle(
-                                data[i].key.icon,
-                                data[i].key.color,
-                                c.tone(data[i].key.color),
-                                c.isDark,
-                              ),
-                          child: IconBadge(data[i].key.icon, mono[i], size: 40),
-                        ),
-                        title: data[i].key.label,
-                        titleHeroTag: '$catHeroPrefix-title-${data[i].key.id}',
-                        subtitle: _delta(
-                          data[i].value,
-                          prevMap[data[i].key.id],
-                          hidden,
-                        ),
-                        trailing: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              fmtMoney(data[i].value, hidden: hidden),
-                              style: T.bodyMedium.copyWith(color: c.text),
-                            ),
-                            Text(
-                              '${(data[i].value / total * 100).round()}%',
-                              style: T.small.copyWith(color: c.textSecondary),
-                            ),
-                          ],
-                        ),
-                        arrow: true,
-                        onTap: () => pushMorph(
-                          context,
-                          CategoryDetailScreen(
-                            categoryId: data[i].key.id,
-                            heroPrefix: catHeroPrefix,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      SpringBar(
-                        fraction: data[i].value / total,
-                        color: mono[i],
-                        track: c.cardAlt,
-                        height: 5,
-                      ),
-                    ],
-                  ),
-              ],
+          ListGroup(
+            title: 'Categorias',
+            trailing: Text(
+              fmtMoney(total, hidden: hidden),
+              style: T.smallStrong.copyWith(color: c.textSecondary),
             ),
+            children: [
+              for (var i = 0; i < data.length; i++)
+                Column(
+                  children: [
+                    ListRow(
+                      leading: IconBadge(data[i].key.icon, mono[i], size: 40),
+                      title: data[i].key.label,
+                      subtitle: _delta(
+                        data[i].value,
+                        prevMap[data[i].key.id],
+                        hidden,
+                      ),
+                      trailing: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            fmtMoney(data[i].value, hidden: hidden),
+                            style: T.bodyMedium.copyWith(color: c.text),
+                          ),
+                          Text(
+                            '${(data[i].value / total * 100).round()}%',
+                            style: T.small.copyWith(color: c.textSecondary),
+                          ),
+                        ],
+                      ),
+                      arrow: true,
+                      onTap: () => push(
+                        context,
+                        CategoryDetailScreen(categoryId: data[i].key.id),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SpringBar(
+                      fraction: data[i].value / total,
+                      color: mono[i],
+                      track: c.cardAlt,
+                      height: 5,
+                    ),
+                  ],
+                ),
+            ],
           ),
         ],
       ],
@@ -250,12 +198,7 @@ class CategoriesScreen extends StatelessWidget {
 /// botões circulares e lista dos lançamentos da categoria.
 class CategoryDetailScreen extends StatelessWidget {
   final String categoryId;
-  final String? heroPrefix;
-  const CategoryDetailScreen({
-    super.key,
-    required this.categoryId,
-    this.heroPrefix,
-  });
+  const CategoryDetailScreen({super.key, required this.categoryId});
 
   @override
   Widget build(BuildContext context) {
@@ -307,13 +250,12 @@ class CategoryDetailScreen extends StatelessWidget {
                     children: [
                       const BackChevron(),
                       Expanded(
-                        child: HeroText(
+                        child: Text(
                           cat.label,
-                          tag: heroPrefix != null
-                              ? '$heroPrefix-title-${cat.id}'
-                              : null,
                           style: T.bodyStrong.copyWith(color: c.text),
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       RoundIconButton(
@@ -345,8 +287,13 @@ class CategoryDetailScreen extends StatelessWidget {
                             value: share,
                             from: 0,
                             spring: Springs.settle,
-                            builder: (_, v, _) {
-                              final badge = Container(
+                            builder: (_, v, _) => ProgressRing(
+                              size: 136,
+                              stroke: 8,
+                              fraction: v,
+                              color: accent,
+                              track: c.cardAlt,
+                              child: Container(
                                 width: 100,
                                 height: 100,
                                 decoration: BoxDecoration(
@@ -360,90 +307,54 @@ class CategoryDetailScreen extends StatelessWidget {
                                   size: 42,
                                   color: accent,
                                 ),
-                              );
-                              return ProgressRing(
-                                size: 136,
-                                stroke: 8,
-                                fraction: v,
-                                color: accent,
-                                track: c.cardAlt,
-                                child: heroPrefix != null
-                                    ? Hero(
-                                        tag: '$heroPrefix-icon-${cat.id}',
-                                        flightShuttleBuilder:
-                                            (_, _, _, _, _) => _catCircleShuttle(
-                                              cat.icon,
-                                              cat.color,
-                                              accent,
-                                              c.isDark,
-                                            ),
-                                        child: badge,
-                                      )
-                                    : badge,
-                              );
-                            },
+                              ),
+                            ),
                           ),
                           const SizedBox(height: Space.lg),
-                          Reveal(
-                            index: 0,
-                            dy: 10,
-                            child: Column(
-                              children: [
-                                CountingMoney(
-                                  cents: total,
-                                  builder: (v) => MoneyText(
-                                    v,
-                                    hidden: hidden,
-                                    style: T.displayLg,
-                                  ),
-                                ),
-                                const SizedBox(height: Space.xs),
-                                Text(
-                                  cycleTotal > 0
-                                      ? '${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
-                                      : 'Sem gastos em ${cy.label()}',
-                                  textAlign: TextAlign.center,
-                                  style: T.label.copyWith(
-                                    color: c.textSecondary,
-                                  ),
-                                ),
-                              ],
+                          CountingMoney(
+                            cents: total,
+                            builder: (v) => MoneyText(
+                              v,
+                              hidden: hidden,
+                              style: T.displayLg,
                             ),
+                          ),
+                          const SizedBox(height: Space.xs),
+                          Text(
+                            cycleTotal > 0
+                                ? '${(share * 100).round()}% dos gastos de ${cy.label()}${delta != null ? ' · $delta' : ''}'
+                                : 'Sem gastos em ${cy.label()}',
+                            textAlign: TextAlign.center,
+                            style: T.label.copyWith(color: c.textSecondary),
                           ),
                         ],
                       ),
                       const SizedBox(height: Space.lg),
 
                       // ── Ações rápidas em botões circulares neutros
-                      Reveal(
-                        index: 1,
-                        dy: 12,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            CircleAction(
-                              icon: LucideIcons.plus,
-                              label: 'Novo gasto',
-                              onTap: () => openAddExpense(
-                                context,
-                                initialCategoryId: cat.id,
-                              ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          CircleAction(
+                            icon: LucideIcons.plus,
+                            label: 'Novo gasto',
+                            onTap: () => openAddExpense(
+                              context,
+                              initialCategoryId: cat.id,
                             ),
-                            CircleAction(
-                              icon: LucideIcons.receiptText,
-                              label: 'No Extrato',
-                              onTap: () {
-                                Navigator.of(
-                                  context,
-                                ).popUntil((r) => r.isFirst);
-                                shellNav.goTo(
-                                  1,
-                                  filter: ExtratoFilter(categoryId: cat.id),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
+                          ),
+                          CircleAction(
+                            icon: LucideIcons.receiptText,
+                            label: 'No Extrato',
+                            onTap: () {
+                              Navigator.of(context).popUntil((r) => r.isFirst);
+                              shellNav.goTo(
+                                1,
+                                filter: ExtratoFilter(categoryId: cat.id),
+                              );
+                            },
+                          ),
+                        ],
                       ),
 
                       if (items.isEmpty) ...[

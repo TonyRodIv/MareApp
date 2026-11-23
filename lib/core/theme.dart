@@ -328,12 +328,30 @@ class AppColors {
   Color softOn(Color fill) =>
       ensureContrast(TonalScale.generate(fill)[200], [fill], 4.5);
 
+  static final Map<(int, Brightness, Harmony), AppColors> _seedCache = {};
+
   /// Monta o tema completo a partir de uma cor-semente, em três passos:
   /// 1. [PaletteSet] cria as escalas da primária e da companheira (harmonia);
   /// 2. neutros e superfícies saem do mesmo matiz, com croma quase nulo;
   /// 3. cada par texto/fundo passa por [ensureContrast], então nenhuma combinação
   ///    de semente × tema × harmonia fica abaixo do mínimo WCAG.
+  /// Memoizado por `(seed, brightness, harmony)` para evitar recalcular escalas
+  /// OKLCH a cada rebuild do `Store`.
   factory AppColors.fromSeed(
+    Color seed,
+    Brightness brightness, {
+    Harmony harmony = Harmony.complementary,
+  }) {
+    final cacheKey = (seed.toARGB32(), brightness, harmony);
+    final cached = _seedCache[cacheKey];
+    if (cached != null) return cached;
+    final built = _buildFromSeed(seed, brightness, harmony: harmony);
+    if (_seedCache.length > 16) _seedCache.clear();
+    _seedCache[cacheKey] = built;
+    return built;
+  }
+
+  static AppColors _buildFromSeed(
     Color seed,
     Brightness brightness, {
     Harmony harmony = Harmony.complementary,
