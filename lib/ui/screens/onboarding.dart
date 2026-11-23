@@ -680,7 +680,10 @@ class _OnboardingState extends State<Onboarding> {
               ],
             ),
             const SizedBox(height: Space.base),
-            QuickAddChips(controller: _salary),
+            QuickAddChips(
+              controller: _salary,
+              amounts: const [100, 250, 500, 1000],
+            ),
             const Spacer(),
             Keypad(controller: _salary),
             const SizedBox(height: Space.md),

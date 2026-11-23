@@ -856,7 +856,14 @@ class IconBadge extends StatelessWidget {
 /// Logo da marca (quando o nome do gasto cita uma conhecida) num círculo limpo;
 /// senão, escolhe automaticamente um ícone inteligente do Lucide pelo nome ou
 /// cai no ícone da categoria. Também usa o fallback quando estiver sem rede.
-class BrandLogo extends StatelessWidget {
+///
+/// Para garantir que o círculo do container nunca tenha cor destoante do fundo
+/// real do ícone (ex.: favicon com fundo branco dentro de círculo azul, ou
+/// Prime Video azul-escuro dentro de azul-claro), amostra automaticamente os
+/// pixels da borda da imagem carregada na primeira exibição e faz cache da cor
+/// real de fundo por domínio (com exceção do Spotify, cujo glifo verde sobre
+/// fundo transparente deve sempre ficar sobre fundo preto `#000000`).
+class BrandLogo extends StatefulWidget {
   final String name;
   final IconData icon;
   final Color color;
@@ -869,16 +876,145 @@ class BrandLogo extends StatelessWidget {
     this.size = 40,
   });
 
+  static final Map<String, Color> _detectedBgCache = {
+    'spotify.com': const Color(0xFF000000),
+  };
+
+  @override
+  State<BrandLogo> createState() => _BrandLogoState();
+}
+
+class _BrandLogoState extends State<BrandLogo> {
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+  String? _domain;
+  Color? _detectedBg;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncSpec();
+  }
+
+  @override
+  void didUpdateWidget(BrandLogo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.name != widget.name) _syncSpec();
+  }
+
+  @override
+  void dispose() {
+    _unsubscribe();
+    super.dispose();
+  }
+
+  void _unsubscribe() {
+    if (_stream != null && _listener != null) {
+      _stream!.removeListener(_listener!);
+    }
+    _stream = null;
+    _listener = null;
+  }
+
+  void _syncSpec() {
+    _unsubscribe();
+    final spec = brandSpecFor(widget.name);
+    _domain = spec?.domain;
+    if (_domain == null) {
+      _detectedBg = null;
+      return;
+    }
+    final cached = BrandLogo._detectedBgCache[_domain!];
+    if (cached != null) {
+      _detectedBg = cached;
+      return;
+    }
+    _detectedBg = null;
+    final provider = NetworkImage(brandLogoUrl(_domain!));
+    final stream = provider.resolve(ImageConfiguration.empty);
+    _stream = stream;
+    _listener = ImageStreamListener(
+      (info, _) => _sampleEdgeColor(_domain!, info.image, spec!.bg),
+      onError: (_, _) {},
+    );
+    stream.addListener(_listener!);
+  }
+
+  Future<void> _sampleEdgeColor(
+    String domain,
+    ui.Image img,
+    Color fallbackBg,
+  ) async {
+    if (BrandLogo._detectedBgCache.containsKey(domain)) return;
+    try {
+      final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null) return;
+      final w = img.width;
+      final h = img.height;
+      if (w < 4 || h < 4) return;
+
+      // Amostra 12 pontos ao longo das bordas do favicon para descobrir a cor
+      // real do fundo da imagem (ignorando pixels transparentes).
+      final pts = <(int, int)>[
+        (1, 1),
+        (w ~/ 2, 1),
+        (w - 2, 1),
+        (1, h ~/ 2),
+        (w - 2, h ~/ 2),
+        (1, h - 2),
+        (w ~/ 2, h - 2),
+        (w - 2, h - 2),
+        (w ~/ 4, 1),
+        ((w * 3) ~/ 4, 1),
+        (1, h ~/ 4),
+        (w - 2, (h * 3) ~/ 4),
+      ];
+      var rSum = 0;
+      var gSum = 0;
+      var bSum = 0;
+      var opaqueCount = 0;
+      for (final (px, py) in pts) {
+        final offset = (py * w + px) * 4;
+        if (offset + 3 >= data.lengthInBytes) continue;
+        final r = data.getUint8(offset);
+        final g = data.getUint8(offset + 1);
+        final b = data.getUint8(offset + 2);
+        final a = data.getUint8(offset + 3);
+        if (a >= 210) {
+          rSum += r;
+          gSum += g;
+          bSum += b;
+          opaqueCount++;
+        }
+      }
+      final Color resolved;
+      if (opaqueCount >= 4) {
+        resolved = Color.fromARGB(
+          255,
+          (rSum / opaqueCount).round().clamp(0, 255),
+          (gSum / opaqueCount).round().clamp(0, 255),
+          (bSum / opaqueCount).round().clamp(0, 255),
+        );
+      } else {
+        resolved = fallbackBg;
+      }
+      BrandLogo._detectedBgCache[domain] = resolved;
+      if (mounted && _domain == domain) {
+        setState(() => _detectedBg = resolved);
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
-    final resolvedIcon = smartIconFor(name) ?? icon;
-    final fallback = IconBadge(resolvedIcon, color, size: size);
-    final spec = brandSpecFor(name);
+    final size = widget.size;
+    final resolvedIcon = smartIconFor(widget.name) ?? widget.icon;
+    final fallback = IconBadge(resolvedIcon, widget.color, size: size);
+    final spec = brandSpecFor(widget.name);
     if (spec == null) return fallback;
-    final pad = (size * spec.inset).clamp(0.0, size * 0.25);
-    // Sem cacheWidth dependente de [size]: assim o ImageCache compartilha o
-    // mesmo bitmap 256px entre a lista (40px) e o sheet de detalhes (52px),
-    // abrindo instantaneamente sem piscar nem recarregar.
+    final bg =
+        _detectedBg ?? BrandLogo._detectedBgCache[spec.domain] ?? spec.bg;
+    final pad = (size * spec.inset).clamp(0.0, size * 0.22);
     return SizedBox(
       width: size,
       height: size,
@@ -900,7 +1036,7 @@ class BrandLogo extends StatelessWidget {
               }
               return ClipOval(
                 child: ColoredBox(
-                  color: spec.bg,
+                  color: bg,
                   child: Padding(
                     padding: EdgeInsets.all(pad),
                     child: SizedBox.expand(child: child),
@@ -1093,13 +1229,13 @@ class GlowBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    // Cada tema possui um par de cores de gradiente próprio (primary +
-    // secondaryGlow) que se fundem suavemente até c.bg, sem véu acinzentado.
+    // Gradiente atmosférico suave na cor do tema: interpola apenas em direção
+    // a c.bg com curva ease-out (sem misturar cor complementar oposta em sRGB,
+    // o que dessaturaria o meio do gradiente para cinza) e atinge 100% c.bg
+    // antes do fim da caixa para nunca deixar corte ou faixa acinzentada.
     final spec = accentThemeFor(tint ?? c.seed);
     final base = tint ?? spec.primary;
-    final secondary = tint != null
-        ? complementaryOf(tint!)
-        : spec.secondaryGlow;
+    final peakAlpha = c.isDark ? 0.25 : 0.20;
     return IgnorePointer(
       child: SizedBox(
         height: height,
@@ -1110,29 +1246,22 @@ class GlowBackground extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
+                Color.alphaBlend(base.withValues(alpha: peakAlpha), c.bg),
                 Color.alphaBlend(
-                  base.withValues(alpha: c.isDark ? 0.24 : 0.20),
+                  base.withValues(alpha: peakAlpha * 0.58),
                   c.bg,
                 ),
                 Color.alphaBlend(
-                  secondary.withValues(alpha: c.isDark ? 0.09 : 0.08),
+                  base.withValues(alpha: peakAlpha * 0.24),
+                  c.bg,
+                ),
+                Color.alphaBlend(
+                  base.withValues(alpha: peakAlpha * 0.06),
                   c.bg,
                 ),
                 c.bg,
               ],
-              stops: const [0.0, 0.54, 1.0],
-            ),
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: spec.radialCenter,
-                radius: 1.15,
-                colors: [
-                  secondary.withValues(alpha: c.isDark ? 0.16 : 0.12),
-                  secondary.withValues(alpha: 0),
-                ],
-              ),
+              stops: const [0.0, 0.26, 0.54, 0.78, 1.0],
             ),
           ),
         ),
@@ -2830,13 +2959,14 @@ class _IosSheetFrameState extends State<_IosSheetFrame>
   }
 }
 
-/// Corpo de sheet: conteúdo rolável + rodapé fixo para os botões de ação.
+/// Corpo de sheet: cabeçalho fixo com fade ao rolar + conteúdo rolável + rodapé fixo.
 /// Quando o scroll está no topo (ou não há o que rolar), arrastar para baixo
 /// puxa o próprio sheet interativamente para fechar (estilo iOS nativo).
 class SheetBody extends StatefulWidget {
   final Widget child;
+  final Widget? header;
   final Widget? bottom;
-  const SheetBody({super.key, required this.child, this.bottom});
+  const SheetBody({super.key, required this.child, this.header, this.bottom});
 
   @override
   State<SheetBody> createState() => _SheetBodyState();
@@ -2854,79 +2984,154 @@ class _SheetBodyState extends State<SheetBody> {
     super.dispose();
   }
 
+  /// Extrai automaticamente a primeira `Row` (título + botão fechar) quando
+  /// [widget.child] é uma [Column], mantendo o cabeçalho fixo no topo do sheet.
+  (Widget?, Widget) _splitHeader(Widget raw) {
+    if (widget.header != null) return (widget.header, raw);
+    if (raw is Column && raw.children.isNotEmpty && raw.children.first is Row) {
+      final headerRow = raw.children.first;
+      final rest = List<Widget>.from(raw.children.skip(1));
+      if (rest.isNotEmpty &&
+          rest.first is SizedBox &&
+          (rest.first as SizedBox).child == null &&
+          ((rest.first as SizedBox).height ?? 0) <= 20) {
+        rest.removeAt(0);
+      }
+      return (
+        headerRow,
+        Column(
+          key: raw.key,
+          mainAxisAlignment: raw.mainAxisAlignment,
+          mainAxisSize: raw.mainAxisSize,
+          crossAxisAlignment: raw.crossAxisAlignment,
+          textDirection: raw.textDirection,
+          verticalDirection: raw.verticalDirection,
+          textBaseline: raw.textBaseline,
+          children: rest,
+        ),
+      );
+    }
+    return (null, raw);
+  }
+
   @override
   Widget build(BuildContext context) {
+    final c = context.c;
     final drag = _IosSheetDragScope.of(context);
-    return Column(
-      children: [
-        Expanded(
-          child: Listener(
-            behavior: HitTestBehavior.translucent,
-            onPointerDown: (_) {
+    final (pinnedHeader, bodyChild) = _splitHeader(widget.child);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final tight = constraints.hasTightHeight;
+        final scrollArea = Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerDown: (_) {
+            _capturing = false;
+            _lastVelocity = 0;
+            _lastMoveTime = null;
+          },
+          onPointerMove: (e) {
+            if (drag == null) return;
+            final dy = e.delta.dy;
+            final atTop = !_scroll.hasClients || _scroll.offset <= 0.5;
+            if (!_capturing) {
+              if (atTop && dy > 0 && dy.abs() > e.delta.dx.abs()) {
+                _capturing = true;
+              } else {
+                return;
+              }
+            }
+            if (_scroll.hasClients && _scroll.offset != 0) {
+              _scroll.jumpTo(0);
+            }
+            final dtMs = _lastMoveTime == null
+                ? 16
+                : math.max(1, (e.timeStamp - _lastMoveTime!).inMilliseconds);
+            _lastVelocity = dy / (dtMs / 1000.0);
+            _lastMoveTime = e.timeStamp;
+            drag.onDragUpdate(dy);
+          },
+          onPointerUp: (_) {
+            if (_capturing && drag != null) {
               _capturing = false;
-              _lastVelocity = 0;
-              _lastMoveTime = null;
-            },
-            onPointerMove: (e) {
-              if (drag == null) return;
-              final dy = e.delta.dy;
-              final atTop = !_scroll.hasClients || _scroll.offset <= 0.5;
-              if (!_capturing) {
-                if (atTop && dy > 0 && dy.abs() > e.delta.dx.abs()) {
-                  _capturing = true;
-                } else {
-                  return;
-                }
-              }
-              if (_scroll.hasClients && _scroll.offset != 0) {
-                _scroll.jumpTo(0);
-              }
-              final dtMs = _lastMoveTime == null
-                  ? 16
-                  : math.max(1, (e.timeStamp - _lastMoveTime!).inMilliseconds);
-              _lastVelocity = dy / (dtMs / 1000.0);
-              _lastMoveTime = e.timeStamp;
-              drag.onDragUpdate(dy);
-            },
-            onPointerUp: (_) {
-              if (_capturing && drag != null) {
-                _capturing = false;
-                drag.onDragEnd(_lastVelocity);
-              }
-            },
-            onPointerCancel: (_) {
-              if (_capturing && drag != null) {
-                _capturing = false;
-                drag.onDragEnd(0);
-              }
-            },
-            child: SingleChildScrollView(
-              controller: _scroll,
-              physics: const ClampingScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                Space.gutter,
-                8,
-                Space.gutter,
-                24,
+              drag.onDragEnd(_lastVelocity);
+            }
+          },
+          onPointerCancel: (_) {
+            if (_capturing && drag != null) {
+              _capturing = false;
+              drag.onDragEnd(0);
+            }
+          },
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                controller: _scroll,
+                physics: const ClampingScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  Space.gutter,
+                  pinnedHeader != null ? 58 : 8,
+                  Space.gutter,
+                  24,
+                ),
+                child: bodyChild,
               ),
-              child: widget.child,
-            ),
+              if (pinnedHeader != null) ...[
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: 76,
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _scroll,
+                      builder: (_, _) {
+                        final px = _scroll.hasClients ? _scroll.offset : 0.0;
+                        final t = (px / 22.0).clamp(0.0, 1.0);
+                        return ProgressiveBlur(
+                          direction: AxisDirection.down,
+                          maxSigma: 16 * t,
+                          tint: c.card,
+                          tintOpacity: (0.88 + 0.10 * t).clamp(0.0, 0.98),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: Space.gutter,
+                  right: Space.gutter,
+                  top: 4,
+                  child: pinnedHeader,
+                ),
+              ],
+            ],
           ),
-        ),
-        if (widget.bottom != null)
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Space.gutter,
-                8,
-                Space.gutter,
-                16,
+        );
+
+        return Column(
+          mainAxisSize: tight ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            if (tight)
+              Expanded(child: scrollArea)
+            else
+              Flexible(fit: FlexFit.loose, child: scrollArea),
+            if (widget.bottom != null)
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Space.gutter,
+                    8,
+                    Space.gutter,
+                    16,
+                  ),
+                  child: widget.bottom,
+                ),
               ),
-              child: widget.bottom,
-            ),
-          ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

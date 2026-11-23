@@ -6,6 +6,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../core/money.dart';
 import 'brands.dart';
 
+export 'brands.dart' show foldText;
+
 final _rnd = Random();
 
 /// IDs únicos de verdade (compatível com VM 64-bit e Web JS 32-bit).

@@ -1,0 +1,624 @@
+{
+  "mareVersion": 1,
+  "updatedAt": "2026-11-23T08:00:00.000Z",
+  "userName": "Antony Rodrigues",
+  "avatarPath": null,
+  "userSince": 2025,
+  "cycleStartDay": 5,
+  "theme": "auto",
+  "accentColor": 4281381063,
+  "hideValues": false,
+  "onboardingDone": true,
+  "dismissedBoxTip": true,
+  "salaries": [
+    { "fromKey": 24300, "cents": 680000 },
+    { "fromKey": 24308, "cents": 740000 },
+    { "fromKey": 24314, "cents": 820000 }
+  ],
+  "cards": [
+    {
+      "id": "card_nubank",
+      "name": "Nubank",
+      "last4": "4821",
+      "color": 4286712529,
+      "brand": "mastercard",
+      "isCard": true
+    },
+    {
+      "id": "card_itau",
+      "name": "Itaú",
+      "last4": "9104",
+      "color": 4293681664,
+      "brand": "visa",
+      "isCard": true
+    },
+    {
+      "id": "card_inter",
+      "name": "Inter",
+      "last4": "3370",
+      "color": 4294932992,
+      "brand": "mastercard",
+      "isCard": true
+    },
+    {
+      "id": "acc_bradesco",
+      "name": "Bradesco",
+      "last4": "",
+      "color": 4291561775,
+      "brand": "other",
+      "isCard": false
+    },
+    {
+      "id": "acc_picpay",
+      "name": "PicPay",
+      "last4": "",
+      "color": 4279350610,
+      "brand": "other",
+      "isCard": false
+    }
+  ],
+  "boxes": [
+    {
+      "id": "box_reserva",
+      "name": "Reserva de Emergência",
+      "icon": "piggy",
+      "color": 4279520852,
+      "goalCents": 1500000,
+      "createdKey": 24302,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24302, "mode": "fixed", "amount": 45000 },
+        { "fromKey": 24314, "mode": "fixed", "amount": 60000 }
+      ],
+      "movements": [
+        {
+          "id": "mov_res_1",
+          "name": "Aporte extra 13º",
+          "cents": 120000,
+          "type": "deposit",
+          "date": "2025-12-15T00:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        },
+        {
+          "id": "mov_res_2",
+          "name": "Conserto imprevisto",
+          "cents": 35000,
+          "type": "spend",
+          "date": "2026-03-14T00:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        }
+      ]
+    },
+    {
+      "id": "box_viagem",
+      "name": "Viagem Europa",
+      "icon": "plane",
+      "color": 4278203243,
+      "goalCents": 1200000,
+      "createdKey": 24303,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24303, "mode": "fixed", "amount": 35000 }
+      ],
+      "movements": [
+        {
+          "id": "mov_via_1",
+          "name": "Restituição IR",
+          "cents": 85000,
+          "type": "deposit",
+          "date": "2026-02-20T00:00:00.000",
+          "recurrence": "once",
+          "endDate": null
+        }
+      ]
+    },
+    {
+      "id": "box_macbook",
+      "name": "MacBook Pro",
+      "icon": "work",
+      "color": 4283050589,
+      "goalCents": 950000,
+      "createdKey": 24304,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24304, "mode": "percent", "amount": 500 }
+      ],
+      "movements": []
+    },
+    {
+      "id": "box_carro",
+      "name": "IPVA e Revisão",
+      "icon": "car",
+      "color": 4279653413,
+      "goalCents": 400000,
+      "createdKey": 24305,
+      "closedKey": null,
+      "plans": [
+        { "fromKey": 24305, "mode": "fixed", "amount": 20000 }
+      ],
+      "movements": []
+    }
+  ],
+  "expenses": [
+    {
+      "id": "sub_spotify",
+      "name": "Spotify",
+      "cents": 2190,
+      "categoryId": "assinaturas",
+      "cardId": "card_nubank",
+      "date": "2025-01-10T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-01-10T00:00:00.000"
+    },
+    {
+      "id": "sub_netflix",
+      "name": "Netflix",
+      "cents": 5990,
+      "categoryId": "assinaturas",
+      "cardId": "card_nubank",
+      "date": "2025-01-12T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-01-12T00:00:00.000"
+    },
+    {
+      "id": "sub_prime",
+      "name": "Amazon Prime",
+      "cents": 1990,
+      "categoryId": "assinaturas",
+      "cardId": "card_inter",
+      "date": "2025-01-15T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-01-15T00:00:00.000"
+    },
+    {
+      "id": "sub_psn",
+      "name": "PlayStation Plus",
+      "cents": 5390,
+      "categoryId": "assinaturas",
+      "cardId": "card_itau",
+      "date": "2025-02-08T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-02-08T00:00:00.000"
+    },
+    {
+      "id": "sub_chatgpt",
+      "name": "ChatGPT Plus",
+      "cents": 11500,
+      "categoryId": "assinaturas",
+      "cardId": "card_nubank",
+      "date": "2025-02-18T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-02-18T00:00:00.000"
+    },
+    {
+      "id": "sub_icloud",
+      "name": "iCloud+",
+      "cents": 1490,
+      "categoryId": "assinaturas",
+      "cardId": "card_itau",
+      "date": "2025-01-20T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-01-20T00:00:00.000"
+    },
+    {
+      "id": "fix_aluguel",
+      "name": "Condomínio e Internet Vivo",
+      "cents": 68000,
+      "categoryId": "moradia",
+      "cardId": "acc_bradesco",
+      "date": "2025-01-08T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-01-08T00:00:00.000"
+    },
+    {
+      "id": "fix_smartfit",
+      "name": "Smart Fit Black",
+      "cents": 13990,
+      "categoryId": "saude",
+      "cardId": "card_inter",
+      "date": "2025-01-11T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": null,
+      "createdAt": "2025-01-11T00:00:00.000"
+    },
+    {
+      "id": "parc_iphone",
+      "name": "iPhone 16 Pro",
+      "cents": 48900,
+      "categoryId": "compras",
+      "cardId": "card_itau",
+      "date": "2026-01-14T00:00:00.000",
+      "recurrence": "monthly",
+      "endDate": "2026-12-28T00:00:00.000",
+      "createdAt": "2026-01-14T00:00:00.000"
+    },
+
+    {
+      "id": "e_2025_12_1",
+      "name": "Supermercado Pão de Açúcar",
+      "cents": 78400,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2025-12-12T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2025-12-12T00:00:00.000"
+    },
+    {
+      "id": "e_2025_12_2",
+      "name": "Presentes de Natal Amazon",
+      "cents": 92000,
+      "categoryId": "compras",
+      "cardId": "card_itau",
+      "date": "2025-12-20T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2025-12-20T00:00:00.000"
+    },
+    {
+      "id": "e_2026_01_1",
+      "name": "Mercado Carrefour",
+      "cents": 64200,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-01-14T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-01-14T00:00:00.000"
+    },
+    {
+      "id": "e_2026_01_2",
+      "name": "Uber Aeroporto",
+      "cents": 14800,
+      "categoryId": "transporte",
+      "cardId": "card_nubank",
+      "date": "2026-01-22T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-01-22T00:00:00.000"
+    },
+    {
+      "id": "e_2026_02_1",
+      "name": "Supermercado Assaí",
+      "cents": 91500,
+      "categoryId": "alimentacao",
+      "cardId": "card_inter",
+      "date": "2026-02-11T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-02-11T00:00:00.000"
+    },
+    {
+      "id": "e_2026_02_2",
+      "name": "Viagem Carnaval Airbnb",
+      "cents": 134000,
+      "categoryId": "lazer",
+      "cardId": "card_itau",
+      "date": "2026-02-16T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-02-16T00:00:00.000"
+    },
+    {
+      "id": "e_2026_03_1",
+      "name": "Mercado Extra",
+      "cents": 58900,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-03-10T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-03-10T00:00:00.000"
+    },
+    {
+      "id": "e_2026_03_2",
+      "name": "Drogasil Farmácia",
+      "cents": 21400,
+      "categoryId": "saude",
+      "cardId": "acc_picpay",
+      "date": "2026-03-19T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-03-19T00:00:00.000"
+    },
+    {
+      "id": "e_2026_03_3",
+      "name": "iFood Jantar",
+      "cents": 16800,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-03-25T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-03-25T00:00:00.000"
+    },
+    {
+      "id": "e_2026_04_1",
+      "name": "Supermercado Pão de Açúcar",
+      "cents": 74200,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-04-08T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-04-08T00:00:00.000"
+    },
+    {
+      "id": "e_2026_04_2",
+      "name": "Posto Shell Gasolina",
+      "cents": 31000,
+      "categoryId": "transporte",
+      "cardId": "card_inter",
+      "date": "2026-04-12T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-04-12T00:00:00.000"
+    },
+    {
+      "id": "e_2026_04_3",
+      "name": "Mercado Livre Fone Sony",
+      "cents": 42900,
+      "categoryId": "compras",
+      "cardId": "card_itau",
+      "date": "2026-04-17T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-04-17T00:00:00.000"
+    },
+    {
+      "id": "e_2026_05_1",
+      "name": "Supermercado Carrefour",
+      "cents": 86400,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-05-11T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-05-11T00:00:00.000"
+    },
+    {
+      "id": "e_2026_05_2",
+      "name": "Almoço Dia das Mães Outback",
+      "cents": 38500,
+      "categoryId": "lazer",
+      "cardId": "card_itau",
+      "date": "2026-05-14T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-05-14T00:00:00.000"
+    },
+    {
+      "id": "e_2026_06_1",
+      "name": "Mercado Assaí",
+      "cents": 61500,
+      "categoryId": "alimentacao",
+      "cardId": "card_inter",
+      "date": "2026-06-09T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-06-09T00:00:00.000"
+    },
+    {
+      "id": "e_2026_06_2",
+      "name": "Jantar Dia dos Namorados",
+      "cents": 44000,
+      "categoryId": "lazer",
+      "cardId": "card_nubank",
+      "date": "2026-06-12T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-06-12T00:00:00.000"
+    },
+    {
+      "id": "e_2026_07_1",
+      "name": "Supermercado Pão de Açúcar",
+      "cents": 79800,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-07-10T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-07-10T00:00:00.000"
+    },
+    {
+      "id": "e_2026_07_2",
+      "name": "Passagem Aérea LATAM",
+      "cents": 118000,
+      "categoryId": "lazer",
+      "cardId": "card_itau",
+      "date": "2026-07-18T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-07-18T00:00:00.000"
+    },
+    {
+      "id": "e_2026_08_1",
+      "name": "Supermercado Carrefour",
+      "cents": 69200,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-08-12T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-08-12T00:00:00.000"
+    },
+    {
+      "id": "e_2026_08_2",
+      "name": "Revisão Mecânica",
+      "cents": 52000,
+      "categoryId": "transporte",
+      "cardId": "acc_bradesco",
+      "date": "2026-08-21T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-08-21T00:00:00.000"
+    },
+    {
+      "id": "e_2026_09_1",
+      "name": "Mercado Assaí Atacadista",
+      "cents": 83500,
+      "categoryId": "alimentacao",
+      "cardId": "card_inter",
+      "date": "2026-09-09T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-09-09T00:00:00.000"
+    },
+    {
+      "id": "e_2026_09_2",
+      "name": "Curso Udemy & Livros Amazon",
+      "cents": 24900,
+      "categoryId": "educacao",
+      "cardId": "card_nubank",
+      "date": "2026-09-16T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-09-16T00:00:00.000"
+    },
+    {
+      "id": "e_2026_09_3",
+      "name": "Zara Roupas",
+      "cents": 49500,
+      "categoryId": "compras",
+      "cardId": "card_itau",
+      "date": "2026-09-24T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-09-24T00:00:00.000"
+    },
+    {
+      "id": "e_2026_10_1",
+      "name": "Supermercado Pão de Açúcar",
+      "cents": 71800,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-10-10T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-10T00:00:00.000"
+    },
+    {
+      "id": "e_2026_10_2",
+      "name": "Uber e 99 Corridas",
+      "cents": 19600,
+      "categoryId": "transporte",
+      "cardId": "card_nubank",
+      "date": "2026-10-15T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-15T00:00:00.000"
+    },
+    {
+      "id": "e_2026_10_3",
+      "name": "iFood Delivery",
+      "cents": 23400,
+      "categoryId": "alimentacao",
+      "cardId": "acc_picpay",
+      "date": "2026-10-22T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-10-22T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_1",
+      "name": "Supermercado Pão de Açúcar",
+      "cents": 76500,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-11-08T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-08T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_2",
+      "name": "iFood Burger King",
+      "cents": 8490,
+      "categoryId": "alimentacao",
+      "cardId": "card_nubank",
+      "date": "2026-11-11T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-11T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_3",
+      "name": "Uber Centro",
+      "cents": 4650,
+      "categoryId": "transporte",
+      "cardId": "card_nubank",
+      "date": "2026-11-13T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-13T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_4",
+      "name": "Posto Ipiranga Combustível",
+      "cents": 27500,
+      "categoryId": "transporte",
+      "cardId": "card_inter",
+      "date": "2026-11-15T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-15T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_5",
+      "name": "Drogaria São Paulo",
+      "cents": 14200,
+      "categoryId": "saude",
+      "cardId": "acc_picpay",
+      "date": "2026-11-17T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-17T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_6",
+      "name": "Cinemark Ingressos + Pipoca",
+      "cents": 12800,
+      "categoryId": "lazer",
+      "cardId": "card_itau",
+      "date": "2026-11-19T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-19T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_7",
+      "name": "Nike Tênis Corrida",
+      "cents": 54990,
+      "categoryId": "compras",
+      "cardId": "card_itau",
+      "date": "2026-11-21T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-21T00:00:00.000"
+    },
+    {
+      "id": "e_2026_11_8",
+      "name": "Conta de Luz Enel",
+      "cents": 19500,
+      "categoryId": "moradia",
+      "cardId": "acc_bradesco",
+      "date": "2026-11-22T00:00:00.000",
+      "recurrence": "once",
+      "endDate": null,
+      "createdAt": "2026-11-22T00:00:00.000"
+    }
+  ],
+  "cardSpans": {},
+  "widgetOrder": [],
+  "hiddenWidgets": [],
+  "navTabs": []
+}

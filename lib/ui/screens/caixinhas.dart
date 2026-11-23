@@ -817,7 +817,7 @@ class MovementSheet extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(Space.base),
             decoration: ShapeDecoration(
-              color: c.isDark ? c.bg : c.surfaceLow,
+              color: c.isDark ? c.cardAlt : c.surfaceLow,
               shape: RoundedSuperellipseBorder(
                 borderRadius: BorderRadius.circular(18),
               ),

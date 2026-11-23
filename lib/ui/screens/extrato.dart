@@ -497,7 +497,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
     final minYear = (curKey ~/ 12) - 4;
     final maxYear = (curKey ~/ 12) + 2;
 
-    return showIosSheet<void>(
+    return showSheet<void>(
       context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) {
@@ -548,7 +548,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: Space.xs),
                   decoration: ShapeDecoration(
-                    color: c.isDark ? c.bg : c.surfaceLow,
+                    color: c.isDark ? c.cardAlt : c.surfaceLow,
                     shape: const StadiumBorder(),
                   ),
                   child: Row(
@@ -611,7 +611,7 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                                 decoration: ShapeDecoration(
                                   color: selected
                                       ? selBg
-                                      : (c.isDark ? c.bg : c.surfaceLow),
+                                      : (c.isDark ? c.cardAlt : c.surfaceLow),
                                   shape: RoundedSuperellipseBorder(
                                     borderRadius: BorderRadius.circular(16),
                                     side: isCurrent && !selected

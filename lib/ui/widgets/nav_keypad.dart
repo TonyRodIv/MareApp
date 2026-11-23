@@ -21,9 +21,10 @@ class NavItem {
   const NavItem(this.label, this.icon, {this.custom, this.activeBuilder});
 }
 
-/// Pílula flutuante monocromática (estilo planejado no Figma):
-/// paleta neutra sem cores de destaque, mais alta e com ícone ativo preenchido.
-class FloatingNavBar extends StatelessWidget {
+/// Pílula flutuante monocromática (estilo planejado no Figma) com física Fluid Motion:
+/// indicador elástico com stretch/squash proporcional à velocidade + atração
+/// magnética ao toque e bounce físico nos ícones/rótulos de cada aba.
+class FloatingNavBar extends StatefulWidget {
   final List<NavItem> items;
   final int index;
   final ValueChanged<int> onTap;
@@ -35,11 +36,24 @@ class FloatingNavBar extends StatelessWidget {
   });
 
   @override
+  State<FloatingNavBar> createState() => _FloatingNavBarState();
+}
+
+class _FloatingNavBarState extends State<FloatingNavBar> {
+  int? _pressedIndex;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final items = widget.items;
+    final index = widget.index;
     final bottom = MediaQuery.of(context).padding.bottom;
     final activeFg = c.text;
     final inactiveFg = c.textSecondary;
+    // Atração magnética sutil da pílula ativa em direção à aba pressionada
+    final targetPill = _pressedIndex != null && _pressedIndex != index
+        ? index + (_pressedIndex! - index) * 0.06
+        : index.toDouble();
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -120,24 +134,39 @@ class FloatingNavBar extends StatelessWidget {
                         final w = box.maxWidth / items.length;
                         return Stack(
                           children: [
+                            // Indicador líquido Fluid Motion suave e bem amortecido
                             SpringBuilder(
-                              value: index.toDouble(),
-                              spring: Springs.of(42, 0.90),
+                              value: targetPill,
+                              spring: Springs.of(32, 0.92),
                               builder: (_, v, vel) {
-                                final stretch = (vel.abs() * 0.018).clamp(
+                                final speed = vel.abs();
+                                final stretchX = (speed * 0.014).clamp(
                                   0.0,
-                                  0.12,
+                                  0.09,
                                 );
+                                final squashY = (speed * 0.004).clamp(
+                                  0.0,
+                                  0.03,
+                                );
+                                final pressingActive = _pressedIndex == index;
+                                final pressScale = pressingActive ? 0.97 : 1.0;
                                 return Positioned(
-                                  left: v * w - (w * stretch / 2),
-                                  top: 0,
-                                  bottom: 0,
-                                  width: w * (1 + stretch),
-                                  child: DecoratedBox(
-                                    decoration: ShapeDecoration(
-                                      color: c.navActive,
-                                      shape: RoundedSuperellipseBorder(
-                                        borderRadius: BorderRadius.circular(30),
+                                  left: v * w - (w * stretchX / 2),
+                                  top: 58 * squashY / 2,
+                                  bottom: 58 * squashY / 2,
+                                  width: w * (1 + stretchX),
+                                  child: AnimatedScale(
+                                    scale: pressScale,
+                                    duration: const Duration(milliseconds: 90),
+                                    curve: Curves.easeOut,
+                                    child: DecoratedBox(
+                                      decoration: ShapeDecoration(
+                                        color: c.navActive,
+                                        shape: RoundedSuperellipseBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            30,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -148,57 +177,28 @@ class FloatingNavBar extends StatelessWidget {
                               children: [
                                 for (var i = 0; i < items.length; i++)
                                   Expanded(
-                                    child: Semantics(
-                                      button: true,
-                                      selected: i == index,
-                                      label: items[i].label,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.opaque,
-                                        onTap: () {
-                                          if (i == index) return;
-                                          HapticFeedback.selectionClick();
-                                          onTap(i);
-                                        },
-                                        child: SizedBox.expand(
-                                          child: Column(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              if (items[i].custom != null)
-                                                items[i].custom!
-                                              else if (i == index &&
-                                                  items[i].activeBuilder !=
-                                                      null)
-                                                items[i].activeBuilder!(
-                                                  activeFg,
-                                                  22,
-                                                )
-                                              else
-                                                Icon(
-                                                  items[i].icon,
-                                                  size: 22,
-                                                  color: i == index
-                                                      ? activeFg
-                                                      : inactiveFg,
-                                                ),
-                                              const SizedBox(height: Space.xxs),
-                                              Text(
-                                                items[i].label,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: T.micro.copyWith(
-                                                  color: i == index
-                                                      ? activeFg
-                                                      : inactiveFg,
-                                                  fontWeight: i == index
-                                                      ? FontWeight.w600
-                                                      : FontWeight.w500,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                    child: _FluidNavTabItem(
+                                      item: items[i],
+                                      active: i == index,
+                                      pressed: _pressedIndex == i,
+                                      activeFg: activeFg,
+                                      inactiveFg: inactiveFg,
+                                      onPressChanged: (down) {
+                                        if ( down && _pressedIndex != i) {
+                                          setState(() => _pressedIndex = i);
+                                        } else if (!down &&
+                                            _pressedIndex == i) {
+                                          setState(() => _pressedIndex = null);
+                                        }
+                                      },
+                                      onTap: () {
+                                        if (i == index) {
+                                          HapticFeedback.lightImpact();
+                                          return;
+                                        }
+                                        HapticFeedback.selectionClick();
+                                        widget.onTap(i);
+                                      },
                                     ),
                                   ),
                               ],
@@ -211,6 +211,107 @@ class FloatingNavBar extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FluidNavTabItem extends StatelessWidget {
+  final NavItem item;
+  final bool active;
+  final bool pressed;
+  final Color activeFg;
+  final Color inactiveFg;
+  final ValueChanged<bool> onPressChanged;
+  final VoidCallback onTap;
+
+  const _FluidNavTabItem({
+    required this.item,
+    required this.active,
+    required this.pressed,
+    required this.activeFg,
+    required this.inactiveFg,
+    required this.onPressChanged,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final targetScale = pressed ? 0.94 : 1.0;
+    final targetActivation = active ? 1.0 : 0.0;
+
+    return Semantics(
+      button: true,
+      selected: active,
+      label: item.label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => onPressChanged(true),
+        onTapUp: (_) => onPressChanged(false),
+        onTapCancel: () => onPressChanged(false),
+        onTap: onTap,
+        child: SpringBuilder(
+          value: targetScale,
+          spring: Springs.of(32, 0.88),
+          builder: (_, pressScale, _) => SpringBuilder(
+            value: targetActivation,
+            spring: Springs.of(28, 0.90),
+            builder: (_, act, actVel) {
+              final t = act.clamp(0.0, 1.0);
+              final fg = Color.lerp(inactiveFg, activeFg, t) ?? activeFg;
+              final bouncePop = 1.0 + (actVel.abs() * 0.002).clamp(0.0, 0.025);
+              final liftY = -0.8 * t;
+
+              Widget iconWidget;
+              if (item.custom != null) {
+                iconWidget = item.custom!;
+              } else if (active && item.activeBuilder != null) {
+                iconWidget = KeyedSubtree(
+                  key: const ValueKey('active'),
+                  child: item.activeBuilder!(fg, 22),
+                );
+              } else {
+                iconWidget = Icon(
+                  item.icon,
+                  key: const ValueKey('inactive'),
+                  size: 22,
+                  color: fg,
+                );
+              }
+
+              return Transform.scale(
+                scale: pressScale * bouncePop,
+                child: SizedBox.expand(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Transform.translate(
+                        offset: Offset(0, liftY),
+                        child: BlurSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          alignment: Alignment.center,
+                          child: iconWidget,
+                        ),
+                      ),
+                      const SizedBox(height: Space.xxs),
+                      Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: T.micro.copyWith(
+                          color: fg,
+                          fontWeight: active
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

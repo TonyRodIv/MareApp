@@ -74,18 +74,18 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(store.data.onboardingDone, isTrue);
   expect(store.data.userName, 'Marina');
   expect(store.f.salary, 500000);
-  expect(find.text('Contas'), findsNothing); // oculto quando nenhuma conta foi adicionada
   final dashboard = find.byType(DashboardGrid);
   Finder tile(String label) =>
       find.descendant(of: dashboard, matching: find.text(label));
+  expect(tile('Caixinhas'), findsNothing, reason: 'Caixinhas sem dados');
   for (final label in [
     'Seus Gastos',
-    'Caixinhas',
-    'Por categoria',
     'Assinaturas',
+    'Por categoria',
     'Histórico visual',
+    'Contas',
   ]) {
-    expect(tile(label), findsNothing, reason: '$label sem dados');
+    expect(tile(label), findsOneWidget, reason: '$label visível no primeiro acesso');
   }
 
   // Sem caixinhas: aba Caixinhas fica oculta na navbar e vira sugestão no Perfil
@@ -151,7 +151,7 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   expect(tile('Seus Gastos'), findsOneWidget);
   expect(tile('Caixinhas'), findsOneWidget);
   expect(tile('Por categoria'), findsOneWidget);
-  expect(tile('Assinaturas'), findsNothing);
+  expect(tile('Assinaturas'), findsOneWidget);
 
   // Após criar caixinha: aba aparece na navbar e a sugestão some do Perfil
   expect(
@@ -252,6 +252,7 @@ void main() {
       'Assinaturas',
       'Por categoria',
       'Histórico visual',
+      'Contas',
     ];
     for (final label in defaultLabels) {
       expect(

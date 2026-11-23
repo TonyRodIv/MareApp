@@ -6,12 +6,10 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/money.dart';
 import '../../core/theme.dart';
-import '../../data/brands.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
 import '../../data/validation.dart';
 import '../widgets/kit.dart';
-import '../widgets/motion.dart';
 import 'cards.dart';
 
 enum AiImportMode { expenses, full }
@@ -54,7 +52,7 @@ class AiImportPreview {
   String raw, {
   required List<PayCard> existingCards,
   required int currentCycleKey,
-  required AiImportMode expectedMode,
+  AiImportMode expectedMode = AiImportMode.full,
 }) {
   final cleaned = _extractJsonPayload(raw);
   if (cleaned == null) {
@@ -89,6 +87,7 @@ class AiImportPreview {
     final tag = '${map['mareImport'] ?? map['type'] ?? ''}'.toLowerCase();
     if (tag == 'full' ||
         map.containsKey('salary') ||
+        map.containsKey('salaries') ||
         map.containsKey('boxes') ||
         map.containsKey('cards')) {
       detectedMode = AiImportMode.full;
@@ -96,6 +95,11 @@ class AiImportPreview {
     if (map['salary'] != null) {
       final sal = _parseCents(map['salary']);
       if (sal != null && sal > 0) salaryCents = sal;
+    } else if (map['salaries'] is List && (map['salaries'] as List).isNotEmpty) {
+      final lastSal = (map['salaries'] as List).last;
+      if (lastSal is Map && lastSal['cents'] is num) {
+        salaryCents = (lastSal['cents'] as num).toInt();
+      }
     }
     if (map['cycleStartDay'] is num) {
       cycleStartDay = (map['cycleStartDay'] as num).toInt().clamp(1, 31);
@@ -124,17 +128,27 @@ class AiImportPreview {
     final name = '${m['name'] ?? m['nome'] ?? ''}'.trim();
     if (name.isEmpty) continue;
     final key = foldText(name);
-    if (cardsByKey.containsKey(key)) continue;
+    final explicitId = m['id'] is String ? '${m['id']}' : null;
+    if (cardsByKey.containsKey(key)) {
+      if (explicitId != null) cardsByKey[explicitId] = cardsByKey[key]!;
+      continue;
+    }
     final isCard = m['isCard'] == true ||
-        '${m['type'] ?? m['tipo'] ?? ''}'.toLowerCase().contains('cart');
+        '${m['type'] ?? m['tipo'] ?? ''}'.toLowerCase().contains('cart') ||
+        '${m['last4'] ?? ''}'.trim().isNotEmpty;
     final brand = _parseBrand('${m['brand'] ?? m['bandeira'] ?? ''}');
     final card = PayCard(
+      id: explicitId,
       name: name,
-      color: bankColorFor(name).toARGB32(),
+      last4: '${m['last4'] ?? ''}'.trim(),
+      color: m['color'] is num
+          ? (m['color'] as num).toInt()
+          : bankColorFor(name).toARGB32(),
       brand: isCard ? brand : CardBrand.other,
       isCard: isCard,
     );
     cardsByKey[key] = card;
+    cardsByKey[card.id] = card;
     newCards.add(card);
   }
 
@@ -146,6 +160,10 @@ class AiImportPreview {
     final m = Map<String, dynamic>.from(item);
     final name = '${m['name'] ?? m['nome'] ?? ''}'.trim();
     if (name.isEmpty) continue;
+    if (m['plans'] is List && (m['plans'] as List).isNotEmpty) {
+      newBoxes.add(Caixinha.fromJson(m));
+      continue;
+    }
     final isPercent = '${m['mode'] ?? m['modo'] ?? ''}'.toLowerCase().contains(
       'percent',
     );
@@ -153,16 +171,22 @@ class AiImportPreview {
     final amount = isPercent
         ? ((_parseDouble(rawAmt) ?? 10) * 100).round().clamp(100, 10000)
         : (_parseCents(rawAmt) ?? 10000).clamp(1, MoneyLimits.maxCents);
-    final goal = m['goal'] != null || m['meta'] != null
-        ? _parseCents(m['goal'] ?? m['meta'])
-        : null;
+    final goal = m['goalCents'] is num
+        ? (m['goalCents'] as num).toInt()
+        : (m['goal'] != null || m['meta'] != null
+              ? _parseCents(m['goal'] ?? m['meta'])
+              : null);
     newBoxes.add(
       Caixinha(
         name: name,
         icon: boxIcons.containsKey(m['icon']) ? '${m['icon']}' : 'piggy',
-        color: boxColors[colorIdx++ % boxColors.length].toARGB32(),
+        color: m['color'] is num
+            ? (m['color'] as num).toInt()
+            : boxColors[colorIdx++ % boxColors.length].toARGB32(),
         goalCents: goal != null && goal > 0 ? goal : null,
-        createdKey: currentCycleKey,
+        createdKey: m['createdKey'] is num
+            ? (m['createdKey'] as num).toInt()
+            : currentCycleKey,
         plans: [
           ContributionPlan(
             currentCycleKey,
@@ -192,7 +216,7 @@ class AiImportPreview {
       continue;
     }
     final catId = _resolveCategoryId(
-      '${m['category'] ?? m['categoria'] ?? ''}',
+      '${m['categoryId'] ?? m['category'] ?? m['categoria'] ?? ''}',
       fallbackName: name,
     );
     final date =
@@ -207,17 +231,19 @@ class AiImportPreview {
     final endDate = _parseDate(m['endDate'] ?? m['ate']);
 
     String? cardId;
-    final cardRaw = '${m['card'] ?? m['cartao'] ?? m['conta'] ?? ''}'.trim();
+    final cardRaw =
+        '${m['cardId'] ?? m['card'] ?? m['cartao'] ?? m['conta'] ?? ''}'.trim();
     if (cardRaw.isNotEmpty) {
       final matched = cardsByKey[cardRaw] ?? cardsByKey[foldText(cardRaw)];
       if (matched != null) {
         cardId = matched.id;
-      } else if (detectedMode == AiImportMode.full) {
+      } else {
         final created = PayCard(
           name: cardRaw,
           color: bankColorFor(cardRaw).toARGB32(),
         );
         cardsByKey[foldText(cardRaw)] = created;
+        cardsByKey[created.id] = created;
         newCards.add(created);
         cardId = created.id;
       }
@@ -336,21 +362,19 @@ CardBrand _parseBrand(String raw) {
   return CardBrand.other;
 }
 
-/// Tela de importação com agente de IA:
-/// - Gastos em lote (fatura, extrato ou lista de gastos)
-/// - Dados completos (salário, ciclo, contas, caixinhas e gastos)
+/// Tela unificada de importação com IA: aceita tanto gastos avulsos/faturas
+/// quanto dados completos (salário, ciclo, contas, caixinhas e gastos) e
+/// pergunta ao importar se o usuário quer adicionar aos dados atuais ou substituir.
 class AiImportScreen extends StatefulWidget {
   final AiImportMode initialMode;
-  const AiImportScreen({super.key, this.initialMode = AiImportMode.expenses});
+  const AiImportScreen({super.key, this.initialMode = AiImportMode.full});
 
   @override
   State<AiImportScreen> createState() => _AiImportScreenState();
 }
 
 class _AiImportScreenState extends State<AiImportScreen> {
-  late AiImportMode _mode = widget.initialMode;
   final _input = TextEditingController();
-  bool _replaceExisting = false;
   AiImportPreview? _preview;
   String? _error;
 
@@ -369,22 +393,28 @@ class _AiImportScreenState extends State<AiImportScreen> {
     final todayIso =
         '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
-    if (_mode == AiImportMode.expenses) {
-      return '''
-Converta os gastos que vou te enviar (fatura, extrato, lista ou print) em um único bloco JSON pronto para importar no app maré.
+    return '''
+Converta os dados financeiros que vou te enviar (fatura, extrato, lista de gastos, planilha ou anotações) em um único bloco JSON pronto para importar no app maré.
 
 Regras obrigatórias:
 - Responda APENAS com um bloco de código ```json válido, sem texto extra antes ou depois.
-- Use "value" em reais com ponto decimal (ex.: 49.90), sempre positivo.
-- Use "date" no formato YYYY-MM-DD (se não houver data, use "$todayIso").
-- Use "recurrence": "once" para gastos únicos ou "monthly" para assinaturas/fixos mensais.
-- Escolha "category" estritamente entre: $cats.
-- Em "card" (opcional), use uma das minhas contas/cartões quando identificar: $cards.
+- Inclua apenas as seções que existirem no que eu enviar ("expenses" para gastos; "salary", "cycleStartDay", "cards" e "boxes" são opcionais).
+- Todos os valores monetários ("salary", "value", "amount", "goal") devem estar em reais com ponto decimal (ex.: 184.50), sempre positivos.
+- Em "expenses", use "date" no formato YYYY-MM-DD (se não houver data, use "$todayIso"), "recurrence": "once" (único) ou "monthly" (assinatura/recorrente), "category" estritamente entre [$cats] e "card" (opcional: $cards).
+- Em "cards" (opcional), use "isCard": true para cartão ("brand": "mastercard" | "visa" | "elo" | "other") ou false para conta bancária.
+- Em "boxes" (opcional), use "mode": "fixed" (reais) ou "percent" (% do salário).
 
 Formato esperado:
 ```json
 {
-  "mareImport": "expenses",
+  "salary": 3200.00,
+  "cycleStartDay": 5,
+  "cards": [
+    { "name": "Nubank", "isCard": true, "brand": "mastercard" }
+  ],
+  "boxes": [
+    { "name": "Reserva", "mode": "fixed", "amount": 300.00, "goal": 6000.00 }
+  ],
   "expenses": [
     {
       "name": "Supermercado",
@@ -392,45 +422,6 @@ Formato esperado:
       "category": "alimentacao",
       "date": "$todayIso",
       "recurrence": "once",
-      "card": "Nubank"
-    }
-  ]
-}
-```
-'''.trim();
-    }
-
-    return '''
-Converta meus dados financeiros (planilha, anotações ou exportação de outro app) em um único bloco JSON pronto para importar no app maré.
-
-Regras obrigatórias:
-- Responda APENAS com um bloco de código ```json válido, sem texto extra.
-- Todos os valores monetários ("salary", "value", "amount", "goal") devem estar em reais com ponto decimal (ex.: 2500.00).
-- "cycleStartDay" é o dia do mês em que o salário cai (1 a 31).
-- Em "cards", use "isCard": true para cartão de crédito ("brand": "mastercard" | "visa" | "elo" | "other") ou false para conta bancária.
-- Em "boxes" (caixinhas), use "mode": "fixed" (valor em reais) ou "percent" (porcentagem do salário, ex.: 10).
-- Em "expenses", escolha "category" estritamente entre: $cats, "recurrence": "once" ou "monthly" e "date": "YYYY-MM-DD".
-
-Formato esperado:
-```json
-{
-  "mareImport": "full",
-  "salary": 3200.00,
-  "cycleStartDay": 5,
-  "cards": [
-    { "name": "Nubank", "isCard": true, "brand": "mastercard" },
-    { "name": "Itaú", "isCard": false }
-  ],
-  "boxes": [
-    { "name": "Reserva", "mode": "fixed", "amount": 300.00, "goal": 6000.00 }
-  ],
-  "expenses": [
-    {
-      "name": "Spotify",
-      "value": 21.90,
-      "category": "assinaturas",
-      "date": "$todayIso",
-      "recurrence": "monthly",
       "card": "Nubank"
     }
   ]
@@ -452,7 +443,6 @@ Formato esperado:
       text,
       existingCards: s.data.cards,
       currentCycleKey: s.cycle.key,
-      expectedMode: _mode,
     );
     setState(() {
       _preview = preview;
@@ -489,22 +479,43 @@ Formato esperado:
     var p = _preview;
     if (p == null) return;
     final s = context.storeRead;
+    final hasExistingData =
+        s.data.expenses.isNotEmpty ||
+        s.data.boxes.isNotEmpty ||
+        s.data.cards.isNotEmpty ||
+        s.data.salaries.isNotEmpty;
 
-    if (p.mode == AiImportMode.full && _replaceExisting) {
-      final ok = await confirm(
+    var replaceExisting = false;
+    if (hasExistingData) {
+      final choice = await actionSheet<bool>(
         context,
-        title: 'Substituir dados atuais?',
+        title: 'Como deseja importar?',
         message:
-            'Seus gastos, contas e caixinhas atuais serão trocados pelos dados colados.',
-        action: 'Substituir',
+            'Você pode adicionar estes itens aos seus dados atuais ou substituir tudo o que está salvo.',
+        actions: const [
+          SheetAction(
+            'Adicionar aos dados atuais',
+            false,
+            icon: LucideIcons.circlePlus,
+          ),
+          SheetAction(
+            'Substituir dados atuais',
+            true,
+            destructive: true,
+            icon: LucideIcons.refreshCw,
+          ),
+        ],
       );
-      if (!ok || !mounted) return;
-      // Re-faz o parsing sem cartões existentes para não perder vínculos ao limpar.
+      if (choice == null || !mounted) return;
+      replaceExisting = choice;
+    }
+
+    if (replaceExisting) {
+      // Re-faz o parsing sem cartões existentes para preservar todos os vínculos.
       final (fresh, err) = parseAiImport(
         _input.text,
         existingCards: const [],
         currentCycleKey: s.cycle.key,
-        expectedMode: _mode,
       );
       if (fresh == null) {
         toast(
@@ -531,15 +542,19 @@ Formato esperado:
       s.saveCard(k);
     }
     for (final b in p.boxes) {
-      final plan = b.currentPlan;
-      s.addBox(
-        name: b.name,
-        icon: b.icon,
-        color: b.color,
-        mode: plan.mode,
-        amount: plan.amount,
-        goal: b.goalCents,
-      );
+      if (b.movements.isNotEmpty || b.plans.length > 1) {
+        s.data.boxes.add(b);
+      } else {
+        final plan = b.currentPlan;
+        s.addBox(
+          name: b.name,
+          icon: b.icon,
+          color: b.color,
+          mode: plan.mode,
+          amount: plan.amount,
+          goal: b.goalCents,
+        );
+      }
     }
     var added = 0;
     for (final e in p.expenses) {
@@ -608,20 +623,6 @@ Formato esperado:
                     sliver: SliverList.list(
                       children: [
                         LargeTitle('Importar com IA', style: T.pageTitle),
-                        const SizedBox(height: Space.md),
-                        Segmented<AiImportMode>(
-                          value: _mode,
-                          options: const {
-                            AiImportMode.expenses: 'Gastos em lote',
-                            AiImportMode.full: 'Dados completos',
-                          },
-                          onChanged: (m) {
-                            setState(() => _mode = m);
-                            if (_input.text.trim().isNotEmpty) {
-                              _analyze(_input.text);
-                            }
-                          },
-                        ),
                         const SizedBox(height: Space.base),
 
                         // Passo 1: Copiar instruções para o agente de IA
@@ -649,9 +650,7 @@ Formato esperado:
                                           ),
                                         ),
                                         Text(
-                                          _mode == AiImportMode.expenses
-                                              ? 'Cole o prompt junto com sua fatura, extrato ou print'
-                                              : 'Cole o prompt junto com sua planilha ou anotações',
+                                          'Cole o prompt no ChatGPT, Claude ou Gemini junto com sua fatura, extrato, planilha ou anotações',
                                           style: T.small.copyWith(
                                             color: c.textSecondary,
                                           ),
@@ -840,33 +839,9 @@ Formato esperado:
                                       ),
                                     ),
                                 ],
-                                if (_preview!.mode == AiImportMode.full) ...[
-                                  const SizedBox(height: Space.md),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Substituir dados atuais',
-                                          style: T.label.copyWith(
-                                            color: c.text,
-                                          ),
-                                        ),
-                                      ),
-                                      SpringSwitch(
-                                        value: _replaceExisting,
-                                        label: 'Substituir dados atuais',
-                                        onChanged: (v) => setState(
-                                          () => _replaceExisting = v,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
                                 const SizedBox(height: Space.base),
                                 PillButton(
-                                  _preview!.mode == AiImportMode.expenses
-                                      ? 'Importar ${_preview!.expenses.length} ${_preview!.expenses.length == 1 ? 'gasto' : 'gastos'}'
-                                      : 'Importar dados',
+                                  'Importar dados',
                                   icon: LucideIcons.download,
                                   onTap: _applyImport,
                                 ),

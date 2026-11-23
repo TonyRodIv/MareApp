@@ -52,6 +52,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
   final _amount = AmountController();
   final _name = TextEditingController();
   final _nameFocus = FocusNode();
+  final _detailsScroll = ValueNotifier<double>(0);
   int _step = 0;
   bool _forward = true;
   late String _category = widget.initialCategoryId ?? 'outros';
@@ -89,6 +90,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
     _amount.dispose();
     _name.dispose();
     _nameFocus.dispose();
+    _detailsScroll.dispose();
     _catPage.dispose();
     super.dispose();
   }
@@ -111,6 +113,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
     setState(() {
       _forward = d > 0;
       _step = next;
+      if (next != 3) _detailsScroll.value = 0;
     });
     if (next == 1) {
       Future.delayed(
@@ -200,65 +203,126 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(pad - Space.sm, Space.sm, pad, 0),
-              child: Row(
+            Expanded(
+              child: Stack(
                 children: [
-                  BackChevron(onTap: () => _go(-1)),
-                  const Spacer(),
-                  if (_step > 0 && _step < 3)
-                    BlurSwitcher(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        fmtMoney(_amount.value),
-                        key: ValueKey(_amount.value),
-                        style: T.label.copyWith(
-                          color: c.textSecondary,
-                          fontWeight: FontWeight.w600,
+                  Positioned.fill(
+                    child: ClipRect(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 480),
+                        reverseDuration: const Duration(milliseconds: 200),
+                        switchInCurve: easeOutExpo,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, anim) {
+                          final incoming = child.key == ValueKey(_step);
+                          final dir =
+                              (_forward ? 1 : -1) * (incoming ? 1 : -1);
+                          return AnimatedBuilder(
+                            animation: anim,
+                            child: child,
+                            builder: (_, ch) {
+                              final t = anim.value;
+                              return Opacity(
+                                opacity: clampOpacity(t * 1.4),
+                                child: Transform.translate(
+                                  offset: Offset(64.0 * dir * (1 - t), 0),
+                                  child: Transform.scale(
+                                    scale: 0.96 + 0.04 * t,
+                                    child: ch,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(_step),
+                          child: _step == 3
+                              ? _body(context, pad)
+                              : Padding(
+                                  padding: const EdgeInsets.only(top: 56),
+                                  child: Column(
+                                    children: [
+                                      Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: pad,
+                                        ),
+                                        child: Text(
+                                          _titles[_step],
+                                          textAlign: TextAlign.center,
+                                          style: T.title.copyWith(
+                                            color: c.text,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(child: _body(context, pad)),
+                                    ],
+                                  ),
+                                ),
                         ),
                       ),
                     ),
-                ],
-              ),
-            ),
-            const SizedBox(height: Space.sm),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: pad),
-              child: BlurSwitcher(
-                alignment: Alignment.center,
-                child: Text(
-                  _titles[_step],
-                  key: ValueKey(_step),
-                  textAlign: TextAlign.center,
-                  style: T.title.copyWith(color: c.text),
-                ),
-              ),
-            ),
-            Expanded(
-              child: ClipRect(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 180),
-                  switchInCurve: easeOutExpo,
-                  switchOutCurve: Curves.easeOut,
-                  transitionBuilder: (child, anim) {
-                    final incoming = child.key == ValueKey(_step);
-                    final dir = (_forward ? 1 : -1) * (incoming ? 1 : -1);
-                    return FadeTransition(
-                      opacity: anim,
-                      child: SlideTransition(
-                        position: Tween(
-                          begin: Offset(0.08 * dir, 0),
-                          end: Offset.zero,
-                        ).animate(anim),
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: KeyedSubtree(
-                    key: ValueKey(_step),
-                    child: _body(context, pad),
                   ),
-                ),
+                  if (_step == 3)
+                    ValueListenableBuilder<double>(
+                      valueListenable: _detailsScroll,
+                      builder: (_, px, _) {
+                        final t = (px / 36.0).clamp(0.0, 1.0);
+                        if (t <= 0.005) return const SizedBox.shrink();
+                        final eased = Curves.easeOutCubic.transform(t);
+                        return Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          height: 116,
+                          child: ProgressiveBlur(
+                            direction: AxisDirection.down,
+                            maxSigma: 20 * eased,
+                            tint: c.bg,
+                            tintOpacity: (c.isDark ? 0.82 : 0.84) * eased,
+                          ),
+                        );
+                      },
+                    ),
+                  Positioned(
+                    left: pad - Space.sm,
+                    right: pad,
+                    top: Space.sm,
+                    child: Row(
+                      children: [
+                        BackChevron(onTap: () => _go(-1)),
+                        Expanded(
+                          child: BlurSwitcher(
+                            alignment: _step == 3
+                                ? Alignment.center
+                                : Alignment.centerRight,
+                            child: _step == 3
+                                ? Text(
+                                    'Quase lá',
+                                    key: const ValueKey('quase-la-title'),
+                                    textAlign: TextAlign.center,
+                                    style: T.headline.copyWith(
+                                      color: c.text,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  )
+                                : (_step > 0
+                                      ? Text(
+                                          fmtMoney(_amount.value),
+                                          key: ValueKey(_amount.value),
+                                          style: T.label.copyWith(
+                                            color: c.textSecondary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        )
+                                      : const SizedBox.shrink()),
+                          ),
+                        ),
+                        if (_step == 3) const SizedBox(width: 44),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -502,10 +566,20 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
       ),
     );
 
-    return ListView(
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(pad, Space.base, pad, Space.base),
-      children: [
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+          final px = n.metrics.pixels;
+          if ((px - _detailsScroll.value).abs() > 0.5) {
+            _detailsScroll.value = px;
+          }
+        }
+        return false;
+      },
+      child: ListView(
+        physics: const BouncingScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(pad, 64, pad, Space.base),
+        children: [
         // Cartão de prévia do gasto (mini visualização estilo recibo/detalhe)
         Reveal(
           index: 0,
@@ -677,6 +751,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
           ),
         ],
       ],
+      ),
     );
   }
 }
@@ -760,39 +835,20 @@ class _ExpenseFormState extends State<ExpenseForm> {
   late final Expense _e = widget.expense.copy();
   late final _amount = AmountController(_e.cents);
   late final _name = TextEditingController(text: _e.name);
-  final _catSearch = TextEditingController();
   bool _typing = false;
-  bool _pickingCategory = false;
 
   @override
   void initState() {
     super.initState();
     _amount.addListener(() => setState(() {}));
     _name.addListener(() => setState(() {}));
-    _catSearch.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _amount.dispose();
     _name.dispose();
-    _catSearch.dispose();
     super.dispose();
-  }
-
-  List<Category> _matchingCategories(String raw) {
-    final q = foldText(raw.trim());
-    if (q.isEmpty) return categories;
-    final guessed = guessCategory(raw);
-    final matches = <Category>[
-      if (guessed != null) guessed,
-      for (final cat in categories)
-        if (cat.id != guessed?.id &&
-            (foldText(cat.label).contains(q) ||
-                cat.keywords.any((kw) => foldText(kw).contains(q))))
-          cat,
-    ];
-    return matches.isEmpty ? categories : matches;
   }
 
   @override
@@ -800,12 +856,10 @@ class _ExpenseFormState extends State<ExpenseForm> {
     final c = context.c;
     final s = context.store;
     final df = DateFormat("d 'de' MMMM 'de' y", 'pt_BR');
-    final cat = categoryById(_e.categoryId);
     final fieldBg = c.isDark ? c.cardAlt : c.surfaceLow;
     final chipBg = c.isDark
         ? c.surfaceHigh
         : Palette.neutral100.withValues(alpha: 0.7);
-    final matchedCats = _matchingCategories(_catSearch.text);
 
     return SheetBody(
       bottom: PillButton(
@@ -897,151 +951,54 @@ class _ExpenseFormState extends State<ExpenseForm> {
           ),
           const SizedBox(height: Space.base),
           const FieldLabel('Categoria'),
-          // Seletor inline com busca inteligente de categoria
-          Pressable(
-            scale: 0.99,
-            onTap: () => setState(() {
-              _pickingCategory = !_pickingCategory;
-              if (!_pickingCategory) _catSearch.clear();
-            }),
-            child: Container(
-              height: 56,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: ShapeDecoration(
-                color: fieldBg,
-                shape: RoundedSuperellipseBorder(
-                  borderRadius: BorderRadius.circular(Space.radiusField),
-                ),
-              ),
-              child: Row(
-                children: [
-                  IconBadge(cat.icon, cat.color, size: 32),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      cat.label,
-                      style: T.body.copyWith(color: c.text),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Icon(
-                    _pickingCategory
-                        ? LucideIcons.chevronUp
-                        : LucideIcons.chevronDown,
-                    size: 18,
-                    color: c.textSecondary,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 240),
-            curve: easeOutExpo,
-            child: !_pickingCategory
-                ? const SizedBox(width: double.infinity)
-                : Padding(
-                    padding: const EdgeInsets.only(top: Space.sm),
-                    child: Container(
-                      padding: const EdgeInsets.all(Space.md),
-                      decoration: ShapeDecoration(
-                        color: fieldBg,
-                        shape: RoundedSuperellipseBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final item in categories)
+                () {
+                  final selected = item.id == _e.categoryId;
+                  final tone = c.tone(item.color);
+                  return Pressable(
+                    scale: 0.96,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _e.categoryId = item.id);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      decoration: ShapeDecoration(
+                        color: selected
+                            ? item.color.withValues(
+                                alpha: c.isDark ? 0.24 : 0.16,
+                              )
+                            : fieldBg,
+                        shape: const StadiumBorder(),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          AppField(
-                            controller: _catSearch,
-                            placeholder:
-                                'Digite a categoria ou palavra-chave…',
-                            bg: c.isDark ? c.bg : c.card,
-                            prefix: Icon(
-                              LucideIcons.search,
-                              size: 16,
-                              color: c.textSecondary,
-                            ),
-                            suffix: _catSearch.text.isEmpty
-                                ? null
-                                : Pressable(
-                                    onTap: _catSearch.clear,
-                                    child: Icon(
-                                      LucideIcons.x,
-                                      size: 16,
-                                      color: c.textSecondary,
-                                    ),
-                                  ),
+                          Icon(
+                            item.icon,
+                            size: 15,
+                            color: selected ? tone : c.textSecondary,
                           ),
-                          const SizedBox(height: Space.sm),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (final item in matchedCats)
-                                () {
-                                  final selected = item.id == _e.categoryId;
-                                  final tone = c.tone(item.color);
-                                  return Pressable(
-                                    scale: 0.96,
-                                    onTap: () {
-                                      HapticFeedback.selectionClick();
-                                      setState(() {
-                                        _e.categoryId = item.id;
-                                        _pickingCategory = false;
-                                        _catSearch.clear();
-                                      });
-                                    },
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 160,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 8,
-                                      ),
-                                      decoration: ShapeDecoration(
-                                        color: selected
-                                            ? item.color.withValues(
-                                                alpha: c.isDark ? 0.24 : 0.16,
-                                              )
-                                            : (c.isDark ? c.bg : c.card),
-                                        shape: const StadiumBorder(),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            item.icon,
-                                            size: 15,
-                                            color: tone,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            item.label,
-                                            style:
-                                                (selected
-                                                        ? T.smallStrong
-                                                        : T.small)
-                                                    .copyWith(
-                                                      color: selected
-                                                          ? tone
-                                                          : c.text,
-                                                    ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }(),
-                            ],
+                          const SizedBox(width: 6),
+                          Text(
+                            item.label,
+                            style: (selected ? T.smallStrong : T.small)
+                                .copyWith(color: selected ? tone : c.text),
                           ),
                         ],
                       ),
                     ),
-                  ),
+                  );
+                }(),
+            ],
           ),
           const SizedBox(height: Space.base),
           const FieldLabel('Frequência do gasto'),

@@ -200,12 +200,11 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ],
 
-                  // ── Finanças e estatísticas pessoais (estilo compacto)
-                  const SectionHeader('Seu ciclo'),
+                  // ── Finanças e estatísticas pessoais (estilo compacto, sem título de seção)
+                  const SizedBox(height: Space.base),
                   Builder(
                     builder: (_) {
                       final totalSpent = f.expensesTotal(cy);
-                      final totalSaved = f.boxesBalanceTotal();
                       final fixedTotal = f.fixedTotal(cy);
                       final varTotal = f.variableTotal(cy);
                       final salary = f.salary;
@@ -347,40 +346,59 @@ class ProfileScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: Space.sm),
 
-                          // Linha 3: Patrimônio em caixinhas + Contas/Maior foco
+                          // Linha 3: Contas e cartões + Maior gasto
                           IntrinsicHeight(
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Expanded(
                                   child: _FinanceTile(
-                                    icon: LucideIcons.piggyBank,
-                                    title: 'Patrimônio',
+                                    icon: LucideIcons.creditCard,
+                                    title: 'Contas',
                                     expandChild: true,
-                                    onTap: () => d.boxes.isEmpty
-                                        ? pushFluid(context, const BoxForm())
-                                        : ShellScope.of(context)?.goTo(2),
+                                    onTap: () => manageCards(context),
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       mainAxisAlignment: MainAxisAlignment.end,
                                       children: [
-                                        MoneyText(
-                                          totalSaved,
-                                          hidden: hidden,
-                                          style: T.headline,
-                                        ),
-                                        const SizedBox(height: 2),
                                         Text(
-                                          f.openBoxes.isEmpty
-                                              ? 'Sem caixinhas ativas'
-                                              : '${f.openBoxes.length} ${f.openBoxes.length == 1 ? 'caixinha ativa' : 'caixinhas ativas'}',
-                                          style: T.small.copyWith(
-                                            color: c.textSecondary,
+                                          d.cards.isEmpty
+                                              ? 'Nenhuma'
+                                              : '${d.cards.length} ${d.cards.length == 1 ? 'conta' : 'contas'}',
+                                          style: T.headline.copyWith(
+                                            color: c.text,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                         ),
+                                        const SizedBox(height: 6),
+                                        if (d.cards.isEmpty)
+                                          Text(
+                                            'Toque para adicionar',
+                                            style: T.small.copyWith(
+                                              color: c.textSecondary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          )
+                                        else
+                                          Row(
+                                            children: [
+                                              for (final k in d.cards.take(5))
+                                                Container(
+                                                  width: 10,
+                                                  height: 10,
+                                                  margin: const EdgeInsets.only(
+                                                    right: 5,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Color(k.color),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -573,7 +591,7 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.sparkles,
                               title: 'Importar com IA',
-                              onTap: () => _openAiImportMenu(context),
+                              onTap: () => push(context, const AiImportScreen()),
                             ),
                             _Row(
                               icon: LucideIcons.download,
@@ -593,7 +611,7 @@ class SettingsScreen extends StatelessWidget {
                             _Row(
                               icon: LucideIcons.info,
                               title: 'Sobre o maré',
-                              value: 'v1.0',
+                              value: 'v1.6',
                               onTap: () => push(context, const AboutScreen()),
                             ),
                             _Row(
@@ -616,83 +634,17 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _openAiImportMenu(BuildContext context) async {
-    final choice = await showIosSheet<AiImportMode>(
-      context,
-      builder: (ctx) {
-        final c = ctx.c;
-        final itemBg = c.isDark ? c.bg : c.surfaceLow;
-        return SheetBody(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Importar com IA',
-                      style: T.title.copyWith(color: c.text),
-                    ),
-                  ),
-                  RoundIconButton(
-                    LucideIcons.x,
-                    size: 36,
-                    bg: c.cardAlt,
-                    label: 'Fechar',
-                    onTap: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              const SizedBox(height: Space.xs),
-              Text(
-                'Copie as instruções prontas para o ChatGPT, Claude ou Gemini e cole o JSON gerado de volta no app.',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-              const SizedBox(height: Space.base),
-              ListGroup(
-                bg: itemBg,
-                children: [
-                  ListRow(
-                    leading: IconBadge(LucideIcons.receipt, c.primary, size: 38),
-                    title: 'Importar gastos em lote',
-                    subtitle: 'Faturas, extratos ou textos avulsos',
-                    arrow: true,
-                    onTap: () => Navigator.pop(ctx, AiImportMode.expenses),
-                  ),
-                  ListRow(
-                    leading: IconBadge(
-                      LucideIcons.database,
-                      c.accentWarm,
-                      size: 38,
-                    ),
-                    title: 'Importar dados completos',
-                    subtitle: 'Salário, caixinhas, contas e histórico',
-                    arrow: true,
-                    onTap: () => Navigator.pop(ctx, AiImportMode.full),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    if (choice == null || !context.mounted) return;
-    push(context, AiImportScreen(initialMode: choice));
-  }
-
   Future<void> _editNavBar(BuildContext context) {
     final s = context.storeRead;
     var pinned = List<String>.from(effectiveNavTabs(s.data));
     var previewIndex = 0;
 
-    return showIosSheet<void>(
+    return showSheet<void>(
       context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) {
           final c = ctx.c;
-          final wellBg = c.isDark ? c.bg : c.surfaceLow;
+          final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
           void commit() => s.setNavTabs(pinned);
 
           return SheetBody(
@@ -734,7 +686,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: Space.xs),
                 Text(
-                  'Toque nos blocos abaixo para ativar ou remover da barra (${pinned.length}/5).',
+                  'Toque nos blocos abaixo para ativar ou remover da barra (${pinned.length}/4).',
                   style: T.small.copyWith(color: c.textSecondary),
                 ),
                 const SizedBox(height: Space.base),
@@ -765,7 +717,7 @@ class SettingsScreen extends StatelessWidget {
                                 duration: const Duration(milliseconds: 180),
                                 decoration: ShapeDecoration(
                                   color: active
-                                      ? c.cardAlt
+                                      ? (c.isDark ? c.surfaceHigh : c.card)
                                       : const Color(0x00000000),
                                   shape: const StadiumBorder(),
                                 ),
@@ -847,10 +799,10 @@ class SettingsScreen extends StatelessWidget {
                                   );
                                   return;
                                 }
-                                if (!isPinned && pinned.length >= 5) {
+                                if (!isPinned && pinned.length >= 4) {
                                   toast(
                                     ctx,
-                                    'Máximo de 5 abas na barra',
+                                    'Máximo de 4 abas na barra',
                                     icon: LucideIcons.info,
                                   );
                                   return;
@@ -962,17 +914,32 @@ class SettingsScreen extends StatelessWidget {
 
   Future<void> _pickTheme(BuildContext context) {
     final s = context.storeRead;
-    return showIosSheet<void>(
+    return showSheet<void>(
       context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, set) {
           final c = ctx.c;
           final cur = s.data.theme;
-          final wellBg = c.isDark ? c.bg : c.surfaceLow;
+          final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
           final items = const [
-            (ThemePref.auto, 'Automático', LucideIcons.smartphone),
-            (ThemePref.light, 'Claro', LucideIcons.sun),
-            (ThemePref.dark, 'Escuro', LucideIcons.moon),
+            (
+              ThemePref.auto,
+              'Automático',
+              'Segue o modo claro ou escuro do sistema',
+              LucideIcons.smartphone,
+            ),
+            (
+              ThemePref.light,
+              'Claro',
+              'Fundo claro durante todo o dia',
+              LucideIcons.sun,
+            ),
+            (
+              ThemePref.dark,
+              'Escuro',
+              'Fundo escuro para maior conforto visual',
+              LucideIcons.moon,
+            ),
           ];
           return SheetBody(
             child: Column(
@@ -997,59 +964,36 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: Space.md),
-                Row(
+                ListGroup(
+                  bg: wellBg,
                   children: [
-                    for (var i = 0; i < items.length; i++) ...[
-                      if (i > 0) const SizedBox(width: Space.sm),
-                      Expanded(
-                        child: () {
-                          final (pref, label, icon) = items[i];
-                          final selected = cur == pref;
-                          final (selBg, selFg) = softActionTone(
-                            c.palette.primary[500],
-                            isDark: c.isDark,
-                          );
-                          return Pressable(
-                            scale: 0.96,
-                            onTap: () {
-                              s.setTheme(pref);
-                              Navigator.pop(ctx);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              height: 82,
-                              decoration: ShapeDecoration(
-                                color: selected ? selBg : wellBg,
-                                shape: RoundedSuperellipseBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    icon,
-                                    size: 22,
-                                    color: selected ? selFg : c.textSecondary,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    label,
-                                    style:
-                                        (selected ? T.smallStrong : T.small)
-                                            .copyWith(
-                                              color: selected
-                                                  ? selFg
-                                                  : c.textSecondary,
-                                            ),
-                                  ),
-                                ],
-                              ),
+                    for (final (pref, label, sub, icon) in items)
+                      ListRow(
+                        leading: SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Center(
+                            child: Icon(
+                              icon,
+                              size: 20,
+                              color: cur == pref ? c.primary : c.textSecondary,
                             ),
-                          );
-                        }(),
+                          ),
+                        ),
+                        title: label,
+                        subtitle: sub,
+                        trailing: cur == pref
+                            ? Icon(
+                                LucideIcons.check,
+                                size: 20,
+                                color: c.primary,
+                              )
+                            : null,
+                        onTap: () {
+                          s.setTheme(pref);
+                          Navigator.pop(ctx);
+                        },
                       ),
-                    ],
                   ],
                 ),
               ],
@@ -1061,14 +1005,14 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Future<void> _pickAccent(BuildContext context) {
-    return showIosSheet<void>(
+    return showSheet<void>(
       context,
       builder: (ctx) {
         final c = ctx.c;
         final s = ctx.store;
         final seed =
             s.data.accentColor ?? accentThemes.first.primary.toARGB32();
-        final wellBg = c.isDark ? c.bg : c.surfaceLow;
+        final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
         return SheetBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1208,72 +1152,6 @@ class SettingsScreen extends StatelessWidget {
   }
 }
 
-class _AccentSwatch extends StatelessWidget {
-  final String label;
-  final Color primary;
-  final Color complementary;
-  final bool selected;
-  final VoidCallback onTap;
-  const _AccentSwatch({
-    required this.label,
-    required this.primary,
-    required this.complementary,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.c;
-    return Pressable(
-      semanticLabel: 'Cor $label',
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 44,
-        height: 44,
-        padding: const EdgeInsets.all(2),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected ? c.text : c.border,
-            width: selected ? 2.5 : 1,
-          ),
-        ),
-        child: ClipOval(
-          child: Stack(
-            children: [
-              Positioned.fill(child: ColoredBox(color: primary)),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                width: 18,
-                height: 18,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: complementary,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              if (selected)
-                Center(
-                  child: Icon(
-                    LucideIcons.check,
-                    size: 16,
-                    color: onColor(primary),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _Group extends StatelessWidget {
   final List<Widget> children;
   const _Group({required this.children});
@@ -1284,17 +1162,13 @@ class _Group extends StatelessWidget {
 class _Row extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String? subtitle;
   final String? value;
-  final Widget? trailing;
   final VoidCallback? onTap;
   final bool danger;
   const _Row({
     required this.icon,
     required this.title,
-    this.subtitle,
     this.value,
-    this.trailing,
     this.onTap,
     this.danger = false,
   });
@@ -1311,10 +1185,8 @@ class _Row extends StatelessWidget {
         ),
       ),
       title: title,
-      subtitle: subtitle,
       value: value,
-      trailing: trailing,
-      arrow: onTap != null && trailing == null,
+      arrow: onTap != null,
       onTap: onTap,
     );
   }
@@ -1371,11 +1243,24 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
     final s = context.storeRead;
     final cy = Cycle.of(DateTime.now(), _day);
     final last = cy.end.subtract(const Duration(days: 1));
-    final wellBg = c.isDark ? c.bg : c.surfaceLow;
-    final keyBg = c.isDark ? c.cardAlt : c.surfaceLow;
+    final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
+    final keyBg = c.isDark ? c.surfaceHigh : c.card;
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
+    return SheetBody(
+      bottom: PillButton(
+        'Salvar',
+        onTap: () {
+          // Atualiza o dia de virada ANTES do salário para gravar na chave correta.
+          s.setCycleStartDay(_day);
+          final err = s.setSalary(_ctl.value);
+          if (err != null) {
+            toast(context, err, icon: LucideIcons.triangleAlert);
+            return;
+          }
+          Navigator.pop(context);
+          toast(context, 'Salário e ciclo atualizados');
+        },
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1528,21 +1413,6 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
               ),
             ),
           ],
-          const SizedBox(height: Space.base),
-          PillButton(
-            'Salvar',
-            onTap: () {
-              // Atualiza o dia de virada ANTES do salário para gravar na chave correta.
-              s.setCycleStartDay(_day);
-              final err = s.setSalary(_ctl.value);
-              if (err != null) {
-                toast(context, err, icon: LucideIcons.triangleAlert);
-                return;
-              }
-              Navigator.pop(context);
-              toast(context, 'Salário e ciclo atualizados');
-            },
-          ),
         ],
       ),
     );
@@ -1550,7 +1420,7 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
 }
 
 Future<void> manageCards(BuildContext context) {
-  return showIosSheet<void>(
+  return showSheet<void>(
     context,
     builder: (ctx) {
       final c = ctx.c;
@@ -1590,14 +1460,14 @@ Future<void> manageCards(BuildContext context) {
             const SizedBox(height: Space.base),
             if (cards.isEmpty)
               EmptyState(
-                bg: c.isDark ? c.bg : c.surfaceLow,
+                bg: c.isDark ? c.cardAlt : c.surfaceLow,
                 icon: LucideIcons.landmark,
                 title: 'Nenhuma conta cadastrada',
                 message: 'Adicione seu banco ou cartão para separar os gastos.',
               )
             else
               ListGroup(
-                bg: c.isDark ? c.bg : c.surfaceLow,
+                bg: c.isDark ? c.cardAlt : c.surfaceLow,
                 children: [
                   for (final k in cards)
                     ListRow(
@@ -1624,7 +1494,7 @@ Future<void> manageCards(BuildContext context) {
 }
 
 Future<void> editProfile(BuildContext context) =>
-    showIosSheet<void>(context, builder: (_) => const _ProfileForm());
+    showSheet<void>(context, builder: (_) => const _ProfileForm());
 
 class _ProfileForm extends StatefulWidget {
   const _ProfileForm();
@@ -1801,7 +1671,7 @@ class _ProfileFormState extends State<_ProfileForm> {
           const FieldLabel('Nome'),
           AppField(
             controller: _name,
-            bg: c.isDark ? c.bg : c.surfaceLow,
+            bg: c.isDark ? c.cardAlt : c.surfaceLow,
             placeholder: 'Seu nome',
             capitalization: TextCapitalization.words,
             maxLength: 30,
@@ -1874,7 +1744,7 @@ class AboutScreen extends StatelessWidget {
                               const MareWordmark(size: 38),
                               const SizedBox(height: Space.sm),
                               Tag(
-                                'Versão 1.0.0',
+                                'Versão 1.6',
                                 bg: c.card,
                                 fg: c.textSecondary,
                               ),

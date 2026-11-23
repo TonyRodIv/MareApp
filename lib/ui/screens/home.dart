@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../data/finance.dart';
+import '../../data/models.dart';
 import '../../data/store.dart';
 import '../widgets/charts.dart';
 import '../widgets/dashboard.dart';
@@ -12,6 +13,7 @@ import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
 import 'box_form.dart';
+import 'cards.dart';
 import 'extrato.dart';
 import 'insights.dart';
 import 'profile.dart';
@@ -38,6 +40,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final hidden = s.data.hideValues;
     final name = s.data.userName.trim().split(' ').first;
     final noSalary = f.salary == 0;
+    final hasCards = s.data.cards.isNotEmpty;
     final hasSubs = f.subscriptions(cy).isNotEmpty;
 
     return Stack(
@@ -180,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         f,
                         hidden,
                         hasSubs,
+                        hasCards,
                       );
                       if (tiles.isEmpty) {
                         return Padding(
@@ -228,6 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'assinaturas': ('Assinaturas', LucideIcons.tv, 2),
     'categorias': ('Por categoria', LucideIcons.chartPie, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
+    'contas': ('Contas', LucideIcons.landmark, 2),
   };
 
   static const _defaultOrder = <String>[
@@ -236,6 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'assinaturas',
     'categorias',
     'historico',
+    'contas',
   ];
 
   static const _defaultHidden = <String>{};
@@ -268,30 +274,34 @@ class _HomeScreenState extends State<HomeScreen> {
     Finance f,
     bool hidden,
     bool hasSubs,
+    bool hasCards,
   ) {
     final s = context.store;
     final cy = f.current;
     final hiddenSet = _effectiveHidden(s);
     final order = _allIds(s.data.widgetOrder);
     final tiles = <DashTile>[];
-    final hasExpenses = f.expensesTotal(cy) > 0;
     final hasOpenBoxes = f.openBoxes.isNotEmpty;
-    final hasCategories = f.byCategory(cy).any((entry) => entry.value > 0);
-    final hasHistory = f
-        .lastCycles(12)
-        .any((cycle) => f.expensesTotal(cycle) > 0);
 
     for (final id in order) {
       if (hiddenSet.contains(id)) continue;
-      if (id == 'gastos' && !hasExpenses) continue;
+      // Somente Caixinhas fica oculto automaticamente quando não há caixinhas ativas.
       if (id == 'caixinhas' && !hasOpenBoxes) continue;
-      if (id == 'categorias' && !hasCategories) continue;
-      if (id == 'assinaturas' && !hasSubs) continue;
-      if (id == 'historico' && !hasHistory) continue;
 
       final defSpan = _defaultSpanFor(id, hasOpenBoxes);
 
       switch (id) {
+        case 'contas':
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: defSpan,
+              builder: (ctx, w, span) => _AccountsDashCard(
+                cards: s.data.cards,
+                compact: span == 1 || w < 240,
+              ),
+            ),
+          );
         case 'gastos':
           final spent = f.expensesTotal(cy);
           final sal = f.salaryFor(cy);
@@ -393,40 +403,62 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
     ];
 
+    final summary = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CountingMoney(
+          cents: total,
+          builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
+        ),
+        const SizedBox(height: Space.xxs),
+        Text(
+          expanded
+              ? '${open.length} ${open.length == 1 ? 'caixinha' : 'caixinhas'} · Guardado'
+              : 'Guardado',
+          style: T.small.copyWith(color: c.textSecondary),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+
     return AppCard(
       expandChild: true,
       title: 'Caixinhas',
       onTap: () => s.data.boxes.isEmpty
           ? pushFluid(context, const BoxForm())
           : ShellScope.of(context)?.goTo(2),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Spacer(),
-          if (expanded && boxSegments.isNotEmpty) ...[
-            SegmentedCapsuleBar(
-              height: 16,
-              gap: 3,
-              segments: boxSegments,
+      child: expanded && boxSegments.isNotEmpty
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(child: summary),
+                    const SizedBox(width: Space.md),
+                    SizedBox(
+                      width: (w * 0.36).clamp(84.0, 128.0),
+                      child: SegmentedCapsuleBar(
+                        height: 16,
+                        gap: 3,
+                        segments: boxSegments,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Spacer(),
+                const SizedBox(height: Space.sm),
+                summary,
+              ],
             ),
-            const SizedBox(height: Space.md),
-          ] else
-            const SizedBox(height: Space.sm),
-          CountingMoney(
-            cents: total,
-            builder: (x) => MoneyText(x, hidden: hidden, style: T.cardValue),
-          ),
-          const SizedBox(height: Space.xxs),
-          Text(
-            expanded
-                ? '${open.length} ${open.length == 1 ? 'caixinha ativa' : 'caixinhas ativas'} · Guardado'
-                : 'Guardado',
-            style: T.small.copyWith(color: c.textSecondary),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
     );
   }
 
@@ -449,7 +481,8 @@ class _HomeScreenState extends State<HomeScreen> {
           final hasHistory = f
               .lastCycles(12)
               .any((cycle) => f.expensesTotal(cycle) > 0);
-          final wellBg = c.isDark ? c.bg : c.surfaceLow;
+          final hasCards = s.data.cards.isNotEmpty;
+          final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
           final available = order;
 
           bool hasDataFor(String id) => switch (id) {
@@ -458,6 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'categorias' => hasCategories,
             'assinaturas' => hasSubs,
             'historico' => hasHistory,
+            'contas' => hasCards,
             _ => true,
           };
 
@@ -468,7 +502,8 @@ class _HomeScreenState extends State<HomeScreen> {
           // Monta as linhas da miniatura exatamente como o DashboardGrid faz
           final activeIds = [
             for (final id in available)
-              if (!hidden.contains(id) && hasDataFor(id)) id,
+              if (!hidden.contains(id) && !(id == 'caixinhas' && !hasOpenBoxes))
+                id,
           ];
           final previewRows = <List<String>>[];
           var curRow = <String>[];
@@ -1071,6 +1106,34 @@ class _HomeScreenState extends State<HomeScreen> {
       final iconSz = compact ? 28.0 : 38.0;
       final step = compact ? 20.0 : 28.0;
       final maxLogos = compact ? 3 : 4;
+      if (subs.isEmpty) {
+        final placeholderCount = compact ? 3 : 4;
+        final totalW = iconSz + (placeholderCount - 1) * step;
+        final placeholderFill = c.isDark ? c.cardAlt : c.surfaceLow;
+        return SizedBox(
+          width: totalW,
+          height: iconSz + 4,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (var i = 0; i < placeholderCount; i++)
+                Positioned(
+                  left: i * step,
+                  top: 2,
+                  child: Container(
+                    width: iconSz,
+                    height: iconSz,
+                    decoration: BoxDecoration(
+                      color: placeholderFill,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: c.card, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }
       final shown = subs.take(maxLogos).toList();
       final extra = subs.length - shown.length;
       final count = shown.length + (extra > 0 ? 1 : 0);
@@ -1130,7 +1193,9 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: Space.xxs),
         Text(
-          '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'} · por mês',
+          subs.isEmpty
+              ? 'Nenhuma assinatura'
+              : '${subs.length} ${subs.length == 1 ? 'serviço' : 'serviços'} · por mês',
           style: T.small.copyWith(color: c.textSecondary),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
@@ -1142,15 +1207,7 @@ class _HomeScreenState extends State<HomeScreen> {
       expandChild: true,
       title: 'Assinaturas',
       onTap: () => push(context, const SubscriptionsScreen()),
-      child: subs.isEmpty
-          ? Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Nenhuma assinatura ativa',
-                style: T.small.copyWith(color: c.textSecondary),
-              ),
-            )
-          : compact
+      child: compact
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1168,6 +1225,146 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: Space.md),
                   logoStack(),
                 ],
+              ),
+            ),
+    );
+  }
+}
+
+/// Card de Contas e cartões na Carteira: suporta modo compacto (1x) e largo (2x),
+/// com gap entre o botão "+" e a seta "↗" e fade suave nas bordas ao rolar os cartões.
+class _AccountsDashCard extends StatefulWidget {
+  final List<PayCard> cards;
+  final bool compact;
+  const _AccountsDashCard({required this.cards, required this.compact});
+
+  @override
+  State<_AccountsDashCard> createState() => _AccountsDashCardState();
+}
+
+class _AccountsDashCardState extends State<_AccountsDashCard> {
+  final _scroll = ScrollController();
+  double _leftFade = 0;
+  double _rightFade = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_syncFade);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncFade());
+  }
+
+  @override
+  void didUpdateWidget(_AccountsDashCard old) {
+    super.didUpdateWidget(old);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncFade());
+  }
+
+  void _syncFade() {
+    if (!mounted || !_scroll.hasClients) return;
+    final pos = _scroll.position;
+    if (!pos.hasContentDimensions) return;
+    final left = (pos.pixels / 16.0).clamp(0.0, 1.0);
+    final right = ((pos.maxScrollExtent - pos.pixels) / 16.0).clamp(0.0, 1.0);
+    if ((left - _leftFade).abs() > 0.02 || (right - _rightFade).abs() > 0.02) {
+      setState(() {
+        _leftFade = left;
+        _rightFade = right;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_syncFade);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final cards = widget.cards;
+    final compact = widget.compact;
+
+    return AppCard(
+      expandChild: true,
+      onTap: () => manageCards(context),
+      titleWidget: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Contas',
+              style: T.body.copyWith(color: c.text),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Pressable(
+            semanticLabel: 'Nova conta ou cartão',
+            onTap: () => editCard(context),
+            child: Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: c.cardAlt,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(LucideIcons.plus, size: 15, color: c.textSecondary),
+            ),
+          ),
+          const SizedBox(width: Space.sm),
+        ],
+      ),
+      child: cards.isEmpty
+          ? Align(
+              alignment: Alignment.bottomLeft,
+              child: Text(
+                'Toque para adicionar',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
+            )
+          : Align(
+              alignment: Alignment.bottomLeft,
+              child: SizedBox(
+                height: 48,
+                child: NotificationListener<ScrollMetricsNotification>(
+                  onNotification: (_) {
+                    _syncFade();
+                    return false;
+                  },
+                  child: ShaderMask(
+                    shaderCallback: (r) => LinearGradient(
+                      colors: [
+                        Color.fromRGBO(255, 255, 255, 1.0 - _leftFade),
+                        const Color(0xFFFFFFFF),
+                        const Color(0xFFFFFFFF),
+                        Color.fromRGBO(255, 255, 255, 1.0 - _rightFade),
+                      ],
+                      stops: const [0.0, 0.08, 0.90, 1.0],
+                    ).createShader(r),
+                    blendMode: BlendMode.dstIn,
+                    child: ListView.separated(
+                      controller: _scroll,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: cards.length,
+                      separatorBuilder: (_, _) =>
+                          SizedBox(width: compact ? Space.xs : Space.sm),
+                      itemBuilder: (_, i) => Pressable(
+                        onTap: () => push(
+                          context,
+                          CardDetailScreen(cardId: cards[i].id),
+                        ),
+                        onLongPress: () => editCard(context, card: cards[i]),
+                        child: CardChip(
+                          card: cards[i],
+                          width: compact ? 74 : 88,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
     );

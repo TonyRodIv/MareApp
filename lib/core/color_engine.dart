@@ -267,8 +267,29 @@ class PaletteSet {
     if (hues.isEmpty)
       return PaletteSet._(seed, harmony, hue, primary, primary, hues);
 
-    // Companheira: primeiro matiz da harmonia que não colida com a própria
-    // família nem com as cores semânticas (vermelho = erro, verde = ok).
+    // Companheira: se o tema possui cor secundária definida em [accentThemes],
+    // usa essa cor para que o gradiente do tema, o círculo de amostra e o
+    // segundo botão de destaque da Carteira falem sempre a mesma língua!
+    Color? themeCompanion;
+    for (final t in accentThemes) {
+      if (t.primary.toARGB32() == seed.toARGB32()) {
+        themeCompanion = t.secondaryGlow;
+        break;
+      }
+    }
+    if (themeCompanion != null && harmony == Harmony.complementary) {
+      ColorScale? compOfficial;
+      for (final s in Palette.allScales) {
+        if (s.s500.toARGB32() == themeCompanion.toARGB32()) compOfficial = s;
+      }
+      final compScale = compOfficial != null
+          ? TonalScale.fromFigma(compOfficial)
+          : TonalScale.generate(themeCompanion);
+      return PaletteSet._(seed, harmony, hue, primary, compScale, hues);
+    }
+
+    // Companheira calculada: primeiro matiz da harmonia que não colida com a
+    // própria família nem com as cores semânticas (vermelho = erro, verde = ok).
     final own = official ?? nearestFigmaScale(hue);
     final banned = <ColorScale>{own, Palette.red, Palette.green};
     TonalScale? comp;

@@ -43,8 +43,9 @@ const _nintendo = BrandSpec(
 );
 const _playstation = BrandSpec(
   'playstation.com',
-  bg: Color(0xFF003087),
+  bg: Color(0xFFFFFFFF),
   categoryId: 'jogos',
+  inset: 0.10,
 );
 const _xbox = BrandSpec(
   'xbox.com',
@@ -70,10 +71,10 @@ const _brandSpecs = <String, BrandSpec>{
   ),
   'spotify': BrandSpec(
     'spotify.com',
-    bg: Color(0xFF1DB954),
+    bg: Color(0xFF000000),
     categoryId: 'assinaturas',
     accent: Color(0xFF1DB954),
-    inset: 0.0,
+    inset: 0.10,
   ),
   'disney': BrandSpec(
     'disneyplus.com',
@@ -105,24 +106,24 @@ const _brandSpecs = <String, BrandSpec>{
   ),
   'prime video': BrandSpec(
     'primevideo.com',
-    bg: Color(0xFF00A8E1),
+    bg: Color(0xFF00050D),
     categoryId: 'assinaturas',
     accent: Color(0xFF00A8E1),
-    inset: 0.08,
+    inset: 0.06,
   ),
   'amazon prime': BrandSpec(
     'primevideo.com',
-    bg: Color(0xFF00A8E1),
+    bg: Color(0xFF00050D),
     categoryId: 'assinaturas',
     accent: Color(0xFF00A8E1),
-    inset: 0.08,
+    inset: 0.06,
   ),
   'prime': BrandSpec(
     'primevideo.com',
-    bg: Color(0xFF00A8E1),
+    bg: Color(0xFF00050D),
     categoryId: 'assinaturas',
     accent: Color(0xFF00A8E1),
-    inset: 0.08,
+    inset: 0.06,
   ),
   'youtube': BrandSpec(
     'youtube.com',

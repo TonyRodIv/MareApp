@@ -241,27 +241,37 @@ class _BoxFormState extends State<BoxForm> {
               ),
             ),
             Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 180),
-                switchInCurve: easeOutExpo,
-                switchOutCurve: Curves.easeOut,
-                transitionBuilder: (child, anim) {
-                  final incoming = child.key == ValueKey(_step);
-                  final dir = (_forward ? 1 : -1) * (incoming ? 1 : -1);
-                  return FadeTransition(
-                    opacity: anim,
-                    child: SlideTransition(
-                      position: Tween(
-                        begin: Offset(0.08 * dir, 0),
-                        end: Offset.zero,
-                      ).animate(anim),
+              child: ClipRect(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 480),
+                  reverseDuration: const Duration(milliseconds: 200),
+                  switchInCurve: easeOutExpo,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, anim) {
+                    final incoming = child.key == ValueKey(_step);
+                    final dir = (_forward ? 1 : -1) * (incoming ? 1 : -1);
+                    return AnimatedBuilder(
+                      animation: anim,
                       child: child,
-                    ),
-                  );
-                },
-                child: KeyedSubtree(
-                  key: ValueKey(_step),
-                  child: _body(context, pad, salary, perCycle),
+                      builder: (_, ch) {
+                        final t = anim.value;
+                        return Opacity(
+                          opacity: clampOpacity(t * 1.4),
+                          child: Transform.translate(
+                            offset: Offset(64.0 * dir * (1 - t), 0),
+                            child: Transform.scale(
+                              scale: 0.96 + 0.04 * t,
+                              child: ch,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  child: KeyedSubtree(
+                    key: ValueKey(_step),
+                    child: _body(context, pad, salary, perCycle),
+                  ),
                 ),
               ),
             ),

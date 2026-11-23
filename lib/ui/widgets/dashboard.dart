@@ -143,7 +143,8 @@ class DashboardGrid extends StatelessWidget {
 double _minHeightFor(String id, int span) {
   if (id == 'assinaturas') return span == 1 ? 156 : 128;
   if (id == 'categorias') return span == 1 ? 156 : 140;
-  if (id == 'caixinhas') return span == 1 ? 132 : 148;
+  if (id == 'caixinhas') return 132;
+  if (id == 'contas') return 132;
   if (id == 'historico') return span == 1 ? 156 : 184;
   return _minHeight[id] ?? 132;
 }
@@ -151,6 +152,7 @@ double _minHeightFor(String id, int span) {
 const _minHeight = <String, double>{
   'gastos': 132,
   'caixinhas': 132,
+  'contas': 132,
   'categorias': 140,
   'assinaturas': 128,
   'historico': 184,

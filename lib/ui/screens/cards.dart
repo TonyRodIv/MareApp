@@ -729,7 +729,7 @@ class _CardFormState extends State<_CardForm> {
   Widget build(BuildContext context) {
     final c = context.c;
     final colorInt = _resolvedColor;
-    final trackBg = c.isDark ? c.bg : c.surfaceLow;
+    final trackBg = c.isDark ? c.cardAlt : c.surfaceLow;
     final preview = PayCard(
       id: 'preview',
       name: _name.text.trim(),
@@ -738,8 +738,7 @@ class _CardFormState extends State<_CardForm> {
       brand: _brand,
       isCard: _isCard,
     );
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(Space.gutter, 4, Space.gutter, 20),
+    return SheetBody(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
