@@ -2069,6 +2069,264 @@ class _HistoryLinePainter extends CustomPainter {
       old.values.length != values.length;
 }
 
+/// Gráfico de linha/área acumulada ao longo dos dias do ciclo para o Extrato,
+/// seguindo a mesma estética limpa do [HistoryLineChart].
+class CycleExpenseLineChart extends StatefulWidget {
+  final Cycle cycle;
+  final List<Expense> items;
+  final double height;
+  final bool hidden;
+
+  const CycleExpenseLineChart({
+    super.key,
+    required this.cycle,
+    required this.items,
+    this.height = 124,
+    this.hidden = false,
+  });
+
+  @override
+  State<CycleExpenseLineChart> createState() => _CycleExpenseLineChartState();
+}
+
+class _CycleExpenseLineChartState extends State<CycleExpenseLineChart> {
+  int? _selected;
+
+  @override
+  void didUpdateWidget(CycleExpenseLineChart old) {
+    super.didUpdateWidget(old);
+    if (old.cycle.key != widget.cycle.key) _selected = null;
+  }
+
+  void _pickAt(double localX, double plotW, int n) {
+    if (n <= 1 || plotW <= 0) return;
+    const padX = 10.0;
+    final usable = math.max(1.0, plotW - padX * 2);
+    final raw = ((localX - padX) / usable * (n - 1)).round().clamp(0, n - 1);
+    if (_selected != raw) {
+      HapticFeedback.selectionClick();
+      setState(() => _selected = raw);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final days = widget.cycle.days;
+    if (days.isEmpty || widget.items.isEmpty) return const SizedBox.shrink();
+
+    // Limita ao dia de hoje quando estamos no ciclo atual, para a curva parar
+    // no presente em vez de estender uma linha reta até o fim do mês.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final isCurrent = widget.cycle.contains(today);
+    final visibleDays = isCurrent
+        ? [
+            for (final d in days)
+              if (!d.isAfter(today)) d,
+          ]
+        : days;
+    final plotDays = visibleDays.length >= 2 ? visibleDays : days.take(2).toList();
+
+    // Soma gastos por dia (recorrentes contam no dia 0 do ciclo; únicos no seu dia).
+    final perDay = List<int>.filled(plotDays.length, 0);
+    for (final e in widget.items) {
+      if (e.cents <= 0) continue;
+      if (e.isRecurring) {
+        perDay[0] += e.cents;
+      } else {
+        final diff = e.date.difference(plotDays.first).inDays;
+        final idx = diff.clamp(0, plotDays.length - 1);
+        perDay[idx] += e.cents;
+      }
+    }
+    var running = 0;
+    final cumulative = [for (final v in perDay) running += v];
+    final maxRaw = cumulative.fold<int>(0, math.max);
+    if (maxRaw <= 0) return const SizedBox.shrink();
+
+    final ticks = HistoryBars._niceTicks(math.max(10000, maxRaw));
+    final top = math.max(1, ticks.last);
+    final sel = _selected != null && _selected! < plotDays.length
+        ? _selected
+        : null;
+    final lineColor = c.isDark
+        ? Palette.neutral0.withValues(alpha: 0.88)
+        : c.primary;
+    const axisW = 44.0;
+
+    return SizedBox(
+      height: widget.height + 24,
+      child: LayoutBuilder(
+        builder: (_, box) {
+          final plotW = math.max(60.0, box.maxWidth - axisW);
+          return Column(
+            children: [
+              SizedBox(
+                height: widget.height,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: plotW,
+                      height: widget.height,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (d) =>
+                            _pickAt(d.localPosition.dx, plotW, plotDays.length),
+                        onHorizontalDragStart: (d) =>
+                            _pickAt(d.localPosition.dx, plotW, plotDays.length),
+                        onHorizontalDragUpdate: (d) =>
+                            _pickAt(d.localPosition.dx, plotW, plotDays.length),
+                        onTapUp: (_) {},
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: RepaintBoundary(
+                                child: CustomPaint(
+                                  painter: _HistoryLinePainter(
+                                    values: cumulative,
+                                    maxValue: top,
+                                    lineColor: lineColor,
+                                    accentColor: c.primary,
+                                    gridColor: c.border.withValues(
+                                      alpha: c.isDark ? 0.36 : 0.58,
+                                    ),
+                                    cursorColor: c.textTertiary.withValues(
+                                      alpha: 0.55,
+                                    ),
+                                    bgColor: c.bg,
+                                    selected: sel,
+                                    isDark: c.isDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (sel != null)
+                              _buildTooltip(
+                                c,
+                                plotW,
+                                widget.height,
+                                sel,
+                                plotDays,
+                                cumulative[sel],
+                                top,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: axisW,
+                      height: widget.height,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          for (final t in ticks)
+                            Positioned(
+                              right: 0,
+                              bottom:
+                                  ((widget.height - 24) * (t / top) + 4)
+                                      .clamp(0.0, widget.height - 14),
+                              child: Text(
+                                widget.hidden ? '••' : fmtCompact(t),
+                                style: T.tiny.copyWith(color: c.textTertiary),
+                                maxLines: 1,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  SizedBox(
+                    width: plotW,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${plotDays.first.day.toString().padLeft(2, '0')}/${plotDays.first.month.toString().padLeft(2, '0')}',
+                          style: T.tiny.copyWith(color: c.textTertiary),
+                        ),
+                        if (plotDays.length >= 6)
+                          Text(
+                            '${plotDays[plotDays.length ~/ 2].day.toString().padLeft(2, '0')}/${plotDays[plotDays.length ~/ 2].month.toString().padLeft(2, '0')}',
+                            style: T.tiny.copyWith(color: c.textTertiary),
+                          ),
+                        Text(
+                          '${plotDays.last.day.toString().padLeft(2, '0')}/${plotDays.last.month.toString().padLeft(2, '0')}',
+                          style: T.tiny.copyWith(color: c.textTertiary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: axisW),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTooltip(
+    AppColors c,
+    double plotW,
+    double plotH,
+    int idx,
+    List<DateTime> days,
+    int cents,
+    int top,
+  ) {
+    const padX = 10.0;
+    const topPad = 24.0;
+    const botPad = 10.0;
+    final n = days.length;
+    final usableW = math.max(1.0, plotW - padX * 2);
+    final usableH = math.max(1.0, plotH - topPad - botPad);
+    final x = n <= 1 ? plotW / 2 : padX + usableW * (idx / (n - 1));
+    final y = topPad + usableH * (1.0 - (cents / top).clamp(0.0, 1.0));
+    const pillW = 112.0;
+    final left = (x - pillW / 2)
+        .clamp(0.0, math.max(0.0, plotW - pillW))
+        .toDouble();
+    final topPos = math.max(0.0, y - 34.0);
+    final d = days[idx];
+    final dateStr =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+    return Positioned(
+      left: left,
+      top: topPos,
+      child: IgnorePointer(
+        child: Container(
+          width: pillW,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          alignment: Alignment.center,
+          decoration: ShapeDecoration(
+            color: c.isDark ? c.cardAlt : c.text,
+            shape: const StadiumBorder(),
+          ),
+          child: Text(
+            widget.hidden ? dateStr : '$dateStr · ${fmtMoney(cents)}',
+            style: T.tiny.copyWith(
+              color: c.isDark ? c.text : Palette.neutral0,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Anel segmentado compacto com pontas arredondadas e gaps limpos,
 /// ideal para o card "Por categoria" na Carteira.
 class MiniDonutRing extends StatelessWidget {

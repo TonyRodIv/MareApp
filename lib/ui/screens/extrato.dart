@@ -12,6 +12,7 @@ import '../../data/brands.dart';
 import '../../data/finance.dart';
 import '../../data/models.dart';
 import '../../data/store.dart';
+import '../widgets/charts.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
 import 'add_expense.dart';
@@ -187,30 +188,39 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
                     onChanged: (v) => setState(() => _kind = v),
                   ),
                   const SizedBox(height: Space.lg),
-                  Center(
-                    child: Column(
-                      children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _range(cy),
+                        style: T.label.copyWith(color: c.textSecondary),
+                      ),
+                      const SizedBox(height: Space.xs),
+                      CountingMoney(
+                        cents: total,
+                        builder: (v) => MoneyText(
+                          v,
+                          hidden: hidden,
+                          style: T.displayLg,
+                        ),
+                      ),
+                      if (salary > 0) ...[
+                        const SizedBox(height: 2),
                         Text(
-                          'Total do ciclo · ${_range(cy)}',
-                          style: T.label.copyWith(color: c.textSecondary),
+                          'de ${fmtMoney(salary, hidden: hidden)}',
+                          style: T.small.copyWith(color: c.textSecondary),
                         ),
-                        const SizedBox(height: Space.xs),
-                        CountingMoney(
-                          cents: total,
-                          builder: (v) => MoneyText(
-                            v,
-                            hidden: hidden,
-                            style: T.displayLg,
-                          ),
-                        ),
-                        if (salary > 0)
-                          Text(
-                            'de ${fmtMoney(salary, hidden: hidden)}',
-                            style: T.small.copyWith(color: c.textSecondary),
-                          ),
                       ],
-                    ),
+                    ],
                   ),
+                  if (items.isNotEmpty) ...[
+                    const SizedBox(height: Space.md),
+                    CycleExpenseLineChart(
+                      cycle: cy,
+                      items: items,
+                      hidden: hidden,
+                    ),
+                  ],
                   const SizedBox(height: Space.lg),
                   // Barra de busca em pílula (com transição Hero) + botão de filtros ao lado
                   Row(

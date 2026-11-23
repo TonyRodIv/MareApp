@@ -55,12 +55,14 @@ const _brandSpecs = <String, BrandSpec>{
   'netflix': BrandSpec(
     'netflix.com',
     bg: Color(0xFF000000),
+    paddingRatio: 0.22,
     categoryId: 'assinaturas',
     accent: Color(0xFFE50914),
   ),
   'spotify': BrandSpec(
     'spotify.com',
     bg: Color(0xFF121212),
+    paddingRatio: 0.20,
     categoryId: 'assinaturas',
     accent: Color(0xFF1DB954),
   ),
@@ -108,11 +110,13 @@ const _brandSpecs = <String, BrandSpec>{
   ),
   'youtube': BrandSpec(
     'youtube.com',
+    paddingRatio: 0.20,
     categoryId: 'assinaturas',
     accent: Color(0xFFFF0033),
   ),
   'youtube music': BrandSpec(
     'music.youtube.com',
+    paddingRatio: 0.20,
     categoryId: 'assinaturas',
     accent: Color(0xFFFF0033),
   ),
@@ -701,9 +705,9 @@ String? smartCategoryIdFor(String name) =>
 /// Cor tema oficial da marca citada em [name], ou null.
 Color? brandAccentColorFor(String name) => brandSpecFor(name)?.accent;
 
-/// Logo 128px do domínio (favicon em alta resolução via Google S2, gratuito).
+/// Logo 256px do domínio (favicon em alta resolução via Google S2, gratuito).
 String brandLogoUrl(String domain) =>
-    'https://www.google.com/s2/favicons?domain=$domain&sz=128';
+    'https://www.google.com/s2/favicons?domain=$domain&sz=256';
 
 /// URLs oficiais de gerenciamento para as principais assinaturas recorrentes.
 const _manageSubscriptionUrls = <String, String>{

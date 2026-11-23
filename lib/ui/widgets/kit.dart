@@ -881,15 +881,15 @@ class BrandLogo extends StatelessWidget {
         children: [
           fallback,
           // O logo só entra no círculo quando termina de carregar; sempre
-          // recortado no formato circular exato com BoxFit.cover (sem sobras
-          // quadradas dentro do container).
+          // centralizado com padding proporcional e BoxFit.contain para nunca
+          // esticar ou cortar nas bordas do círculo.
           Image.network(
             brandLogoUrl(spec.domain),
             width: size,
             height: size,
             cacheWidth: cachePx,
             cacheHeight: cachePx,
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
             gaplessPlayback: true,
             errorBuilder: (_, _, _) => const SizedBox.shrink(),
             frameBuilder: (ctx, child, frame, sync) {
@@ -897,7 +897,13 @@ class BrandLogo extends StatelessWidget {
               return ClipOval(
                 child: ColoredBox(
                   color: spec.bg,
-                  child: SizedBox.square(dimension: size, child: child),
+                  child: SizedBox.square(
+                    dimension: size,
+                    child: Padding(
+                      padding: EdgeInsets.all(size * spec.paddingRatio),
+                      child: child,
+                    ),
+                  ),
                 ),
               );
             },

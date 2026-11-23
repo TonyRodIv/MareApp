@@ -1016,29 +1016,36 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     return AppCard(
+      expandChild: true,
       title: 'Assinaturas',
       onTap: () => push(context, const SubscriptionsScreen()),
       child: subs.isEmpty
-          ? Text(
-              'Nenhuma assinatura ativa',
-              style: T.small.copyWith(color: c.textSecondary),
+          ? Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Nenhuma assinatura ativa',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
             )
           : w < 260
           ? Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 logoStack(),
                 const SizedBox(height: Space.md),
                 summary,
               ],
             )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(child: summary),
-                const SizedBox(width: Space.md),
-                logoStack(),
-              ],
+          : Center(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: summary),
+                  const SizedBox(width: Space.md),
+                  logoStack(),
+                ],
+              ),
             ),
     );
   }
