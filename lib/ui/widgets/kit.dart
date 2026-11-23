@@ -873,167 +873,38 @@ class BrandLogo extends StatelessWidget {
     if (spec == null) return fallback;
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final cachePx = (size * dpr).round().clamp(32, 256);
-    return _BrandLogoImage(
-      url: brandLogoUrl(spec.domain),
-      size: size,
-      cachePx: cachePx,
-      background: spec.bg,
-      fallback: fallback,
-    );
-  }
-}
-
-class _BrandLogoImage extends StatefulWidget {
-  final String url;
-  final double size;
-  final int cachePx;
-  final Color background;
-  final Widget fallback;
-
-  const _BrandLogoImage({
-    required this.url,
-    required this.size,
-    required this.cachePx,
-    required this.background,
-    required this.fallback,
-  });
-
-  @override
-  State<_BrandLogoImage> createState() => _BrandLogoImageState();
-}
-
-class _BrandLogoImageState extends State<_BrandLogoImage> {
-  ImageStream? _stream;
-  ImageStreamListener? _listener;
-  Color? _dominantColor;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _listenToImage();
-  }
-
-  @override
-  void didUpdateWidget(_BrandLogoImage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.url != widget.url || oldWidget.cachePx != widget.cachePx) {
-      _listenToImage();
-    }
-  }
-
-  @override
-  void dispose() {
-    _removeImageListener();
-    super.dispose();
-  }
-
-  void _listenToImage() {
-    _removeImageListener();
-    _dominantColor = null;
-    final provider = ResizeImage(
-      NetworkImage(widget.url),
-      width: widget.cachePx,
-      height: widget.cachePx,
-    );
-    final stream = provider.resolve(
-      createLocalImageConfiguration(
-        context,
-        size: Size(widget.size, widget.size),
-      ),
-    );
-    final source = widget.url;
-    final listener = ImageStreamListener(
-      (info, _) => _sampleColor(info.image, source),
-      onError: (Object error, StackTrace? stackTrace) {
-        if (source == widget.url) _dominantColor = widget.background;
-      },
-    );
-    _stream = stream;
-    _listener = listener;
-    stream.addListener(listener);
-  }
-
-  void _removeImageListener() {
-    final stream = _stream;
-    final listener = _listener;
-    if (stream != null && listener != null) {
-      stream.removeListener(listener);
-    }
-    _stream = null;
-    _listener = null;
-  }
-
-  Future<void> _sampleColor(ui.Image image, String source) async {
-    final color = await _dominant(image);
-    if (!mounted || source != widget.url || color == null) return;
-    setState(() => _dominantColor = color);
-  }
-
-  static Future<Color?> _dominant(ui.Image image) async {
-    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-    if (data == null) return null;
-    final pixels = data.buffer.asUint8List(
-      data.offsetInBytes,
-      data.lengthInBytes,
-    );
-    final width = image.width;
-    final height = image.height;
-    final step = math.max(1, math.max(width, height) ~/ 32);
-    final frequencies = <int, int>{};
-
-    for (var y = 0; y < height; y += step) {
-      for (var x = 0; x < width; x += step) {
-        final index = (y * width + x) * 4;
-        if (pixels[index + 3] < 128) continue;
-        final key =
-            ((pixels[index] >> 3) << 10) |
-            ((pixels[index + 1] >> 3) << 5) |
-            (pixels[index + 2] >> 3);
-        frequencies.update(key, (count) => count + 1, ifAbsent: () => 1);
-      }
-    }
-
-    if (frequencies.isEmpty) return null;
-    var dominantKey = 0;
-    var dominantCount = 0;
-    for (final entry in frequencies.entries) {
-      if (entry.value > dominantCount) {
-        dominantKey = entry.key;
-        dominantCount = entry.value;
-      }
-    }
-    final red = ((dominantKey >> 10) & 31) * 255 ~/ 31;
-    final green = ((dominantKey >> 5) & 31) * 255 ~/ 31;
-    final blue = (dominantKey & 31) * 255 ~/ 31;
-    return Color.fromARGB(255, red, green, blue);
-  }
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: widget.size,
-    height: widget.size,
-    child: ClipOval(
-      child: ColoredBox(
-        color: _dominantColor ?? widget.background,
-        child: Image(
-          image: ResizeImage(
-            NetworkImage(widget.url),
-            width: widget.cachePx,
-            height: widget.cachePx,
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          fallback,
+          Image.network(
+            brandLogoUrl(spec.domain),
+            width: size,
+            height: size,
+            cacheWidth: cachePx,
+            cacheHeight: cachePx,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            frameBuilder: (context, child, frame, synchronousCall) {
+              if (frame == null && !synchronousCall) {
+                return const SizedBox.shrink();
+              }
+              return ClipOval(
+                child: ColoredBox(
+                  color: spec.bg,
+                  child: SizedBox.square(dimension: size, child: child),
+                ),
+              );
+            },
           ),
-          width: widget.size,
-          height: widget.size,
-          fit: BoxFit.cover,
-          gaplessPlayback: true,
-          frameBuilder: (context, child, frame, synchronousCall) {
-            if (frame == null && !synchronousCall) return widget.fallback;
-            return child;
-          },
-          errorBuilder: (context, error, stackTrace) => widget.fallback,
-        ),
+        ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ── Avatar ──────────────────────────────────────────────────
