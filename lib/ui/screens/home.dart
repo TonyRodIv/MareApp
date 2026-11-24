@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -6,6 +8,7 @@ import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../data/finance.dart';
 import '../../data/models.dart';
+import '../../data/native_bridge.dart';
 import '../../data/store.dart';
 import '../widgets/charts.dart';
 import '../widgets/dashboard.dart';
@@ -28,8 +31,37 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   HeroView _view = HeroView.free;
+  List<BankSuggestion> _suggestions = const [];
+  StreamSubscription<String>? _bankSub;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadSuggestions();
+    _bankSub = BankNotifications.events.listen((event) {
+      if (event == 'suggestions_changed') _loadSuggestions();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadSuggestions();
+  }
+
+  Future<void> _loadSuggestions() async {
+    final list = await BankNotifications.getPending();
+    if (mounted) setState(() => _suggestions = list);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bankSub?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +181,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                   const SizedBox(height: Space.md),
+
+                  if (_suggestions.isNotEmpty) ...[
+                    _BankSuggestionsCard(
+                      suggestions: _suggestions,
+                      onAccept: (item) async {
+                        final err = BankNotifications.saveSuggestion(s, item);
+                        await BankNotifications.dismissPending(item.id);
+                        await _loadSuggestions();
+                        if (!context.mounted) return;
+                        toast(
+                          context,
+                          err ?? 'Salvo: ${item.name}',
+                          icon: err == null
+                              ? LucideIcons.check
+                              : LucideIcons.triangleAlert,
+                        );
+                      },
+                      onDismiss: (item) async {
+                        await BankNotifications.dismissPending(item.id);
+                        await _loadSuggestions();
+                      },
+                    ),
+                    const SizedBox(height: Space.md),
+                  ],
 
                   if (noSalary) ...[
                     AppCard(
@@ -1399,6 +1455,121 @@ class _AccountsDashCardState extends State<_AccountsDashCard> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _BankSuggestionsCard extends StatelessWidget {
+  final List<BankSuggestion> suggestions;
+  final ValueChanged<BankSuggestion> onAccept;
+  final ValueChanged<BankSuggestion> onDismiss;
+  const _BankSuggestionsCard({
+    required this.suggestions,
+    required this.onAccept,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final (okBg, okFg) = softActionTone(c.positive, isDark: c.isDark);
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.bellRing, size: 17, color: c.primary),
+              const SizedBox(width: Space.sm),
+              Expanded(
+                child: Text(
+                  'Gastos detectados (${suggestions.length})',
+                  style: T.bodyStrong.copyWith(color: c.text),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Space.sm),
+          for (var i = 0; i < suggestions.length && i < 3; i++) ...[
+            if (i > 0) const SizedBox(height: Space.sm),
+            () {
+              final item = suggestions[i];
+              return Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: Space.md,
+                  vertical: Space.sm,
+                ),
+                decoration: ShapeDecoration(
+                  color: c.cardAlt,
+                  shape: RoundedSuperellipseBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.name,
+                            style: T.labelStrong.copyWith(color: c.text),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${item.bankName} · ${fmtMoney(item.cents)}',
+                            style: T.small.copyWith(color: c.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: Space.sm),
+                    Pressable(
+                      semanticLabel: 'Ignorar',
+                      onTap: () => onDismiss(item),
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: c.surfaceLow,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          LucideIcons.x,
+                          size: 16,
+                          color: c.textSecondary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: Space.xs),
+                    Pressable(
+                      semanticLabel: 'Salvar gasto',
+                      onTap: () => onAccept(item),
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: ShapeDecoration(
+                          color: okBg,
+                          shape: const StadiumBorder(),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'Salvar',
+                            style: T.smallStrong.copyWith(color: okFg),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }(),
+          ],
+        ],
+      ),
     );
   }
 }

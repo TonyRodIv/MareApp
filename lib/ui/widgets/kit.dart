@@ -2611,7 +2611,7 @@ class SheetScaler extends StatelessWidget {
       builder: (ctx, p, ch) {
         final active = p > 0.001;
         final scale = active ? 1.0 - 0.065 * p : 1.0;
-        final dy = active ? (top * 0.3 + 8) * p : 0.0;
+        final dy = active ? (top * 0.72 + 10) * p : 0.0;
         final matrix = Matrix4.identity()
           ..setTranslationRaw(0.0, dy, 0.0)
           ..scaleByDouble(scale, scale, 1.0, 1.0);

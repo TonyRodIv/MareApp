@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_balance_label">Saldo livre</string>
+    <string name="widget_balance_desc">Mostra o saldo livre do ciclo atual com atalho para adicionar gasto.</string>
+    <string name="widget_summary_label">Resumo do ciclo</string>
+    <string name="widget_summary_desc">Mostra saldo livre, total gasto e valor guardado nas caixinhas.</string>
+    <string name="widget_expenses_label">Seus Gastos</string>
+    <string name="widget_expenses_desc">Mostra quanto você já gastou no ciclo atual.</string>
+    <string name="widget_boxes_label">Caixinhas</string>
+    <string name="widget_boxes_desc">Mostra o total guardado nas suas caixinhas ativas.</string>
+    <string name="widget_subs_label">Assinaturas</string>
+    <string name="widget_subs_desc">Mostra o custo mensal das suas assinaturas.</string>
+    <string name="widget_categories_label">Por categoria</string>
+    <string name="widget_categories_desc">Mostra as principais categorias de gastos do ciclo.</string>
+    <string name="widget_quick_add_label">Adicionar gasto rápido</string>
+    <string name="widget_quick_add_desc">Atalho direto para registrar um novo gasto.</string>
+    <string name="notif_listener_label">Detectar gastos de bancos (maré)</string>
+</resources>

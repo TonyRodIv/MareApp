@@ -11,6 +11,7 @@ import '../../core/money.dart';
 import '../../core/theme.dart';
 import '../../data/drive_sync.dart';
 import '../../data/models.dart';
+import '../../data/native_bridge.dart';
 import '../../data/store.dart';
 import '../widgets/avatar_cropper.dart';
 import '../widgets/kit.dart';
@@ -575,6 +576,24 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
+                        if (isAndroidNative) ...[
+                          const SectionHeader('Automações e tela inicial'),
+                          _Group(
+                            children: [
+                              _Row(
+                                icon: LucideIcons.bellRing,
+                                title: 'Detectar gastos de bancos',
+                                onTap: () =>
+                                    _openBankNotificationsSheet(context),
+                              ),
+                              _Row(
+                                icon: LucideIcons.layoutGrid,
+                                title: 'Widgets na tela inicial',
+                                onTap: () => _openHomeWidgetsSheet(context),
+                              ),
+                            ],
+                          ),
+                        ],
                         const SectionHeader('Nuvem e dados'),
                         _Group(
                           children: [
@@ -631,6 +650,242 @@ class SettingsScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _openBankNotificationsSheet(BuildContext context) async {
+    var enabled = await BankNotifications.isEnabled();
+    var hasAccess = await BankNotifications.hasAccess();
+    var hasPost = await BankNotifications.hasPostPermission();
+    if (!context.mounted) return;
+
+    await showSheet<void>(
+      context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final c = ctx.c;
+          final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
+          Future<void> refresh() async {
+            enabled = await BankNotifications.isEnabled();
+            hasAccess = await BankNotifications.hasAccess();
+            hasPost = await BankNotifications.hasPostPermission();
+            if (ctx.mounted) set(() {});
+          }
+
+          return SheetBody(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Detectar gastos de bancos',
+                        style: T.title.copyWith(color: c.text),
+                      ),
+                    ),
+                    RoundIconButton(
+                      LucideIcons.x,
+                      size: 36,
+                      bg: c.cardAlt,
+                      label: 'Fechar',
+                      onTap: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  'Lê apenas notificações de compras e Pix enviados dos bancos suportados (100% offline no aparelho) para sugerir o lançamento com 1 toque.',
+                  style: T.small.copyWith(color: c.textSecondary),
+                ),
+                const SizedBox(height: Space.base),
+                ListGroup(
+                  bg: wellBg,
+                  children: [
+                    ListRow(
+                      title: 'Sugestão rápida ativa',
+                      subtitle: enabled
+                          ? 'Dispara notificação com botão Salvar'
+                          : 'Desativado',
+                      trailing: SpringSwitch(
+                        value: enabled,
+                        label: 'Sugestão rápida ativa',
+                        onChanged: (v) async {
+                          await BankNotifications.setEnabled(v);
+                          if (v && !hasPost) {
+                            await BankNotifications.requestPostPermission();
+                          }
+                          await refresh();
+                        },
+                      ),
+                    ),
+                    ListRow(
+                      title: 'Acesso às notificações',
+                      subtitle: hasAccess
+                          ? 'Permissão concedida no Android'
+                          : 'Necessário para ler alertas dos bancos',
+                      trailing: Tag(
+                        hasAccess ? 'Ativo' : 'Pendente',
+                        bg: hasAccess ? c.positiveSoft : c.card,
+                        fg: hasAccess ? c.positive : c.textSecondary,
+                      ),
+                      onTap: () async {
+                        await BankNotifications.openAccessSettings();
+                        await Future.delayed(const Duration(milliseconds: 500));
+                        await refresh();
+                      },
+                    ),
+                  ],
+                ),
+                if (!hasAccess) ...[
+                  const SizedBox(height: Space.md),
+                  PillButton(
+                    'Permitir acesso às notificações',
+                    icon: LucideIcons.shieldCheck,
+                    onTap: () async {
+                      await BankNotifications.openAccessSettings();
+                      await Future.delayed(const Duration(milliseconds: 500));
+                      await refresh();
+                    },
+                  ),
+                  const SizedBox(height: Space.sm),
+                  CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: BankNotifications.openAppInfoSettings,
+                    child: Text(
+                      'No Android 13+ (APK), toque em ⋮ → Permitir configurações restritas em Info do app',
+                      style: T.small.copyWith(color: c.primary),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openHomeWidgetsSheet(BuildContext context) async {
+    final canPin = await NativeWidgets.canPin();
+    await NativeWidgets.syncFromStore(context.storeRead);
+    if (!context.mounted) return;
+
+    await showSheet<void>(
+      context,
+      builder: (ctx) {
+        final c = ctx.c;
+        final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
+        return SheetBody(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Widgets na tela inicial',
+                      style: T.title.copyWith(color: c.text),
+                    ),
+                  ),
+                  RoundIconButton(
+                    LucideIcons.x,
+                    size: 36,
+                    bg: c.cardAlt,
+                    label: 'Fechar',
+                    onTap: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              const SizedBox(height: Space.xs),
+              Text(
+                'Acompanhe o saldo livre e adicione gastos direto da tela inicial do celular.',
+                style: T.small.copyWith(color: c.textSecondary),
+              ),
+              const SizedBox(height: Space.base),
+              ListGroup(
+                bg: wellBg,
+                children: [
+                  for (final (kind, icon, color, title, sub) in [
+                    (
+                      'quick_add',
+                      LucideIcons.plus,
+                      c.primary,
+                      'Adicionar gasto rápido',
+                      'Atalho direto para registrar um novo gasto',
+                    ),
+                    (
+                      'balance',
+                      LucideIcons.wallet,
+                      c.primary,
+                      'Saldo livre',
+                      'Saldo do ciclo + atalho "+"',
+                    ),
+                    (
+                      'summary',
+                      LucideIcons.layoutGrid,
+                      c.accentWarm,
+                      'Resumo do ciclo',
+                      'Saldo livre, gastos, caixinhas e "+ Gasto"',
+                    ),
+                    (
+                      'expenses',
+                      LucideIcons.receipt,
+                      c.negative,
+                      'Seus Gastos',
+                      'Total gasto no ciclo atual',
+                    ),
+                    (
+                      'boxes',
+                      LucideIcons.piggyBank,
+                      c.positive,
+                      'Caixinhas',
+                      'Total guardado nas caixinhas ativas',
+                    ),
+                    (
+                      'subs',
+                      LucideIcons.tv,
+                      c.primary,
+                      'Assinaturas',
+                      'Custo mensal dos serviços recorrentes',
+                    ),
+                    (
+                      'categories',
+                      LucideIcons.chartPie,
+                      c.accentWarm,
+                      'Por categoria',
+                      'Principais categorias de gastos do ciclo',
+                    ),
+                  ])
+                    ListRow(
+                      leading: IconBadge(icon, color, size: 38),
+                      title: title,
+                      subtitle: sub,
+                      arrow: canPin,
+                      onTap: canPin
+                          ? () async {
+                              final ok = await NativeWidgets.pinWidget(kind);
+                              if (ctx.mounted && ok) {
+                                Navigator.pop(ctx);
+                              }
+                            }
+                          : null,
+                    ),
+                ],
+              ),
+              const SizedBox(height: Space.sm),
+              Text(
+                canPin
+                    ? 'Toque em um widget para fixar ou segure a tela inicial do celular → Widgets → maré.'
+                    : 'Segure a tela inicial do celular → Widgets → maré para adicionar.',
+                style: T.small.copyWith(color: c.textTertiary),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

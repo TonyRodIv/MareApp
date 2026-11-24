@@ -1,5 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="maré"
         android:name="${applicationName}"
@@ -32,6 +33,104 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <service
+            android:name=".MareNotificationListener"
+            android:label="@string/notif_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".MareNotificationActionReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".MareBalanceWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_balance_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_balance_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MareSummaryWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_summary_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_summary_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MareExpensesWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_expenses_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_expenses_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MareBoxesWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_boxes_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_boxes_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MareSubsWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_subs_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_subs_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MareCategoriesWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_categories_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_categories_info" />
+        </receiver>
+
+        <receiver
+            android:name=".MareQuickAddWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_quick_add_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_add_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

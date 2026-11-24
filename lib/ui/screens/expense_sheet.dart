@@ -430,7 +430,7 @@ class _ExpenseSheetState extends State<ExpenseSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Histórico de "${e.name}"',
+                          'Histórico de ${e.name}',
                           style: T.small.copyWith(color: c.textSecondary),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

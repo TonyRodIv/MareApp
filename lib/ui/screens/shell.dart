@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart'
     show TargetPlatform, defaultTargetPlatform, kIsWeb;
@@ -6,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/theme.dart';
 import '../../data/models.dart';
+import '../../data/native_bridge.dart';
 import '../../data/store.dart';
 import '../widgets/kit.dart';
 import '../widgets/motion.dart';
@@ -185,10 +188,12 @@ class Shell extends StatefulWidget {
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> {
+class _ShellState extends State<Shell> with WidgetsBindingObserver {
   final _tabId = ValueNotifier<String>('home');
   final _extratoFilter = ValueNotifier<ExtratoFilter?>(null);
   final Map<String, Widget> _pageCache = {};
+  Store? _store;
+  StreamSubscription<String>? _bankSub;
 
   Widget _pageFor(String id) => _pageCache.putIfAbsent(
     id,
@@ -210,10 +215,70 @@ class _ShellState extends State<Shell> {
   void initState() {
     super.initState();
     shellNav._impl = _goTo;
+    WidgetsBinding.instance.addObserver(this);
+    _bankSub = BankNotifications.events.listen((event) {
+      if (!mounted) return;
+      if (event == 'launch_add_expense') {
+        openAddExpense(context);
+      } else if (event == 'suggestions_changed') {
+        _processApprovedSuggestions();
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _store = context.storeRead..addListener(_syncWidgets);
+      _syncWidgets();
+      _processApprovedSuggestions();
+      _checkLaunchAction();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _syncWidgets();
+      _processApprovedSuggestions();
+      _checkLaunchAction();
+    }
+  }
+
+  void _syncWidgets() {
+    final s = _store;
+    if (s != null) NativeWidgets.syncFromStore(s);
+  }
+
+  Future<void> _checkLaunchAction() async {
+    final action = await BankNotifications.consumeLaunchAction();
+    if (!mounted) return;
+    if (action == 'com.mare.mare.ACTION_ADD_EXPENSE') {
+      openAddExpense(context);
+    }
+  }
+
+  Future<void> _processApprovedSuggestions() async {
+    final s = _store ?? (mounted ? context.storeRead : null);
+    if (s == null) return;
+    final items = await BankNotifications.consumeApproved();
+    if (items.isEmpty || !mounted) return;
+    var count = 0;
+    for (final item in items) {
+      if (BankNotifications.saveSuggestion(s, item) == null) count++;
+    }
+    if (count > 0 && mounted) {
+      toast(
+        context,
+        count == 1
+            ? 'Gasto salvo: ${items.first.name}'
+            : '$count gastos salvos pela notificação',
+      );
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bankSub?.cancel();
+    _store?.removeListener(_syncWidgets);
     if (shellNav._impl == _goTo) shellNav._impl = null;
     _tabId.dispose();
     _extratoFilter.dispose();
