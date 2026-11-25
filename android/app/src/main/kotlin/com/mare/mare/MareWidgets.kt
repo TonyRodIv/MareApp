@@ -6,6 +6,9 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.util.TypedValue
+import android.view.View
 import android.widget.RemoteViews
 
 object MareWidgetStore {
@@ -70,11 +73,27 @@ object MareWidgetStore {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
+
+    fun sizeDp(mgr: AppWidgetManager, id: Int, fallbackW: Int = 180, fallbackH: Int = 110): Pair<Int, Int> {
+        val opts = mgr.getAppWidgetOptions(id)
+        val w = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        val h = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+        return Pair(if (w > 0) w else fallbackW, if (h > 0) h else fallbackH)
+    }
 }
 
 class MareBalanceWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         update(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle,
+    ) {
+        update(context, appWidgetManager, intArrayOf(appWidgetId))
     }
 
     companion object {
@@ -86,10 +105,15 @@ class MareBalanceWidgetProvider : AppWidgetProvider() {
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 101)
             val addPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_ADD_EXPENSE, 102)
             for (id in ids) {
+                val (w, h) = MareWidgetStore.sizeDp(mgr, id, 220, 80)
+                val shortH = h < 92
+                val narrow = w < 190
                 val views = RemoteViews(context.packageName, R.layout.widget_balance).apply {
-                    setTextViewText(R.id.widget_subtitle, "maré · $cycle")
+                    setTextViewText(R.id.widget_subtitle, if (narrow) "Saldo livre" else "maré · $cycle")
                     setTextViewText(R.id.widget_balance, free)
+                    setTextViewTextSize(R.id.widget_balance, TypedValue.COMPLEX_UNIT_SP, if (narrow) 18f else 22f)
                     setTextViewText(R.id.widget_caption, caption)
+                    setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
                     setOnClickPendingIntent(R.id.widget_root, openPi)
                     setOnClickPendingIntent(R.id.widget_add_btn, addPi)
                 }
@@ -104,6 +128,15 @@ class MareSummaryWidgetProvider : AppWidgetProvider() {
         update(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onAppWidgetOptionsChanged(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetId: Int,
+        newOptions: Bundle,
+    ) {
+        update(context, appWidgetManager, intArrayOf(appWidgetId))
+    }
+
     companion object {
         fun update(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val prefs = context.getSharedPreferences(MareWidgetStore.PREFS, Context.MODE_PRIVATE)
@@ -114,11 +147,23 @@ class MareSummaryWidgetProvider : AppWidgetProvider() {
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 201)
             val addPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_ADD_EXPENSE, 202)
             for (id in ids) {
+                val (w, h) = MareWidgetStore.sizeDp(mgr, id, 260, 140)
+                val shortH = h < 105
+                val narrow = w < 210
                 val views = RemoteViews(context.packageName, R.layout.widget_summary).apply {
-                    setTextViewText(R.id.widget_cycle, "maré · Saldo livre ($cycle)")
+                    setTextViewText(R.id.widget_cycle, if (narrow) "Saldo livre" else "maré · Saldo livre ($cycle)")
+                    setTextViewText(R.id.widget_add_btn, if (narrow) "+" else "+ Gasto")
                     setTextViewText(R.id.widget_balance, free)
+                    setTextViewTextSize(
+                        R.id.widget_balance,
+                        TypedValue.COMPLEX_UNIT_SP,
+                        if (narrow) 20f else (if (shortH) 22f else 26f),
+                    )
+                    setViewVisibility(R.id.widget_tiles_row, if (shortH) View.GONE else View.VISIBLE)
                     setTextViewText(R.id.widget_spent, spent)
                     setTextViewText(R.id.widget_boxes, boxes)
+                    setTextViewTextSize(R.id.widget_spent, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
+                    setTextViewTextSize(R.id.widget_boxes, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
                     setOnClickPendingIntent(R.id.widget_root, openPi)
                     setOnClickPendingIntent(R.id.widget_add_btn, addPi)
                 }
@@ -128,9 +173,43 @@ class MareSummaryWidgetProvider : AppWidgetProvider() {
     }
 }
 
+private fun updateMetricWidget(
+    context: Context,
+    mgr: AppWidgetManager,
+    ids: IntArray,
+    title: String,
+    value: String,
+    caption: String,
+    reqCode: Int,
+) {
+    val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, reqCode)
+    for (id in ids) {
+        val (w, h) = MareWidgetStore.sizeDp(mgr, id, 150, 110)
+        val shortH = h < 88
+        val narrow = w < 150
+        val views = RemoteViews(context.packageName, R.layout.widget_metric).apply {
+            setTextViewText(R.id.widget_title, title)
+            setTextViewText(R.id.widget_value, value)
+            setTextViewTextSize(
+                R.id.widget_value,
+                TypedValue.COMPLEX_UNIT_SP,
+                if (narrow) 18f else (if (w >= 240) 24f else 21f),
+            )
+            setTextViewText(R.id.widget_caption, caption)
+            setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
+            setOnClickPendingIntent(R.id.widget_root, openPi)
+        }
+        mgr.updateAppWidget(id, views)
+    }
+}
+
 class MareExpensesWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         update(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
+        update(context, mgr, intArrayOf(id))
     }
 
     companion object {
@@ -138,16 +217,7 @@ class MareExpensesWidgetProvider : AppWidgetProvider() {
             val prefs = context.getSharedPreferences(MareWidgetStore.PREFS, Context.MODE_PRIVATE)
             val spent = prefs.getString("w_spent", "R\$ 0,00") ?: "R\$ 0,00"
             val cycle = prefs.getString("w_cycle", "Neste ciclo") ?: "Neste ciclo"
-            val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 301)
-            for (id in ids) {
-                val views = RemoteViews(context.packageName, R.layout.widget_metric).apply {
-                    setTextViewText(R.id.widget_title, "Seus Gastos")
-                    setTextViewText(R.id.widget_value, spent)
-                    setTextViewText(R.id.widget_caption, cycle)
-                    setOnClickPendingIntent(R.id.widget_root, openPi)
-                }
-                mgr.updateAppWidget(id, views)
-            }
+            updateMetricWidget(context, mgr, ids, "Seus Gastos", spent, cycle, 301)
         }
     }
 }
@@ -157,21 +227,16 @@ class MareBoxesWidgetProvider : AppWidgetProvider() {
         update(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
+        update(context, mgr, intArrayOf(id))
+    }
+
     companion object {
         fun update(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val prefs = context.getSharedPreferences(MareWidgetStore.PREFS, Context.MODE_PRIVATE)
             val boxes = prefs.getString("w_boxes", "R\$ 0,00") ?: "R\$ 0,00"
             val cap = prefs.getString("w_boxes_cap", "Guardado") ?: "Guardado"
-            val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 401)
-            for (id in ids) {
-                val views = RemoteViews(context.packageName, R.layout.widget_metric).apply {
-                    setTextViewText(R.id.widget_title, "Caixinhas")
-                    setTextViewText(R.id.widget_value, boxes)
-                    setTextViewText(R.id.widget_caption, cap)
-                    setOnClickPendingIntent(R.id.widget_root, openPi)
-                }
-                mgr.updateAppWidget(id, views)
-            }
+            updateMetricWidget(context, mgr, ids, "Caixinhas", boxes, cap, 401)
         }
     }
 }
@@ -181,21 +246,16 @@ class MareSubsWidgetProvider : AppWidgetProvider() {
         update(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
+        update(context, mgr, intArrayOf(id))
+    }
+
     companion object {
         fun update(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val prefs = context.getSharedPreferences(MareWidgetStore.PREFS, Context.MODE_PRIVATE)
             val subs = prefs.getString("w_subs", "R\$ 0,00") ?: "R\$ 0,00"
             val cap = prefs.getString("w_subs_cap", "Por mês") ?: "Por mês"
-            val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 501)
-            for (id in ids) {
-                val views = RemoteViews(context.packageName, R.layout.widget_metric).apply {
-                    setTextViewText(R.id.widget_title, "Assinaturas")
-                    setTextViewText(R.id.widget_value, subs)
-                    setTextViewText(R.id.widget_caption, cap)
-                    setOnClickPendingIntent(R.id.widget_root, openPi)
-                }
-                mgr.updateAppWidget(id, views)
-            }
+            updateMetricWidget(context, mgr, ids, "Assinaturas", subs, cap, 501)
         }
     }
 }
@@ -203,6 +263,10 @@ class MareSubsWidgetProvider : AppWidgetProvider() {
 class MareCategoriesWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         update(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
+        update(context, mgr, intArrayOf(id))
     }
 
     companion object {
@@ -213,10 +277,14 @@ class MareCategoriesWidgetProvider : AppWidgetProvider() {
             val c3 = prefs.getString("w_cat3", "") ?: ""
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 601)
             for (id in ids) {
+                val (_, h) = MareWidgetStore.sizeDp(mgr, id, 200, 120)
+                val shortH = h < 92
                 val views = RemoteViews(context.packageName, R.layout.widget_categories).apply {
                     setTextViewText(R.id.widget_cat_1, c1)
                     setTextViewText(R.id.widget_cat_2, c2)
                     setTextViewText(R.id.widget_cat_3, c3)
+                    setViewVisibility(R.id.widget_cat_2, if (c2.isEmpty()) View.GONE else View.VISIBLE)
+                    setViewVisibility(R.id.widget_cat_3, if (shortH || c3.isEmpty()) View.GONE else View.VISIBLE)
                     setOnClickPendingIntent(R.id.widget_root, openPi)
                 }
                 mgr.updateAppWidget(id, views)
@@ -230,11 +298,18 @@ class MareQuickAddWidgetProvider : AppWidgetProvider() {
         update(context, appWidgetManager, appWidgetIds)
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
+        update(context, mgr, intArrayOf(id))
+    }
+
     companion object {
         fun update(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val addPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_ADD_EXPENSE, 701)
             for (id in ids) {
+                val (w, _) = MareWidgetStore.sizeDp(mgr, id, 120, 60)
                 val views = RemoteViews(context.packageName, R.layout.widget_quick_add).apply {
+                    setViewVisibility(R.id.widget_quick_label, if (w < 100) View.GONE else View.VISIBLE)
+                    setTextViewText(R.id.widget_quick_label, if (w >= 190) "Adicionar gasto" else "Gasto")
                     setOnClickPendingIntent(R.id.widget_root, addPi)
                 }
                 mgr.updateAppWidget(id, views)
