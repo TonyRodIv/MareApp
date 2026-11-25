@@ -1345,24 +1345,24 @@ class GlowBackground extends StatelessWidget {
                   ),
                 ),
               ),
-              // Blur progressivo + fade na base levando até a cor de fundo da página
+              // Blur progressivo forte visível sobre a metade inferior da imagem
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: height * 0.58,
+                height: height * 0.66,
                 child: ProgressiveBlur(
                   direction: AxisDirection.up,
-                  maxSigma: 26,
+                  maxSigma: 36,
                   tint: c.bg,
-                  tintOpacity: 0.96,
+                  tintOpacity: 0.42,
                 ),
               ),
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: height * 0.46,
+                height: height * 0.28,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -1370,7 +1370,7 @@ class GlowBackground extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         c.bg.withValues(alpha: 0.0),
-                        c.bg.withValues(alpha: 0.55),
+                        c.bg.withValues(alpha: 0.65),
                         c.bg,
                       ],
                       stops: const [0.0, 0.55, 1.0],

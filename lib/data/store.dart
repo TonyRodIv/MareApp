@@ -175,6 +175,48 @@ class Store extends ChangeNotifier {
     _commit();
   }
 
+  void duplicateSplitBill(String billId) {
+    final src = data.splitBills.where((b) => b.id == billId).firstOrNull;
+    if (src == null) return;
+    final copy = SplitBill(
+      id: 'sp_${DateTime.now().microsecondsSinceEpoch}',
+      title: src.title,
+      totalCents: src.totalCents,
+      date: DateTime.now(),
+      isMonthly: src.isMonthly,
+      participants: [
+        for (final p in src.participants)
+          SplitParticipant(
+            id: p.id,
+            name: p.name,
+            paidCents: p.paidCents,
+            customShareCents: p.customShareCents,
+            settled: false,
+            isMe: p.isMe,
+          ),
+      ],
+    );
+    data.splitBills.insert(0, copy);
+    _commit();
+  }
+
+  void settleAllWithPerson(String personName) {
+    final key = personName.trim().toLowerCase();
+    var changed = false;
+    for (final b in data.splitBills) {
+      for (var i = 0; i < b.participants.length; i++) {
+        final p = b.participants[i];
+        if (p.name.trim().toLowerCase() == key &&
+            b.netFor(i) < 0 &&
+            !p.settled) {
+          p.settled = true;
+          changed = true;
+        }
+      }
+    }
+    if (changed) _commit();
+  }
+
   void dismissBoxTip() {
     if (data.dismissedBoxTip) return;
     data.dismissedBoxTip = true;

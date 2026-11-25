@@ -358,6 +358,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
     'assinaturas': ('Assinaturas', LucideIcons.tv, 1),
     'dividir': ('Dividir gastos', LucideIcons.users, 1),
+    'acerto_casa': ('Acerto da casa', LucideIcons.arrowLeftRight, 2),
     'categorias': ('Por categoria', LucideIcons.chartPie, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
     'contas': ('Contas', LucideIcons.landmark, 2),
@@ -368,6 +369,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     'assinaturas',
     'caixinhas',
     'dividir',
+    'acerto_casa',
     'categorias',
     'historico',
     'contas',
@@ -378,6 +380,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     'assinaturas',
     'caixinhas',
     'dividir',
+    'acerto_casa',
     'categorias',
     'contas',
     'historico',
@@ -426,7 +429,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (hiddenSet.contains(id)) continue;
       // Somente Caixinhas fica oculto automaticamente quando não há caixinhas ativas.
       if (id == 'caixinhas' && !hasOpenBoxes) continue;
-      if (id == 'dividir' && !s.data.expSplitExpenses) continue;
+      if ((id == 'dividir' || id == 'acerto_casa') &&
+          !s.data.expSplitExpenses) {
+        continue;
+      }
 
       final defSpan = _defaultSpanFor(id);
 
@@ -464,6 +470,68 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     : '${openSplits.length} ${openSplits.length == 1 ? 'conta em aberto' : 'contas em aberto'}',
                 hidden,
                 onTap: () => push(context, const SplitScreen()),
+              ),
+            ),
+          );
+        case 'acerto_casa':
+          final openSplits = [
+            for (final b in s.data.splitBills)
+              if (!b.isFullySettled) b,
+          ];
+          var toReceive = 0;
+          var toPay = 0;
+          for (final b in openSplits) {
+            for (var i = 0; i < b.participants.length; i++) {
+              final p = b.participants[i];
+              if (!p.isMe) continue;
+              final net = b.netFor(i);
+              if (net > 0) toReceive += net;
+              if (net < 0 && !p.settled) toPay += -net;
+            }
+          }
+          final netHouse = toReceive - toPay;
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: defSpan,
+              builder: (ctx, w, span) => AppCard(
+                title: 'Acerto da casa',
+                onTap: () => push(context, const SplitScreen()),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            netHouse == 0
+                                ? 'Tudo acertado'
+                                : (netHouse > 0 ? 'A receber' : 'Você deve'),
+                            style: T.small.copyWith(color: ctx.c.textSecondary),
+                          ),
+                          const SizedBox(height: 2),
+                          MoneyText(
+                            netHouse.abs(),
+                            hidden: hidden,
+                            style: T.cardValue.copyWith(
+                              color: netHouse == 0
+                                  ? ctx.c.text
+                                  : (netHouse > 0
+                                        ? ctx.c.positive
+                                        : ctx.c.negative),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (openSplits.isNotEmpty)
+                      Tag(
+                        '${openSplits.length} ${openSplits.length == 1 ? 'conta' : 'contas'}',
+                        bg: ctx.c.primarySoft,
+                        fg: ctx.c.primary,
+                      ),
+                  ],
+                ),
               ),
             ),
           );

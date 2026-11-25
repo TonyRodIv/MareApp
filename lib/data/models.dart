@@ -577,6 +577,7 @@ class SplitParticipant {
   String id;
   String name;
   Cents paidCents;
+  Cents? customShareCents;
   bool settled;
   bool isMe;
 
@@ -584,6 +585,7 @@ class SplitParticipant {
     required this.id,
     required this.name,
     this.paidCents = 0,
+    this.customShareCents,
     this.settled = false,
     this.isMe = false,
   });
@@ -592,6 +594,7 @@ class SplitParticipant {
     'id': id,
     'name': name,
     'paidCents': paidCents,
+    'customShareCents': customShareCents,
     'settled': settled,
     'isMe': isMe,
   };
@@ -600,6 +603,7 @@ class SplitParticipant {
     id: '${j['id'] ?? ''}',
     name: '${j['name'] ?? ''}',
     paidCents: (j['paidCents'] as num?)?.toInt() ?? 0,
+    customShareCents: (j['customShareCents'] as num?)?.toInt(),
     settled: j['settled'] == true,
     isMe: j['isMe'] == true,
   );
@@ -610,6 +614,7 @@ class SplitBill {
   String title;
   Cents totalCents;
   DateTime date;
+  bool isMonthly;
   List<SplitParticipant> participants;
 
   SplitBill({
@@ -617,30 +622,51 @@ class SplitBill {
     required this.title,
     required this.totalCents,
     required this.date,
+    this.isMonthly = false,
     List<SplitParticipant>? participants,
   }) : participants = participants ?? [];
 
   Cents shareFor(int index) {
     if (participants.isEmpty) return 0;
-    final n = participants.length;
-    final base = totalCents ~/ n;
-    final rem = totalCents % n;
-    return base + (index < rem ? 1 : 0);
+    final p = participants[index];
+    if (p.customShareCents != null) return p.customShareCents!;
+    var fixedSum = 0;
+    final equalIndices = <int>[];
+    for (var i = 0; i < participants.length; i++) {
+      final cs = participants[i].customShareCents;
+      if (cs != null) {
+        fixedSum += cs;
+      } else {
+        equalIndices.add(i);
+      }
+    }
+    final remaining = (totalCents - fixedSum).clamp(0, totalCents);
+    if (equalIndices.isEmpty) return 0;
+    final pos = equalIndices.indexOf(index);
+    final base = remaining ~/ equalIndices.length;
+    final rem = remaining % equalIndices.length;
+    return base + (pos >= 0 && pos < rem ? 1 : 0);
   }
 
   /// Quanto a pessoa deve receber (+) ou pagar (-).
   Cents netFor(int index) => participants[index].paidCents - shareFor(index);
 
-  bool get isFullySettled => participants.every((p) {
-    final idx = participants.indexOf(p);
-    return p.settled || netFor(idx) >= 0;
-  });
+  int get settledCount {
+    var count = 0;
+    for (var i = 0; i < participants.length; i++) {
+      if (participants[i].settled || netFor(i) >= 0) count++;
+    }
+    return count;
+  }
+
+  bool get isFullySettled => settledCount >= participants.length;
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
     'totalCents': totalCents,
     'date': _iso(date),
+    'isMonthly': isMonthly,
     'participants': participants.map((e) => e.toJson()).toList(),
   };
 
@@ -649,6 +675,7 @@ class SplitBill {
     title: '${j['title'] ?? ''}',
     totalCents: (j['totalCents'] as num?)?.toInt() ?? 0,
     date: _date(j['date']) ?? DateTime.now(),
+    isMonthly: j['isMonthly'] == true,
     participants: ((j['participants'] as List?) ?? [])
         .map((e) => SplitParticipant.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList(),
