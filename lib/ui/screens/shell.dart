@@ -353,139 +353,175 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
     final c = context.c;
     final s = context.store;
     final tabs = effectiveNavTabs(s.data);
-    final bottom = MediaQuery.paddingOf(context).bottom;
+    final mq = MediaQuery.of(context);
+    final bottom = mq.padding.bottom;
+    final wide = mq.size.width >= Breakpoints.tablet;
+    final expandedRail = mq.size.width >= Breakpoints.desktop;
+
+    final pagesStack = Stack(
+      children: [
+        ValueListenableBuilder<String>(
+          valueListenable: _tabId,
+          builder: (_, activeId, _) {
+            final idx = tabs.indexOf(activeId);
+            final safeIdx = idx < 0 ? 0 : idx;
+            final effectiveId = tabs[safeIdx];
+            if (idx < 0) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && !tabs.contains(_tabId.value)) {
+                  _tabId.value = tabs.first;
+                }
+              });
+            }
+            // Monta cada aba sob demanda na primeira visita (reduz tempo
+            // de abertura e RAM inicial em aparelhos modestos) e mantém
+            // em cache após visitada para troca instantânea.
+            _pageFor(effectiveId);
+            final orderedPages = [
+              for (final id in tabs)
+                _pageCache[id] ?? const SizedBox.shrink(),
+            ];
+            return IndexedStack(index: safeIdx, children: orderedPages);
+          },
+        ),
+        if (!wide)
+          // Progressive blur mais encorpado atrás da barra inferior flutuante
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 140 + bottom,
+            child: ProgressiveBlur(
+              direction: AxisDirection.up,
+              maxSigma: 22,
+              tint: c.bg,
+              tintOpacity: c.isDark ? 0.86 : 0.84,
+            ),
+          ),
+        // Botão flutuante de adicionar gasto na aba Extrato (ACIMA do blur!)
+        ValueListenableBuilder<String>(
+          valueListenable: _tabId,
+          builder: (_, activeId, _) {
+            final showFab = activeId == 'extrato' && tabs.contains('extrato');
+            final fabBottom = wide
+                ? (bottom > 0 ? bottom : Space.base) + Space.md
+                : 66 + (bottom > 0 ? bottom : Space.base) + Space.md;
+            final pad = sidePadding(context);
+            return Positioned(
+              right: pad,
+              bottom: fabBottom,
+              child: IgnorePointer(
+                ignoring: !showFab,
+                child: AnimatedScale(
+                  scale: showFab ? 1.0 : 0.72,
+                  duration: const Duration(milliseconds: 180),
+                  curve: easeOutExpo,
+                  child: AnimatedOpacity(
+                    opacity: showFab ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Pressable(
+                      semanticLabel: 'Adicionar gasto',
+                      scale: 0.92,
+                      onTap: () => openAddExpense(context),
+                      child: Builder(
+                        builder: (_) {
+                          final (fabBg, fabFg) = softActionTone(
+                            c.palette.primary[500],
+                            isDark: c.isDark,
+                          );
+                          return Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: fabBg,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Palette.neutral950.withValues(
+                                    alpha: c.isDark ? 0.48 : 0.18,
+                                  ),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              LucideIcons.plus,
+                              size: 24,
+                              color: fabFg,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+        if (!wide)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: ValueListenableBuilder<String>(
+                  valueListenable: _tabId,
+                  builder: (_, activeId, _) {
+                    final idx = tabs.indexOf(activeId);
+                    final navIndex = idx < 0 ? 0 : idx;
+                    return FloatingNavBar(
+                      index: navIndex,
+                      onTap: (i) => _tabId.value = tabs[i],
+                      items: [
+                        for (final id in tabs) _buildNavItem(id, s.data),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
 
     return ShellScope(
       goTo: _goTo,
       child: SheetScaler(
         child: CupertinoPageScaffold(
           backgroundColor: c.bg,
-          child: Stack(
-            children: [
-              ValueListenableBuilder<String>(
-                valueListenable: _tabId,
-                builder: (_, activeId, _) {
-                  final idx = tabs.indexOf(activeId);
-                  final safeIdx = idx < 0 ? 0 : idx;
-                  final effectiveId = tabs[safeIdx];
-                  if (idx < 0) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && !tabs.contains(_tabId.value)) {
-                        _tabId.value = tabs.first;
-                      }
-                    });
-                  }
-                  // Monta cada aba sob demanda na primeira visita (reduz tempo
-                  // de abertura e RAM inicial em aparelhos modestos) e mantém
-                  // em cache após visitada para troca instantânea.
-                  _pageFor(effectiveId);
-                  final orderedPages = [
-                    for (final id in tabs)
-                      _pageCache[id] ?? const SizedBox.shrink(),
-                  ];
-                  return IndexedStack(index: safeIdx, children: orderedPages);
-                },
-              ),
-              // Progressive blur mais encorpado atrás da barra inferior flutuante
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 140 + bottom,
-                child: ProgressiveBlur(
-                  direction: AxisDirection.up,
-                  maxSigma: 22,
-                  tint: c.bg,
-                  tintOpacity: c.isDark ? 0.86 : 0.84,
-                ),
-              ),
-              // Botão flutuante de adicionar gasto na aba Extrato (ACIMA do blur!)
-              ValueListenableBuilder<String>(
-                valueListenable: _tabId,
-                builder: (_, activeId, _) {
-                  final showFab = activeId == 'extrato' && tabs.contains('extrato');
-                  final fabBottom =
-                      66 + (bottom > 0 ? bottom : Space.base) + Space.md;
-                  final pad = sidePadding(context);
-                  return Positioned(
-                    right: pad,
-                    bottom: fabBottom,
-                    child: IgnorePointer(
-                      ignoring: !showFab,
-                      child: AnimatedScale(
-                        scale: showFab ? 1.0 : 0.72,
-                        duration: const Duration(milliseconds: 180),
-                        curve: easeOutExpo,
-                        child: AnimatedOpacity(
-                          opacity: showFab ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 150),
-                          child: Pressable(
-                            semanticLabel: 'Adicionar gasto',
-                            scale: 0.92,
-                            onTap: () => openAddExpense(context),
-                            child: Builder(
-                              builder: (_) {
-                                final (fabBg, fabFg) = softActionTone(
-                                  c.palette.primary[500],
-                                  isDark: c.isDark,
-                                );
-                                return Container(
-                                  width: 56,
-                                  height: 56,
-                                  decoration: BoxDecoration(
-                                    color: fabBg,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Palette.neutral950.withValues(
-                                          alpha: c.isDark ? 0.48 : 0.18,
-                                        ),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Icon(
-                                    LucideIcons.plus,
-                                    size: 24,
-                                    color: fabFg,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 520),
-                    child: ValueListenableBuilder<String>(
+          child: wide
+              ? Row(
+                  children: [
+                    ValueListenableBuilder<String>(
                       valueListenable: _tabId,
                       builder: (_, activeId, _) {
                         final idx = tabs.indexOf(activeId);
                         final navIndex = idx < 0 ? 0 : idx;
-                        return FloatingNavBar(
+                        return SideNavRail(
+                          expanded: expandedRail,
                           index: navIndex,
                           onTap: (i) => _tabId.value = tabs[i],
+                          onAddExpense: () => openAddExpense(context),
                           items: [
                             for (final id in tabs) _buildNavItem(id, s.data),
                           ],
                         );
                       },
                     ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+                    Expanded(
+                      child: MediaQuery.removePadding(
+                        context: context,
+                        removeLeft: true,
+                        child: pagesStack,
+                      ),
+                    ),
+                  ],
+                )
+              : pagesStack,
         ),
       ),
     );
@@ -493,8 +529,11 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
 }
 
 /// Espaço no fim das listas para não ficar atrás da barra flutuante.
-double navClearance(BuildContext context) =>
-    66 + 40 + MediaQuery.paddingOf(context).bottom;
+double navClearance(BuildContext context) {
+  final bottom = MediaQuery.paddingOf(context).bottom;
+  if (isWide(context)) return Space.xl + bottom;
+  return 66 + 40 + bottom;
+}
 
 /// Ícone preenchido para a aba ativa da navbar (combinando com os traços do Lucide).
 class _FilledNavIcon extends StatelessWidget {

@@ -1533,9 +1533,9 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
         bottom: -92,
         child: ProgressiveBlur(
           direction: AxisDirection.down,
-          maxSigma: 20 * eased,
+          maxSigma: 18 * eased,
           tint: c.bg,
-          tintOpacity: (c.isDark ? 0.82 : 0.84) * eased,
+          tintOpacity: (c.isDark ? 0.86 : 0.88) * eased,
         ),
       );
     }
@@ -1867,7 +1867,7 @@ class SheetAction<V> {
   });
 }
 
-/// Modal compacto colado nas bordas laterais e na base (cantos arredondados só em cima).
+/// Modal compacto: colado na base em celulares e card flutuante centralizado em tablets.
 Future<V?> _showEdgeSheet<V>(
   BuildContext context, {
   required WidgetBuilder builder,
@@ -1882,6 +1882,59 @@ Future<V?> _showEdgeSheet<V>(
       builder: (ctx) {
         final c = ctx.c;
         final mq = MediaQuery.of(ctx);
+        final wide = mq.size.width >= Breakpoints.tablet;
+        final surface = color ?? c.card;
+
+        if (wide) {
+          return Center(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                Space.xl,
+                Space.xl + mq.padding.top,
+                Space.xl,
+                Space.xl + mq.viewInsets.bottom + mq.padding.bottom,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.min(maxWidth, 580),
+                  maxHeight: mq.size.height * 0.86,
+                ),
+                child: Container(
+                  decoration: ShapeDecoration(
+                    color: surface,
+                    shadows: [
+                      BoxShadow(
+                        color: Palette.neutral950.withValues(
+                          alpha: c.isDark ? 0.56 : 0.18,
+                        ),
+                        blurRadius: 36,
+                        offset: const Offset(0, 16),
+                      ),
+                    ],
+                    shape: RoundedSuperellipseBorder(
+                      borderRadius: BorderRadius.circular(28),
+                      side: BorderSide(
+                        color: c.border.withValues(alpha: 0.35),
+                        width: 0.75,
+                      ),
+                    ),
+                  ),
+                  child: ClipRSuperellipse(
+                    borderRadius: BorderRadius.circular(28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: Space.base),
+                        Flexible(child: builder(ctx)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         return Align(
           alignment: Alignment.bottomCenter,
           child: ConstrainedBox(
@@ -1894,7 +1947,7 @@ Future<V?> _showEdgeSheet<V>(
                 top: Radius.circular(28),
               ),
               child: ColoredBox(
-                color: color ?? c.card,
+                color: surface,
                 child: Padding(
                   padding: EdgeInsets.only(
                     bottom: mq.viewInsets.bottom + mq.padding.bottom,
@@ -2018,13 +2071,21 @@ class _EdgeSheetRoute<V> extends PopupRoute<V> {
           ),
         ),
         RepaintBoundary(
-          child: SlideTransition(
-            position: Tween(
-              begin: const Offset(0, 1),
-              end: Offset.zero,
-            ).animate(curve),
-            child: child,
-          ),
+          child: MediaQuery.sizeOf(context).width >= Breakpoints.tablet
+              ? FadeTransition(
+                  opacity: curve,
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.94, end: 1.0).animate(curve),
+                    child: child,
+                  ),
+                )
+              : SlideTransition(
+                  position: Tween(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(curve),
+                  child: child,
+                ),
         ),
       ],
     );
@@ -2322,10 +2383,15 @@ class Breakpoints {
   static const desktop = 900.0;
 }
 
-/// Padding horizontal que centraliza o conteúdo em telas largas.
+/// Padding horizontal que centraliza o conteúdo em telas largas,
+/// descontando a largura da barra lateral quando exibida em tablets.
 double sidePadding(BuildContext context, {double maxWidth = 760}) {
   final w = MediaQuery.sizeOf(context).width;
-  return math.max(Space.gutter, (w - maxWidth) / 2);
+  final railW = w >= Breakpoints.desktop
+      ? 232.0
+      : (w >= Breakpoints.tablet ? 88.0 : 0.0);
+  final contentW = math.max(0.0, w - railW);
+  return math.max(Space.gutter, (contentW - maxWidth) / 2);
 }
 
 bool isWide(BuildContext context) =>
@@ -3087,47 +3153,49 @@ class _SheetBodyState extends State<SheetBody> {
                 ),
                 child: bodyChild,
               ),
-              if (pinnedHeader != null) ...[
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: 0,
-                  height: 76,
-                  child: IgnorePointer(
-                    child: AnimatedBuilder(
-                      animation: _scroll,
-                      builder: (_, _) {
-                        final px = _scroll.hasClients ? _scroll.offset : 0.0;
-                        final t = (px / 22.0).clamp(0.0, 1.0);
-                        return ProgressiveBlur(
-                          direction: AxisDirection.down,
-                          maxSigma: 16 * t,
-                          tint: c.card,
-                          tintOpacity: (0.88 + 0.10 * t).clamp(0.0, 0.98),
-                        );
-                      },
-                    ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: 0,
+                height: pinnedHeader != null ? 76 : 48,
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _scroll,
+                    builder: (_, _) {
+                      final px = _scroll.hasClients ? _scroll.offset : 0.0;
+                      final t = (px / 24.0).clamp(0.0, 1.0);
+                      if (t <= 0.005) return const SizedBox.shrink();
+                      final eased = Curves.easeOutCubic.transform(t);
+                      final baseTint = c.isDark ? 0.88 : 0.90;
+                      return ProgressiveBlur(
+                        direction: AxisDirection.down,
+                        maxSigma: 18 * eased,
+                        tint: c.card,
+                        tintOpacity: baseTint * eased,
+                      );
+                    },
                   ),
                 ),
+              ),
+              if (pinnedHeader != null)
                 Positioned(
                   left: Space.gutter,
                   right: Space.gutter,
                   top: 4,
                   child: pinnedHeader,
                 ),
-              ],
               if (hasBottom) ...[
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  height: 104,
+                  height: 96,
                   child: IgnorePointer(
                     child: ProgressiveBlur(
                       direction: AxisDirection.up,
-                      maxSigma: 16,
+                      maxSigma: 18,
                       tint: c.card,
-                      tintOpacity: 0.94,
+                      tintOpacity: c.isDark ? 0.90 : 0.92,
                     ),
                   ),
                 ),
@@ -3137,7 +3205,36 @@ class _SheetBodyState extends State<SheetBody> {
                   bottom: 16,
                   child: SafeArea(top: false, child: widget.bottom!),
                 ),
-              ],
+              ] else
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 52,
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: _scroll,
+                      builder: (_, _) {
+                        if (!_scroll.hasClients ||
+                            !_scroll.position.hasContentDimensions) {
+                          return const SizedBox.shrink();
+                        }
+                        final rem =
+                            _scroll.position.maxScrollExtent - _scroll.offset;
+                        final t = (rem / 24.0).clamp(0.0, 1.0);
+                        if (t <= 0.005) return const SizedBox.shrink();
+                        final eased = Curves.easeOutCubic.transform(t);
+                        final baseTint = c.isDark ? 0.88 : 0.90;
+                        return ProgressiveBlur(
+                          direction: AxisDirection.up,
+                          maxSigma: 18 * eased,
+                          tint: c.card,
+                          tintOpacity: baseTint * eased,
+                        );
+                      },
+                    ),
+                  ),
+                ),
             ],
           ),
         );

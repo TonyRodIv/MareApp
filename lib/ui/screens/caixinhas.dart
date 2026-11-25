@@ -46,7 +46,8 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
       0,
       (t, b) => t + f.contributionFor(b, f.current),
     );
-    final pad = sidePadding(context, maxWidth: 720);
+    final maxW = isWide(context) ? 960.0 : 720.0;
+    final pad = sidePadding(context, maxWidth: maxW);
 
     final scroll = CustomScrollView(
       physics: const BouncingScrollPhysics(
@@ -55,7 +56,7 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
       slivers: [
         PinnedCupertinoBar(
           height: 60,
-          maxWidth: 720,
+          maxWidth: maxW,
           builder: (ctx, progress) => Row(
             children: [
               if (widget.standalone) ...[

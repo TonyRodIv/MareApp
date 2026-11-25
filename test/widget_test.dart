@@ -88,16 +88,19 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
     expect(tile(label), findsOneWidget, reason: '$label visível no primeiro acesso');
   }
 
+  final navFinder = size.width >= 600
+      ? find.byType(SideNavRail)
+      : find.byType(FloatingNavBar);
   // Sem caixinhas: aba Caixinhas fica oculta na navbar e vira sugestão no Perfil
   expect(
     find.descendant(
-      of: find.byType(FloatingNavBar),
+      of: navFinder,
       matching: find.text('Caixinhas'),
     ),
     findsNothing,
   );
   for (final label in ['Extrato', 'Seu Perfil', 'Carteira']) {
-    await tapText(tester, label, within: find.byType(FloatingNavBar));
+    await tapText(tester, label, within: navFinder);
     await settle(tester, 600);
     expect(tester.takeException(), isNull, reason: 'aba $label');
     if (label == 'Seu Perfil') {
@@ -161,13 +164,13 @@ Future<void> runFlow(WidgetTester tester, Size size, double dpr) async {
   // Após criar caixinha: aba aparece na navbar e a sugestão some do Perfil
   expect(
     find.descendant(
-      of: find.byType(FloatingNavBar),
+      of: navFinder,
       matching: find.text('Caixinhas'),
     ),
     findsOneWidget,
   );
   for (final label in ['Extrato', 'Caixinhas', 'Seu Perfil', 'Carteira']) {
-    await tapText(tester, label, within: find.byType(FloatingNavBar));
+    await tapText(tester, label, within: navFinder);
     await settle(tester, 600);
     expect(tester.takeException(), isNull, reason: 'aba $label com dados');
     if (label == 'Seu Perfil') {

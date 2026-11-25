@@ -218,6 +218,249 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
   }
 }
 
+/// Barra de navegação lateral adaptativa para tablets e telas largas
+/// (segue diretrizes Material 3 NavigationRail / iPadOS Sidebar).
+/// Compacta (`88dp`) entre 600–899dp e expandida (`232dp`) em `>= 900dp`.
+class SideNavRail extends StatelessWidget {
+  final List<NavItem> items;
+  final int index;
+  final ValueChanged<int> onTap;
+  final VoidCallback onAddExpense;
+  final bool expanded;
+
+  const SideNavRail({
+    super.key,
+    required this.items,
+    required this.index,
+    required this.onTap,
+    required this.onAddExpense,
+    this.expanded = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final mq = MediaQuery.paddingOf(context);
+    final width = expanded ? 232.0 : 88.0;
+    final (addBg, addFg) = softActionTone(
+      c.palette.primary[500],
+      isDark: c.isDark,
+    );
+
+    return Container(
+      width: width + mq.left,
+      padding: EdgeInsets.fromLTRB(
+        mq.left + (expanded ? Space.base : Space.sm),
+        mq.top + Space.base,
+        expanded ? Space.base : Space.sm,
+        mq.bottom + Space.base,
+      ),
+      decoration: BoxDecoration(
+        color: c.isDark ? c.surfaceLow : c.card,
+        border: Border(
+          right: BorderSide(
+            color: c.border.withValues(alpha: 0.45),
+            width: 0.75,
+          ),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+            expanded ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: expanded ? Space.sm : 0,
+              vertical: Space.xs,
+            ),
+            child: Row(
+              mainAxisAlignment: expanded
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: c.primarySoft,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(
+                    LucideIcons.waves,
+                    size: 18,
+                    color: c.primary,
+                  ),
+                ),
+                if (expanded) ...[
+                  const SizedBox(width: Space.sm),
+                  Text(
+                    'maré',
+                    style: T.title.copyWith(
+                      color: c.text,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: Space.lg),
+          Pressable(
+            semanticLabel: 'Adicionar gasto',
+            scale: 0.96,
+            onTap: onAddExpense,
+            child: Container(
+              height: 48,
+              width: expanded ? null : 48,
+              padding: EdgeInsets.symmetric(
+                horizontal: expanded ? Space.base : 0,
+              ),
+              decoration: ShapeDecoration(
+                color: addBg,
+                shape: RoundedSuperellipseBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+              ),
+              child: expanded
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(LucideIcons.plus, size: 19, color: addFg),
+                        const SizedBox(width: Space.xs),
+                        Flexible(
+                          child: Text(
+                            'Novo gasto',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: T.bodyStrong.copyWith(color: addFg),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Center(
+                      child: Icon(LucideIcons.plus, size: 20, color: addFg),
+                    ),
+            ),
+          ),
+          SizedBox(height: expanded ? Space.lg : Space.md),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: expanded
+                    ? CrossAxisAlignment.stretch
+                    : CrossAxisAlignment.center,
+                children: [
+                  for (var i = 0; i < items.length; i++)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: Space.xs),
+                      child: _SideRailItem(
+                        item: items[i],
+                        active: i == index,
+                        expanded: expanded,
+                        onTap: () {
+                          if (i == index) {
+                            HapticFeedback.lightImpact();
+                            return;
+                          }
+                          HapticFeedback.selectionClick();
+                          onTap(i);
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SideRailItem extends StatelessWidget {
+  final NavItem item;
+  final bool active;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  const _SideRailItem({
+    required this.item,
+    required this.active,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final fg = active ? c.text : c.textSecondary;
+    final iconWidget = item.custom ??
+        (active && item.activeBuilder != null
+            ? item.activeBuilder!(fg, 22)
+            : Icon(item.icon, size: 21, color: fg));
+
+    return Pressable(
+      scale: 0.96,
+      semanticLabel: item.label,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: easeOutExpo,
+        padding: EdgeInsets.symmetric(
+          horizontal: expanded ? Space.md : Space.xs,
+          vertical: expanded ? 12 : 10,
+        ),
+        decoration: ShapeDecoration(
+          color: active ? c.navActive : const Color(0x00000000),
+          shape: RoundedSuperellipseBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+        child: expanded
+            ? Row(
+                children: [
+                  iconWidget,
+                  const SizedBox(width: Space.md),
+                  Expanded(
+                    child: Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: T.body.copyWith(
+                        color: fg,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            : SizedBox(
+                width: 68,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    iconWidget,
+                    const SizedBox(height: 4),
+                    Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: T.micro.copyWith(
+                        fontSize: 10.5,
+                        color: fg,
+                        fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
 class _FluidNavTabItem extends StatelessWidget {
   final NavItem item;
   final bool active;

@@ -267,7 +267,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                       ),
                     ),
                   ),
-                  if (_step == 3)
+                  if (_step == 3) ...[
                     Positioned(
                       left: 0,
                       right: 0,
@@ -282,14 +282,38 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                             final eased = Curves.easeOutCubic.transform(t);
                             return ProgressiveBlur(
                               direction: AxisDirection.down,
-                              maxSigma: 20 * eased,
+                              maxSigma: 18 * eased,
                               tint: c.bg,
-                              tintOpacity: (c.isDark ? 0.82 : 0.84) * eased,
+                              tintOpacity: (c.isDark ? 0.86 : 0.88) * eased,
                             );
                           },
                         ),
                       ),
                     ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: 104,
+                      child: IgnorePointer(
+                        child: ProgressiveBlur(
+                          direction: AxisDirection.up,
+                          maxSigma: 18,
+                          tint: c.bg,
+                          tintOpacity: c.isDark ? 0.88 : 0.90,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: pad,
+                      right: pad,
+                      bottom: Space.base,
+                      child: PillButton(
+                        'Salvar gasto',
+                        onTap: _canContinue ? () => _go(1) : null,
+                      ),
+                    ),
+                  ],
                   Positioned(
                     left: pad - Space.sm,
                     right: pad,
@@ -331,14 +355,15 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
                 ],
               ),
             ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.base),
-              child: PillButton(
-                _step == 3 ? 'Salvar gasto' : 'Continuar',
-                trailingIcon: _step == 3 ? null : LucideIcons.arrowRight,
-                onTap: _canContinue ? () => _go(1) : null,
+            if (_step != 3)
+              Padding(
+                padding: EdgeInsets.fromLTRB(pad, Space.sm, pad, Space.base),
+                child: PillButton(
+                  'Continuar',
+                  trailingIcon: LucideIcons.arrowRight,
+                  onTap: _canContinue ? () => _go(1) : null,
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -584,7 +609,7 @@ class _AddExpenseFlowState extends State<AddExpenseFlow> {
       },
       child: ListView(
         physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(pad, 64, pad, Space.base),
+        padding: EdgeInsets.fromLTRB(pad, 64, pad, 108),
         children: [
         // Cartão de prévia do gasto (mini visualização estilo recibo/detalhe)
         Reveal(

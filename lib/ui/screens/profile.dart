@@ -38,7 +38,8 @@ class ProfileScreen extends StatelessWidget {
     final d = s.data;
     final f = s.f;
     final hidden = d.hideValues;
-    final pad = sidePadding(context, maxWidth: 640);
+    final maxW = isWide(context) ? 820.0 : 640.0;
+    final pad = sidePadding(context, maxWidth: maxW);
     final cy = f.current;
     final lastDay = cy.end.subtract(const Duration(days: 1));
     final byCat = f.byCategory(cy);
@@ -68,7 +69,7 @@ class ProfileScreen extends StatelessWidget {
           slivers: [
             PinnedCupertinoBar(
               height: 56,
-              maxWidth: 640,
+              maxWidth: maxW,
               builder: (ctx, _) => const Center(child: MareWordmark(size: 20)),
             ),
             SliverPadding(
@@ -495,7 +496,8 @@ class SettingsScreen extends StatelessWidget {
     final s = context.store;
     final sync = context.sync;
     final d = s.data;
-    final pad = sidePadding(context, maxWidth: 640);
+    final maxW = isWide(context) ? 820.0 : 640.0;
+    final pad = sidePadding(context, maxWidth: maxW);
     final currentSeed = d.accentColor ?? accentThemes.first.primary.toARGB32();
     final themeSpec = accentThemeFor(Color(currentSeed));
     final navTabs = effectiveNavTabs(d);
@@ -1962,7 +1964,8 @@ class AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final pad = sidePadding(context, maxWidth: 640);
+    final maxW = isWide(context) ? 820.0 : 640.0;
+    final pad = sidePadding(context, maxWidth: maxW);
 
     return SheetScaler(
       child: CupertinoPageScaffold(
