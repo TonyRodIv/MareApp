@@ -47,11 +47,18 @@ class NativeWidgets {
 
     final subColors = <int>[
       for (var i = 0; i < subs.length && i < 4; i++)
-        (brandSpecFor(subs[i].name)?.accent ??
-                brandSpecFor(subs[i].name)?.bg ??
+        (brandSpecFor(subs[i].name)?.bg ??
+                brandSpecFor(subs[i].name)?.accent ??
                 subs[i].category.color)
             .toARGB32(),
     ];
+    final subLabels = <String>[
+      for (var i = 0; i < subs.length && i < 4; i++)
+        subs[i].name.trim().isEmpty
+            ? '?'
+            : subs[i].name.trim()[0].toUpperCase(),
+    ];
+    final subExtra = subs.length > 4 ? subs.length - 4 : 0;
 
     final catColors = <int>[
       for (var i = 0; i < cats.length && i < 4; i++)
@@ -91,6 +98,8 @@ class NativeWidgets {
         'boxColorsCsv': boxColors.join(','),
         'boxValuesCsv': boxValues.join(','),
         'subColorsCsv': subColors.join(','),
+        'subLabelsCsv': subLabels.join(','),
+        'subExtra': subExtra,
         'catColorsCsv': catColors.join(','),
         'catValuesCsv': catValues.join(','),
       });

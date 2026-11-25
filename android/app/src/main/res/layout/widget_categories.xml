@@ -26,14 +26,14 @@
             android:maxLines="1"
             android:text="Por categoria"
             android:textColor="@color/widget_text"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="↗"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="15sp" />
+            android:textSize="16sp" />
     </LinearLayout>
 
     <LinearLayout
@@ -46,9 +46,9 @@
 
         <ImageView
             android:id="@+id/widget_donut"
-            android:layout_width="64dp"
-            android:layout_height="64dp"
-            android:layout_marginEnd="14dp"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:layout_marginEnd="16dp"
             android:scaleType="fitCenter" />
 
         <LinearLayout
@@ -65,30 +65,30 @@
                 android:maxLines="1"
                 android:text="Sem gastos neste ciclo"
                 android:textColor="@color/widget_text"
-                android:textSize="13sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/widget_cat_2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="5dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text=""
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/widget_cat_3"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="5dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text=""
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
         </LinearLayout>
     </LinearLayout>
 

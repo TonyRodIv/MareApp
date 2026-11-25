@@ -25,19 +25,19 @@
             android:maxLines="1"
             android:text="maré · Saldo livre"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/widget_add_btn"
             android:layout_width="wrap_content"
-            android:layout_height="30dp"
+            android:layout_height="32dp"
             android:background="@drawable/widget_btn_bg"
             android:gravity="center"
-            android:paddingLeft="12dp"
-            android:paddingRight="12dp"
+            android:paddingLeft="14dp"
+            android:paddingRight="14dp"
             android:text="+ Gasto"
             android:textColor="@color/widget_primary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -50,7 +50,7 @@
         android:maxLines="1"
         android:text="R$ 0,00"
         android:textColor="@color/widget_text"
-        android:textSize="26sp"
+        android:textSize="29sp"
         android:textStyle="bold" />
 
     <LinearLayout
@@ -78,7 +78,7 @@
                 android:maxLines="1"
                 android:text="Gastos"
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/widget_spent"
@@ -89,7 +89,7 @@
                 android:maxLines="1"
                 android:text="R$ 0,00"
                 android:textColor="@color/widget_text"
-                android:textSize="15sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -111,7 +111,7 @@
                 android:maxLines="1"
                 android:text="Caixinhas"
                 android:textColor="@color/widget_text_secondary"
-                android:textSize="11sp" />
+                android:textSize="13sp" />
 
             <TextView
                 android:id="@+id/widget_boxes"
@@ -122,7 +122,7 @@
                 android:maxLines="1"
                 android:text="R$ 0,00"
                 android:textColor="@color/widget_text"
-                android:textSize="15sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>

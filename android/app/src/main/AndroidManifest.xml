@@ -37,7 +37,7 @@
         <activity
             android:name=".MareWidgetConfigureActivity"
             android:exported="true"
-            android:theme="@android:style/Theme.DeviceDefault.DayNight.NoActionBar">
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>

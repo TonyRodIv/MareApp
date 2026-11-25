@@ -68,6 +68,8 @@ object MareWidgetStore {
         boxColorsCsv: String = "",
         boxValuesCsv: String = "",
         subColorsCsv: String = "",
+        subLabelsCsv: String = "",
+        subExtra: Int = 0,
         catColorsCsv: String = "",
         catValuesCsv: String = "",
     ) {
@@ -88,6 +90,8 @@ object MareWidgetStore {
             .putString("w_box_colors", boxColorsCsv)
             .putString("w_box_values", boxValuesCsv)
             .putString("w_sub_colors", subColorsCsv)
+            .putString("w_sub_labels", subLabelsCsv)
+            .putInt("w_sub_extra", subExtra)
             .putString("w_cat_colors", catColorsCsv)
             .putString("w_cat_values", catValuesCsv)
             .apply()
@@ -133,7 +137,10 @@ object MareWidgetStore {
         csv?.split(',')?.mapNotNull { it.trim().toDoubleOrNull() } ?: emptyList()
 
     fun parseInts(csv: String?): List<Int> =
-        csv?.split(',')?.mapNotNull { it.trim().toIntOrNull() } ?: emptyList()
+        csv?.split(',')?.mapNotNull { it.trim().toLongOrNull()?.toInt() } ?: emptyList()
+
+    fun parseStrings(csv: String?): List<String> =
+        csv?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() } ?: emptyList()
 }
 
 private object WidgetGraphics {
@@ -190,7 +197,7 @@ private object WidgetGraphics {
         val total = values.sum()
         if (values.isEmpty() || total <= 0.0) return null
         val w = 320
-        val h = 36
+        val h = 24
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         val gap = 6f
@@ -200,20 +207,36 @@ private object WidgetGraphics {
         for (i in values.indices) {
             val segW = (values[i] / total * avail).toFloat().coerceAtLeast(10f)
             paint.color = colors.getOrElse(i) { 0xFF30B0C7.toInt() }
-            val rect = RectF(x, 4f, (x + segW).coerceAtMost(w.toFloat()), h - 4f)
-            canvas.drawRoundRect(rect, 14f, 14f, paint)
+            val rect = RectF(x, 2f, (x + segW).coerceAtMost(w.toFloat()), h - 2f)
+            canvas.drawRoundRect(rect, 10f, 10f, paint)
             x += segW + gap
         }
         return bmp
     }
 
-    fun subCircles(colors: List<Int>, surfaceColor: Int): Bitmap? {
+    private fun contrastTextColor(bg: Int): Int {
+        val r = (bg shr 16) and 0xFF
+        val g = (bg shr 8) and 0xFF
+        val b = bg and 0xFF
+        val lum = (0.299 * r + 0.587 * g + 0.114 * b)
+        return if (lum > 175) 0xFF1C1C1E.toInt() else 0xFFFFFFFF.toInt()
+    }
+
+    fun subCircles(
+        colors: List<Int>,
+        labels: List<String>,
+        extra: Int,
+        surfaceColor: Int,
+        badgeBg: Int,
+        badgeText: Int,
+    ): Bitmap? {
         if (colors.isEmpty()) return null
         val shown = colors.take(4)
-        val r = 28f
-        val step = 38f
-        val h = 64
-        val w = (r * 2 + (shown.size - 1) * step + 8).toInt()
+        val count = shown.size + if (extra > 0) 1 else 0
+        val r = 34f
+        val step = 46f
+        val h = 76
+        val w = (r * 2 + (count - 1) * step + 8).toInt()
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -223,12 +246,33 @@ private object WidgetGraphics {
         val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
         }
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textAlign = Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = 28f
+        }
+        val cy = h / 2f
         for (i in shown.indices) {
             val cx = r + 4f + i * step
-            val cy = h / 2f
-            canvas.drawCircle(cx, cy, r + 3f, borderPaint)
+            canvas.drawCircle(cx, cy, r + 3.5f, borderPaint)
             fillPaint.color = shown[i]
-            canvas.drawCircle(cx, cy, r - 1f, fillPaint)
+            canvas.drawCircle(cx, cy, r - 0.5f, fillPaint)
+            val label = labels.getOrElse(i) { "" }
+            if (label.isNotEmpty()) {
+                textPaint.color = contrastTextColor(shown[i])
+                val baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f
+                canvas.drawText(label, cx, baseline, textPaint)
+            }
+        }
+        if (extra > 0) {
+            val cx = r + 4f + shown.size * step
+            canvas.drawCircle(cx, cy, r + 3.5f, borderPaint)
+            fillPaint.color = badgeBg
+            canvas.drawCircle(cx, cy, r - 0.5f, fillPaint)
+            textPaint.color = badgeText
+            textPaint.textSize = 23f
+            val baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f
+            canvas.drawText("+$extra", cx, baseline, textPaint)
         }
         return bmp
     }
@@ -236,10 +280,10 @@ private object WidgetGraphics {
     fun donut(values: List<Double>, colors: List<Int>): Bitmap? {
         val total = values.sum()
         if (values.isEmpty() || total <= 0.0) return null
-        val sz = 160
+        val sz = 200
         val bmp = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
-        val stroke = 20f
+        val stroke = 24f
         val rect = RectF(stroke, stroke, sz - stroke, sz - stroke)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -289,7 +333,7 @@ class MareBalanceWidgetProvider : AppWidgetProvider() {
                     setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
                     setTextViewText(R.id.widget_subtitle, if (narrow) "Saldo livre" else "maré · $cycle")
                     setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
-                    setTextViewTextSize(R.id.widget_balance, TypedValue.COMPLEX_UNIT_SP, if (narrow) 18f else 22f)
+                    setTextViewTextSize(R.id.widget_balance, TypedValue.COMPLEX_UNIT_SP, if (narrow) 20f else 25f)
                     setTextViewText(R.id.widget_caption, caption)
                     setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
                     setOnClickPendingIntent(android.R.id.background, openPi)
@@ -336,13 +380,13 @@ class MareSummaryWidgetProvider : AppWidgetProvider() {
                     setTextViewTextSize(
                         R.id.widget_balance,
                         TypedValue.COMPLEX_UNIT_SP,
-                        if (narrow) 20f else (if (shortH) 22f else 26f),
+                        if (narrow) 22f else (if (shortH) 24f else 29f),
                     )
                     setViewVisibility(R.id.widget_tiles_row, if (shortH) View.GONE else View.VISIBLE)
                     setTextViewText(R.id.widget_spent, MareWidgetStore.maskIfNeeded(context, id, spent))
                     setTextViewText(R.id.widget_boxes, MareWidgetStore.maskIfNeeded(context, id, boxes))
-                    setTextViewTextSize(R.id.widget_spent, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
-                    setTextViewTextSize(R.id.widget_boxes, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
+                    setTextViewTextSize(R.id.widget_spent, TypedValue.COMPLEX_UNIT_SP, if (narrow) 15f else 18f)
+                    setTextViewTextSize(R.id.widget_boxes, TypedValue.COMPLEX_UNIT_SP, if (narrow) 15f else 18f)
                     setOnClickPendingIntent(android.R.id.background, openPi)
                     setOnClickPendingIntent(R.id.widget_add_btn, addPi)
                 }
@@ -374,7 +418,7 @@ private fun updateMetricWidget(
             setTextViewTextSize(
                 R.id.widget_value,
                 TypedValue.COMPLEX_UNIT_SP,
-                if (narrow) 18f else (if (w >= 240) 24f else 21f),
+                if (narrow) 21f else (if (w >= 240) 27f else 24f),
             )
             setTextViewText(R.id.widget_caption, caption)
             setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
@@ -449,8 +493,12 @@ class MareSubsWidgetProvider : AppWidgetProvider() {
             val subs = prefs.getString("w_subs", "R\$ 0,00") ?: "R\$ 0,00"
             val cap = prefs.getString("w_subs_cap", "Por mês") ?: "Por mês"
             val cols = MareWidgetStore.parseInts(prefs.getString("w_sub_colors", null))
+            val labels = MareWidgetStore.parseStrings(prefs.getString("w_sub_labels", null))
+            val extra = prefs.getInt("w_sub_extra", 0)
             val surface = context.getColor(R.color.widget_surface)
-            val bmp = WidgetGraphics.subCircles(cols, surface)
+            val badgeBg = context.getColor(R.color.widget_surface_alt)
+            val badgeText = context.getColor(R.color.widget_text_secondary)
+            val bmp = WidgetGraphics.subCircles(cols, labels, extra, surface, badgeBg, badgeText)
             updateMetricWidget(context, mgr, ids, "Assinaturas", subs, cap, bmp, 501)
         }
     }
@@ -474,6 +522,16 @@ class MareCategoriesWidgetProvider : AppWidgetProvider() {
             val vals = MareWidgetStore.parseDoubles(prefs.getString("w_cat_values", null))
             val cols = MareWidgetStore.parseInts(prefs.getString("w_cat_colors", null))
             val donutBmp = WidgetGraphics.donut(vals, cols)
+            fun formatCatLine(raw: String, color: Int?): CharSequence {
+                if (raw.isEmpty() || color == null) return raw
+                val sb = android.text.SpannableStringBuilder("●  ")
+                sb.setSpan(android.text.style.ForegroundColorSpan(color), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                sb.append(raw)
+                return sb
+            }
+            val l1 = formatCatLine(c1, cols.getOrNull(0))
+            val l2 = formatCatLine(c2, cols.getOrNull(1))
+            val l3 = formatCatLine(c3, cols.getOrNull(2))
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 601)
             for (id in ids) {
                 val (w, h) = MareWidgetStore.sizeDp(mgr, id, 200, 120)
@@ -481,9 +539,9 @@ class MareCategoriesWidgetProvider : AppWidgetProvider() {
                 val narrow = w < 170
                 val views = RemoteViews(context.packageName, R.layout.widget_categories).apply {
                     setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
-                    setTextViewText(R.id.widget_cat_1, c1)
-                    setTextViewText(R.id.widget_cat_2, c2)
-                    setTextViewText(R.id.widget_cat_3, c3)
+                    setTextViewText(R.id.widget_cat_1, l1)
+                    setTextViewText(R.id.widget_cat_2, l2)
+                    setTextViewText(R.id.widget_cat_3, l3)
                     setViewVisibility(R.id.widget_cat_2, if (c2.isEmpty()) View.GONE else View.VISIBLE)
                     setViewVisibility(R.id.widget_cat_3, if (shortH || c3.isEmpty()) View.GONE else View.VISIBLE)
                     if (donutBmp != null && !narrow && !shortH) {

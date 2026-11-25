@@ -91,6 +91,8 @@ class MainActivity : FlutterActivity() {
                             call.argument<String>("boxColorsCsv") ?: "",
                             call.argument<String>("boxValuesCsv") ?: "",
                             call.argument<String>("subColorsCsv") ?: "",
+                            call.argument<String>("subLabelsCsv") ?: "",
+                            call.argument<Number>("subExtra")?.toInt() ?: 0,
                             call.argument<String>("catColorsCsv") ?: "",
                             call.argument<String>("catValuesCsv") ?: "",
                         )

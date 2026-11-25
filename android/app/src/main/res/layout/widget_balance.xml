@@ -25,7 +25,7 @@
             android:maxLines="1"
             android:text="maré · Saldo livre"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="12sp" />
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/widget_balance"
@@ -36,7 +36,7 @@
             android:maxLines="1"
             android:text="R$ 0,00"
             android:textColor="@color/widget_text"
-            android:textSize="22sp"
+            android:textSize="25sp"
             android:textStyle="bold" />
 
         <TextView
@@ -48,7 +48,7 @@
             android:maxLines="1"
             android:text="Ciclo atual"
             android:textColor="@color/widget_text_secondary"
-            android:textSize="11sp" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <TextView
