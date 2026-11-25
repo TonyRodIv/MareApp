@@ -10,9 +10,22 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/money.dart';
 import '../../core/perf.dart';
 import '../../data/brands.dart';
+import '../../data/store.dart';
 import '../../core/color_engine.dart';
 import '../../core/theme.dart';
 import 'motion.dart' show BlurSwitcher, SpringBuilder, Springs, easeOutExpo;
+
+/// Informa às telas filhas dentro da `Shell` a largura ocupada pela barra lateral.
+class RailInsetScope extends InheritedWidget {
+  final double inset;
+  const RailInsetScope({super.key, required this.inset, required super.child});
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RailInsetScope>()?.inset ?? 0.0;
+
+  @override
+  bool updateShouldNotify(RailInsetScope old) => old.inset != inset;
+}
 
 // ── Toque com feedback (escala + háptico) ───────────────────
 
@@ -233,30 +246,33 @@ class RoundIconButton extends StatelessWidget {
     final Widget body;
     if (glass) {
       final perf = context.perf;
-      final sigma = 26.0 * perf.glassSigmaFactor;
-      final glassBg = bg ??
+      final scrollT = TopBarScrollProgress.maybeOf(context);
+      final t = scrollT ?? 1.0;
+      final sigma = 24.0 * perf.glassSigmaFactor * t;
+      final fillAlpha = (c.isDark ? 0.56 : 0.62) * t;
+      final baseColor = bg ??
           (c.isDark
-              ? (perf.allowBlur
-                    ? const Color(0xFF16161A).withValues(alpha: 0.56)
-                    : c.card)
-              : (perf.allowBlur
-                    ? const Color(0xFFFFFFFF).withValues(alpha: 0.62)
-                    : Palette.neutral0));
+              ? (perf.allowBlur ? const Color(0xFF16161A) : c.card)
+              : (perf.allowBlur ? const Color(0xFFFFFFFF) : Palette.neutral0));
+      final borderAlpha = (c.isDark ? 0.12 : 0.08) * t;
       final circle = Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: glassBg,
+          color: t <= 0.01
+              ? const Color(0x00000000)
+              : baseColor.withValues(alpha: fillAlpha),
           shape: BoxShape.circle,
-          border: Border.all(
-            color: c.isDark
-                ? Palette.neutral0.withValues(alpha: 0.12)
-                : Palette.neutral950.withValues(alpha: 0.08),
-          ),
+          border: t <= 0.01
+              ? null
+              : Border.all(
+                  color: (c.isDark ? Palette.neutral0 : Palette.neutral950)
+                      .withValues(alpha: borderAlpha),
+                ),
         ),
         child: iconChild,
       );
-      body = perf.allowBlur && sigma >= 1.0
+      body = perf.allowBlur && sigma >= 0.8
           ? ClipOval(
               child: BackdropFilter(
                 filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
@@ -276,20 +292,57 @@ class RoundIconButton extends StatelessWidget {
   }
 }
 
-/// Botão "voltar" do topo das telas (chevron, como no Figma).
+/// Botão "voltar" do topo das telas: transparente no topo e ganha fundo
+/// translúcido com blur ao rolar a página.
 class BackChevron extends StatelessWidget {
   final VoidCallback? onTap;
   const BackChevron({super.key, this.onTap});
+
   @override
-  Widget build(BuildContext context) => Pressable(
-    semanticLabel: 'Voltar',
-    onTap: onTap ?? () => Navigator.of(context).maybePop(),
-    child: SizedBox(
+  Widget build(BuildContext context) {
+    final c = context.c;
+    final t = TopBarScrollProgress.maybeOf(context) ?? 0.0;
+    final perf = context.perf;
+    final sigma = 22.0 * perf.glassSigmaFactor * t;
+    final fillAlpha = (c.isDark ? 0.56 : 0.62) * t;
+    final baseColor = c.isDark
+        ? (perf.allowBlur ? const Color(0xFF16161A) : c.card)
+        : (perf.allowBlur ? const Color(0xFFFFFFFF) : Palette.neutral0);
+    final borderAlpha = (c.isDark ? 0.12 : 0.08) * t;
+
+    final circle = Container(
       width: 44,
       height: 44,
-      child: Icon(LucideIcons.chevronLeft, color: context.c.text, size: 28),
-    ),
-  );
+      decoration: BoxDecoration(
+        color: t <= 0.01
+            ? const Color(0x00000000)
+            : baseColor.withValues(alpha: fillAlpha),
+        shape: BoxShape.circle,
+        border: t <= 0.01
+            ? null
+            : Border.all(
+                color: (c.isDark ? Palette.neutral0 : Palette.neutral950)
+                    .withValues(alpha: borderAlpha),
+              ),
+      ),
+      child: Icon(LucideIcons.chevronLeft, color: c.text, size: 26),
+    );
+
+    final body = perf.allowBlur && sigma >= 0.8
+        ? ClipOval(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+              child: circle,
+            ),
+          )
+        : circle;
+
+    return Pressable(
+      semanticLabel: 'Voltar',
+      onTap: onTap ?? () => Navigator.of(context).maybePop(),
+      child: body,
+    );
+  }
 }
 
 // ── Chips / tags ────────────────────────────────────────────
@@ -1234,11 +1287,97 @@ class MareWordmark extends StatelessWidget {
 class GlowBackground extends StatelessWidget {
   final double height;
   final Color? tint;
-  const GlowBackground({super.key, this.height = 420, this.tint});
+  final bool useHeader;
+  const GlowBackground({
+    super.key,
+    this.height = 420,
+    this.tint,
+    this.useHeader = true,
+  });
 
   @override
   Widget build(BuildContext context) {
     final c = context.c;
+    final headerPath = useHeader
+        ? StoreScope.maybeOf(context)?.data.headerPath
+        : null;
+    if (headerPath != null && headerPath.isNotEmpty) {
+      final isUrl = headerPath.startsWith('http://') ||
+          headerPath.startsWith('https://') ||
+          headerPath.startsWith('blob:') ||
+          headerPath.startsWith('data:');
+      final img = isUrl
+          ? Image.network(
+              headerPath,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: height,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            )
+          : Image.file(
+              File(headerPath),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: height,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            );
+      return IgnorePointer(
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              img,
+              // Fade escuro no topo para contraste da barra/títulos
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF000000).withValues(alpha: 0.52),
+                      const Color(0xFF000000).withValues(alpha: 0.16),
+                      const Color(0x00000000),
+                    ],
+                    stops: const [0.0, 0.36, 0.72],
+                  ),
+                ),
+              ),
+              // Blur progressivo + fade na base levando até a cor de fundo da página
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: height * 0.50,
+                child: ProgressiveBlur(
+                  direction: AxisDirection.up,
+                  maxSigma: 22,
+                  tint: c.bg,
+                  tintOpacity: 1.0,
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: height * 0.32,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [c.bg.withValues(alpha: 0.0), c.bg],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // Gradiente atmosférico suave na cor do tema: interpola apenas em direção
     // a c.bg com curva ease-out (sem misturar cor complementar oposta em sRGB,
     // o que dessaturaria o meio do gradiente para cinza) e atinge 100% c.bg
@@ -1275,6 +1414,64 @@ class GlowBackground extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Envolve uma tela rolável fazendo com que o [GlowBackground] (cor ou header)
+/// role junto com o conteúdo em vez de ficar fixo ao fundo.
+class GlowScrollStack extends StatefulWidget {
+  final double height;
+  final Color? tint;
+  final bool useHeader;
+  final Widget child;
+  const GlowScrollStack({
+    super.key,
+    this.height = 440,
+    this.tint,
+    this.useHeader = true,
+    required this.child,
+  });
+
+  @override
+  State<GlowScrollStack> createState() => _GlowScrollStackState();
+}
+
+class _GlowScrollStackState extends State<GlowScrollStack> {
+  final _offset = ValueNotifier<double>(0.0);
+
+  @override
+  void dispose() {
+    _offset.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return NotificationListener<ScrollNotification>(
+      onNotification: (n) {
+        if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+          _offset.value = n.metrics.pixels;
+        }
+        return false;
+      },
+      child: Stack(
+        children: [
+          ValueListenableBuilder<double>(
+            valueListenable: _offset,
+            builder: (_, px, child) => Transform.translate(
+              offset: Offset(0, -px.clamp(-120.0, widget.height + 60)),
+              child: child,
+            ),
+            child: GlowBackground(
+              height: widget.height,
+              tint: widget.tint,
+              useHeader: widget.useHeader,
+            ),
+          ),
+          widget.child,
+        ],
       ),
     );
   }
@@ -1463,6 +1660,22 @@ class _ProgressiveBlurState extends State<ProgressiveBlur> {
   }
 }
 
+/// Propaga o progresso de rolagem da [PinnedCupertinoBar] para os botões do topo.
+class TopBarScrollProgress extends InheritedWidget {
+  final double progress;
+  const TopBarScrollProgress({
+    super.key,
+    required this.progress,
+    required super.child,
+  });
+
+  static double? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TopBarScrollProgress>()?.progress;
+
+  @override
+  bool updateShouldNotify(TopBarScrollProgress old) => old.progress != progress;
+}
+
 /// Top bar fixa estilo Cupertino com progressive blur ao rolar.
 class PinnedCupertinoBar extends StatelessWidget {
   final double height;
@@ -1553,7 +1766,10 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
               buildBlur(t),
               Padding(
                 padding: EdgeInsets.fromLTRB(pad, top + Space.sm, pad, Space.sm),
-                child: builder(ctx, t),
+                child: TopBarScrollProgress(
+                  progress: t,
+                  child: builder(ctx, t),
+                ),
               ),
             ],
           );
@@ -1572,7 +1788,10 @@ class _PinnedBarDelegate extends SliverPersistentHeaderDelegate {
           buildBlur(t),
           Padding(
             padding: EdgeInsets.fromLTRB(pad, top + Space.sm, pad, Space.sm),
-            child: builder(ctx, t),
+            child: TopBarScrollProgress(
+              progress: t,
+              child: builder(ctx, t),
+            ),
           ),
         ],
       ),
@@ -2387,9 +2606,7 @@ class Breakpoints {
 /// descontando a largura da barra lateral quando exibida em tablets.
 double sidePadding(BuildContext context, {double maxWidth = 760}) {
   final w = MediaQuery.sizeOf(context).width;
-  final railW = w >= Breakpoints.desktop
-      ? 232.0
-      : (w >= Breakpoints.tablet ? 88.0 : 0.0);
+  final railW = RailInsetScope.of(context);
   final contentW = math.max(0.0, w - railW);
   return math.max(Space.gutter, (contentW - maxWidth) / 2);
 }

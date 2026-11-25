@@ -26,6 +26,9 @@ class DashboardGrid extends StatelessWidget {
   final List<DashTile> tiles;
   final Map<String, int> spans;
   final void Function(String id, int span) onSpanChanged;
+  final bool editing;
+  final void Function(String fromId, String toId)? onReorder;
+  final void Function(String id)? onRemove;
   final double gap;
   final int startIndex; // posição na cascata de entrada
   const DashboardGrid({
@@ -33,6 +36,9 @@ class DashboardGrid extends StatelessWidget {
     required this.tiles,
     required this.spans,
     required this.onSpanChanged,
+    this.editing = false,
+    this.onReorder,
+    this.onRemove,
     this.gap = 10,
     this.startIndex = 0,
   });
@@ -88,26 +94,57 @@ class DashboardGrid extends StatelessWidget {
                               minHeight: _minHeightFor(row[i].id, spanOf(row[i])),
                             ),
                             child: RepaintBoundary(
-                              child: _Resizable(
-                                key: ValueKey(row[i].id),
-                                span: spanOf(row[i]),
-                                enabled: cols > 1,
-                                onToggle: () => onSpanChanged(
-                                  row[i].id,
-                                  spanOf(row[i]) == 1 ? 2 : 1,
-                                ),
-                                child: row[i].builder(
-                                  ctx,
-                                  _innerWidth(
-                                    w,
-                                    gap,
-                                    cols,
-                                    slots,
-                                    spanOf(row[i]),
-                                  ),
-                                  spanOf(row[i]),
-                                ),
-                              ),
+                              child: editing
+                                  ? _EditableTile(
+                                      key: ValueKey('edit-${row[i].id}'),
+                                      id: row[i].id,
+                                      span: spanOf(row[i]),
+                                      canResize: cols > 1,
+                                      onToggleSpan: () => onSpanChanged(
+                                        row[i].id,
+                                        spanOf(row[i]) == 1 ? 2 : 1,
+                                      ),
+                                      onRemove: onRemove == null
+                                          ? null
+                                          : () => onRemove!(row[i].id),
+                                      onAcceptDrop: (fromId) {
+                                        if (fromId != row[i].id) {
+                                          HapticFeedback.selectionClick();
+                                          onReorder?.call(fromId, row[i].id);
+                                        }
+                                      },
+                                      child: row[i].builder(
+                                        ctx,
+                                        _innerWidth(
+                                          w,
+                                          gap,
+                                          cols,
+                                          slots,
+                                          spanOf(row[i]),
+                                        ),
+                                        spanOf(row[i]),
+                                      ),
+                                    )
+                                  : _Resizable(
+                                      key: ValueKey(row[i].id),
+                                      span: spanOf(row[i]),
+                                      enabled: cols > 1,
+                                      onToggle: () => onSpanChanged(
+                                        row[i].id,
+                                        spanOf(row[i]) == 1 ? 2 : 1,
+                                      ),
+                                      child: row[i].builder(
+                                        ctx,
+                                        _innerWidth(
+                                          w,
+                                          gap,
+                                          cols,
+                                          slots,
+                                          spanOf(row[i]),
+                                        ),
+                                        spanOf(row[i]),
+                                      ),
+                                    ),
                             ),
                           ),
                         ),
@@ -136,6 +173,123 @@ class DashboardGrid extends StatelessWidget {
     int tileSpan,
   ) {
     return (w - gap * (slots - 1)) * tileSpan / cols - 32;
+  }
+}
+
+class _EditableTile extends StatelessWidget {
+  final String id;
+  final int span;
+  final bool canResize;
+  final VoidCallback onToggleSpan;
+  final VoidCallback? onRemove;
+  final void Function(String fromId) onAcceptDrop;
+  final Widget child;
+
+  const _EditableTile({
+    super.key,
+    required this.id,
+    required this.span,
+    required this.canResize,
+    required this.onToggleSpan,
+    required this.onRemove,
+    required this.onAcceptDrop,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.c;
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (d) => d.data != id,
+      onAcceptWithDetails: (d) => onAcceptDrop(d.data),
+      builder: (ctx, candidates, _) {
+        final hovered = candidates.isNotEmpty;
+        final card = AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          decoration: ShapeDecoration(
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(Space.radiusCard),
+              side: BorderSide(
+                color: hovered
+                    ? c.primary
+                    : c.primary.withValues(alpha: 0.42),
+                width: hovered ? 2.2 : 1.2,
+              ),
+            ),
+          ),
+          child: Stack(
+            children: [
+              AbsorbPointer(child: child),
+              if (onRemove != null)
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: Pressable(
+                    semanticLabel: 'Remover card',
+                    scale: 0.9,
+                    onTap: onRemove,
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: c.negative,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        LucideIcons.minus,
+                        size: 15,
+                        color: Palette.neutral0,
+                      ),
+                    ),
+                  ),
+                ),
+              if (canResize)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Pressable(
+                    semanticLabel: 'Alternar tamanho',
+                    scale: 0.9,
+                    onTap: onToggleSpan,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      decoration: ShapeDecoration(
+                        color: c.cardAlt,
+                        shape: RoundedSuperellipseBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        '${span}x',
+                        style: T.micro.copyWith(
+                          color: c.text,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+
+        return Draggable<String>(
+          data: id,
+          feedback: Opacity(
+            opacity: 0.88,
+            child: SizedBox(
+              width: span == 2 ? 300 : 168,
+              child: card,
+            ),
+          ),
+          childWhenDragging: Opacity(opacity: 0.32, child: card),
+          child: card,
+        );
+      },
+    );
   }
 }
 

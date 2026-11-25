@@ -218,9 +218,9 @@ class _FloatingNavBarState extends State<FloatingNavBar> {
   }
 }
 
-/// Barra de navegação lateral adaptativa para tablets e telas largas
-/// (segue diretrizes Material 3 NavigationRail / iPadOS Sidebar).
-/// Compacta (`88dp`) entre 600–899dp e expandida (`232dp`) em `>= 900dp`.
+/// Barra de navegação lateral flutuante para tablets e telas largas,
+/// seguindo o mesmo estilo glass translúcido da [FloatingNavBar] mobile.
+/// Compacta (`84dp`) entre 600–899dp e expandida (`216dp`) em `>= 900dp`.
 class SideNavRail extends StatelessWidget {
   final List<NavItem> items;
   final int index;
@@ -241,138 +241,210 @@ class SideNavRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.c;
     final mq = MediaQuery.paddingOf(context);
-    final width = expanded ? 232.0 : 88.0;
+    final width = expanded ? 216.0 : 84.0;
     final (addBg, addFg) = softActionTone(
       c.palette.primary[500],
       isDark: c.isDark,
     );
 
-    return Container(
-      width: width + mq.left,
+    return Padding(
       padding: EdgeInsets.fromLTRB(
-        mq.left + (expanded ? Space.base : Space.sm),
+        mq.left + Space.base,
         mq.top + Space.base,
-        expanded ? Space.base : Space.sm,
+        0,
         mq.bottom + Space.base,
       ),
-      decoration: BoxDecoration(
-        color: c.isDark ? c.surfaceLow : c.card,
-        border: Border(
-          right: BorderSide(
-            color: c.border.withValues(alpha: 0.45),
-            width: 0.75,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment:
-            expanded ? CrossAxisAlignment.stretch : CrossAxisAlignment.center,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: expanded ? Space.sm : 0,
-              vertical: Space.xs,
-            ),
-            child: Row(
-              mainAxisAlignment: expanded
-                  ? MainAxisAlignment.start
-                  : MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    color: c.primarySoft,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Icon(
-                    LucideIcons.waves,
-                    size: 18,
-                    color: c.primary,
-                  ),
+      child: RepaintBoundary(
+        child: Container(
+          width: width,
+          decoration: ShapeDecoration(
+            shadows: [
+              BoxShadow(
+                color: Palette.neutral950.withValues(
+                  alpha: c.isDark ? 0.42 : 0.10,
                 ),
-                if (expanded) ...[
-                  const SizedBox(width: Space.sm),
-                  Text(
-                    'maré',
-                    style: T.title.copyWith(
-                      color: c.text,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.4,
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+            shape: RoundedSuperellipseBorder(
+              borderRadius: BorderRadius.circular(32),
+            ),
+          ),
+          child: ClipRSuperellipse(
+            borderRadius: BorderRadius.circular(32),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: RepaintBoundary(
+                    child: Builder(
+                      builder: (ctx) {
+                        final perf = ctx.perf;
+                        final sigma = 26.0 * perf.glassSigmaFactor;
+                        final surface = DecoratedBox(
+                          decoration: ShapeDecoration(
+                            color: c.isDark
+                                ? (perf.allowBlur
+                                      ? const Color(0xFF16161A).withValues(
+                                          alpha: 0.56,
+                                        )
+                                      : c.card)
+                                : (perf.allowBlur
+                                      ? const Color(0xFFFFFFFF).withValues(
+                                          alpha: 0.62,
+                                        )
+                                      : Palette.neutral0),
+                            shape: RoundedSuperellipseBorder(
+                              borderRadius: BorderRadius.circular(32),
+                              side: BorderSide(
+                                color: c.isDark
+                                    ? Palette.neutral0.withValues(alpha: 0.10)
+                                    : Palette.neutral950.withValues(alpha: 0.08),
+                              ),
+                            ),
+                          ),
+                        );
+                        if (!perf.allowBlur || sigma < 1.0) return surface;
+                        return BackdropFilter(
+                          filter: ui.ImageFilter.blur(
+                            sigmaX: sigma,
+                            sigmaY: sigma,
+                          ),
+                          child: surface,
+                        );
+                      },
                     ),
                   ),
-                ],
+                ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    expanded ? Space.md : Space.xs,
+                    Space.base,
+                    expanded ? Space.md : Space.xs,
+                    Space.base,
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: expanded
+                        ? CrossAxisAlignment.stretch
+                        : CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: expanded ? Space.sm : 0,
+                          vertical: Space.xxs,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: expanded
+                              ? MainAxisAlignment.start
+                              : MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: c.primarySoft,
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                              child: Icon(
+                                LucideIcons.waves,
+                                size: 18,
+                                color: c.primary,
+                              ),
+                            ),
+                            if (expanded) ...[
+                              const SizedBox(width: Space.sm),
+                              Text(
+                                'maré',
+                                style: T.title.copyWith(
+                                  color: c.text,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: Space.base),
+                      Pressable(
+                        semanticLabel: 'Adicionar gasto',
+                        scale: 0.96,
+                        onTap: onAddExpense,
+                        child: Container(
+                          height: 46,
+                          width: expanded ? null : 46,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: expanded ? Space.base : 0,
+                          ),
+                          decoration: ShapeDecoration(
+                            color: addBg,
+                            shape: RoundedSuperellipseBorder(
+                              borderRadius: BorderRadius.circular(23),
+                            ),
+                          ),
+                          child: expanded
+                              ? Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(LucideIcons.plus, size: 19, color: addFg),
+                                    const SizedBox(width: Space.xs),
+                                    Flexible(
+                                      child: Text(
+                                        'Novo gasto',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: T.bodyStrong.copyWith(color: addFg),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Center(
+                                  child: Icon(
+                                    LucideIcons.plus,
+                                    size: 20,
+                                    color: addFg,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: Space.base),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: expanded
+                                ? CrossAxisAlignment.stretch
+                                : CrossAxisAlignment.center,
+                            children: [
+                              for (var i = 0; i < items.length; i++)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: Space.xxs),
+                                  child: _SideRailItem(
+                                    item: items[i],
+                                    active: i == index,
+                                    expanded: expanded,
+                                    onTap: () {
+                                      if (i == index) {
+                                        HapticFeedback.lightImpact();
+                                        return;
+                                      }
+                                      HapticFeedback.selectionClick();
+                                      onTap(i);
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: Space.lg),
-          Pressable(
-            semanticLabel: 'Adicionar gasto',
-            scale: 0.96,
-            onTap: onAddExpense,
-            child: Container(
-              height: 48,
-              width: expanded ? null : 48,
-              padding: EdgeInsets.symmetric(
-                horizontal: expanded ? Space.base : 0,
-              ),
-              decoration: ShapeDecoration(
-                color: addBg,
-                shape: RoundedSuperellipseBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-              ),
-              child: expanded
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(LucideIcons.plus, size: 19, color: addFg),
-                        const SizedBox(width: Space.xs),
-                        Flexible(
-                          child: Text(
-                            'Novo gasto',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: T.bodyStrong.copyWith(color: addFg),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Center(
-                      child: Icon(LucideIcons.plus, size: 20, color: addFg),
-                    ),
-            ),
-          ),
-          SizedBox(height: expanded ? Space.lg : Space.md),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: expanded
-                    ? CrossAxisAlignment.stretch
-                    : CrossAxisAlignment.center,
-                children: [
-                  for (var i = 0; i < items.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: Space.xs),
-                      child: _SideRailItem(
-                        item: items[i],
-                        active: i == index,
-                        expanded: expanded,
-                        onTap: () {
-                          if (i == index) {
-                            HapticFeedback.lightImpact();
-                            return;
-                          }
-                          HapticFeedback.selectionClick();
-                          onTap(i);
-                        },
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

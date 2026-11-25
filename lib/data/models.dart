@@ -576,6 +576,7 @@ enum ThemePref { auto, light, dark }
 class AppData {
   String userName;
   String? avatarPath;
+  String? headerPath;
   int userSince;
   int cycleStartDay;
   ThemePref theme;
@@ -608,6 +609,7 @@ class AppData {
   AppData({
     this.userName = '',
     this.avatarPath,
+    this.headerPath,
     int? userSince,
     this.cycleStartDay = 1,
     this.theme = ThemePref.auto,
@@ -641,6 +643,7 @@ class AppData {
     'updatedAt': _iso(updatedAt?.toUtc()),
     'userName': userName,
     'avatarPath': avatarPath,
+    'headerPath': headerPath,
     'userSince': userSince,
     'cycleStartDay': cycleStartDay,
     'theme': theme.name,
@@ -666,6 +669,7 @@ class AppData {
     return AppData(
       userName: j['userName'] as String? ?? '',
       avatarPath: j['avatarPath'] as String?,
+      headerPath: j['headerPath'] as String?,
       userSince: (j['userSince'] as num?)?.toInt(),
       cycleStartDay: ((j['cycleStartDay'] as num?)?.toInt() ?? 1).clamp(1, 31),
       theme: ThemePref.values.firstWhere(

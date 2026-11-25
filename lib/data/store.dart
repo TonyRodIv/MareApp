@@ -88,10 +88,14 @@ class Store extends ChangeNotifier {
     String? name,
     String? avatarPath,
     bool clearAvatar = false,
+    String? headerPath,
+    bool clearHeader = false,
   }) {
     if (name != null) data.userName = name.trim();
     if (clearAvatar) data.avatarPath = null;
     if (avatarPath != null) data.avatarPath = avatarPath;
+    if (clearHeader) data.headerPath = null;
+    if (headerPath != null) data.headerPath = headerPath;
     _commit();
   }
 
@@ -514,6 +518,8 @@ class StoreScope extends InheritedNotifier<Store> {
 
   static Store of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<StoreScope>()!.notifier!;
+  static Store? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<StoreScope>()?.notifier;
   static Store read(BuildContext context) =>
       context.getInheritedWidgetOfExactType<StoreScope>()!.notifier!;
 }

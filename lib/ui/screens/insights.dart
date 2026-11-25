@@ -82,11 +82,9 @@ class _DetailPage extends StatelessWidget {
         ),
       ],
     );
-    final content = Stack(
-      children: [
-        const GlowBackground(height: 460),
-        embedded ? scroll : CollapsingTitleScope(child: scroll),
-      ],
+    final content = GlowScrollStack(
+      height: 460,
+      child: embedded ? scroll : CollapsingTitleScope(child: scroll),
     );
     if (embedded) return content;
     return SheetScaler(
@@ -402,7 +400,6 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   int _months = 6;
-  bool _barsMode = false;
   int? _selectedIdx;
 
   @override
@@ -429,76 +426,47 @@ class _HistoryScreenState extends State<HistoryScreen> {
       for (final cy in f.lastCycles(12).reversed)
         if (f.salaryFor(cy) > 0 || f.expensesTotal(cy) > 0) cy,
     ];
-    final fixedColor = c.primary;
-    final varColor = c.primary.withValues(alpha: c.isDark ? 0.45 : 0.35);
 
     return _DetailPage(
       title: 'Histórico',
       embedded: widget.embedded,
       children: [
-        // Cabeçalho com valor + variação à esquerda e alternador linha/barras à direita
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        // Cabeçalho com valor + variação
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Text(
+              'Gastos · ${activeCycle.label()}',
+              style: T.label.copyWith(color: c.textSecondary),
+            ),
+            const SizedBox(height: Space.xxs),
+            CountingMoney(
+              cents: activeTotal,
+              builder: (v) =>
+                  MoneyText(v, hidden: hidden, style: T.displayLg),
+            ),
+            if (deltaPct != null) ...[
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
+                  Icon(
+                    deltaPct > 0
+                        ? LucideIcons.trendingUp
+                        : LucideIcons.trendingDown,
+                    size: 14,
+                    color: deltaPct > 0 ? c.negative : c.positive,
+                  ),
+                  const SizedBox(width: 4),
                   Text(
-                    activeCycle.label(),
-                    style: T.label.copyWith(color: c.textSecondary),
-                  ),
-                  const SizedBox(height: Space.xxs),
-                  CountingMoney(
-                    cents: activeTotal,
-                    builder: (v) =>
-                        MoneyText(v, hidden: hidden, style: T.displayLg),
-                  ),
-                  if (deltaPct != null) ...[
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          deltaPct > 0
-                              ? LucideIcons.trendingUp
-                              : LucideIcons.trendingDown,
-                          size: 14,
-                          color: deltaPct > 0 ? c.negative : c.positive,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${deltaPct > 0 ? '+' : ''}${deltaPct.toStringAsFixed(0)}% vs. ${prevCycle.shortLabel()}',
-                          style: T.smallStrong.copyWith(
-                            color: deltaPct > 0 ? c.negative : c.positive,
-                          ),
-                        ),
-                      ],
+                    '${deltaPct > 0 ? '+' : ''}${deltaPct.toStringAsFixed(0)}% vs. ${prevCycle.shortLabel()}',
+                    style: T.smallStrong.copyWith(
+                      color: deltaPct > 0 ? c.negative : c.positive,
                     ),
-                  ],
+                  ),
                 ],
               ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _modeBtn(
-                  context,
-                  icon: LucideIcons.trendingUp,
-                  active: !_barsMode,
-                  label: 'Gráfico em linha',
-                  onTap: () => setState(() => _barsMode = false),
-                ),
-                const SizedBox(width: Space.xs),
-                _modeBtn(
-                  context,
-                  icon: LucideIcons.chartColumn,
-                  active: _barsMode,
-                  label: 'Gráfico em barras',
-                  onTap: () => setState(() => _barsMode = true),
-                ),
-              ],
-            ),
+            ],
           ],
         ),
         const SizedBox(height: Space.base),
@@ -514,50 +482,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ),
         const SizedBox(height: Space.lg),
 
-        // Gráfico diretamente sobre o fundo (sem container extra)
-        if (!_barsMode)
-          HistoryLineChart(
-            f: f,
-            cycles: _months,
-            height: 204,
-            hidden: hidden,
-            onSelect: (idx) => setState(() => _selectedIdx = idx),
-          )
-        else ...[
-          HistoryBars(
-            f: f,
-            cycles: _months,
-            height: 196,
-            hidden: hidden,
-          ),
-          const SizedBox(height: Space.sm),
-          Wrap(
-            spacing: Space.md,
-            runSpacing: Space.xs,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _dot(fixedColor),
-                  Text(
-                    ' Fixos e caixinhas',
-                    style: T.small.copyWith(color: c.textSecondary),
-                  ),
-                ],
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _dot(varColor),
-                  Text(
-                    ' Dia a dia',
-                    style: T.small.copyWith(color: c.textSecondary),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+        // Gráfico de linha diretamente sobre o fundo
+        HistoryLineChart(
+          f: f,
+          cycles: _months,
+          height: 204,
+          hidden: hidden,
+          onSelect: (idx) => setState(() => _selectedIdx = idx),
+        ),
 
         if (cycles.isNotEmpty) ...[
           const SizedBox(height: Space.lg),
@@ -567,10 +499,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               for (final cy in cycles)
                 ListRow(
                   title: cy.label(),
-                  subtitle:
-                      'Gastos ${fmtMoney(f.expensesTotal(cy), hidden: hidden)}',
-                  value: fmtMoney(f.freeBalance(cy), hidden: hidden),
-                  valueColor: f.freeBalance(cy) < 0 ? c.negative : c.text,
+                  value: fmtMoney(f.expensesTotal(cy), hidden: hidden),
                 ),
             ],
           ),
@@ -578,41 +507,4 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ],
     );
   }
-
-  Widget _modeBtn(
-    BuildContext context, {
-    required IconData icon,
-    required bool active,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    final c = context.c;
-    return Pressable(
-      semanticLabel: label,
-      scale: 0.92,
-      onTap: onTap,
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: active ? c.cardAlt : const Color(0x00000000),
-          shape: BoxShape.circle,
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: active ? c.text : c.textTertiary,
-        ),
-      ),
-    );
-  }
-
-  Widget _dot(Color c) => Container(
-    width: 10,
-    height: 10,
-    decoration: ShapeDecoration(
-      color: c,
-      shape: RoundedSuperellipseBorder(borderRadius: BorderRadius.circular(3)),
-    ),
-  );
 }

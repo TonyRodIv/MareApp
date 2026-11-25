@@ -33,6 +33,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   HeroView _view = HeroView.free;
+  bool _editingGrid = false;
   List<BankSuggestion> _suggestions = const [];
   StreamSubscription<String>? _bankSub;
 
@@ -75,10 +76,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final hasCards = s.data.cards.isNotEmpty;
     final hasSubs = f.subscriptions(cy).isNotEmpty;
 
-    return Stack(
-      children: [
-        const GlowBackground(height: 560),
-        CustomScrollView(
+    return GlowScrollStack(
+      height: 560,
+      child: CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
@@ -257,28 +257,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       return DashboardGrid(
                         gap: Space.md,
                         spans: s.data.cardSpans,
+                        editing: _editingGrid,
                         onSpanChanged: s.setCardSpan,
+                        onReorder: (fromId, toId) {
+                          final order = _allIds(
+                            s.data.widgetOrder,
+                            hasCards: hasCards,
+                          );
+                          final fromIdx = order.indexOf(fromId);
+                          final toIdx = order.indexOf(toId);
+                          if (fromIdx < 0 || toIdx < 0) return;
+                          final item = order.removeAt(fromIdx);
+                          order.insert(toIdx, item);
+                          s.setDashboardLayout(
+                            order: order,
+                            hidden: _effectiveHidden(s).toList(),
+                          );
+                        },
+                        onRemove: (id) {
+                          final hiddenSet = _effectiveHidden(s)..add(id);
+                          s.setDashboardLayout(
+                            order: _allIds(
+                              s.data.widgetOrder,
+                              hasCards: hasCards,
+                            ),
+                            hidden: hiddenSet.toList(),
+                          );
+                        },
                         tiles: tiles,
                       );
                     },
                   ),
                   const SizedBox(height: Space.sm),
-                  Center(
-                    child: PillButton(
-                      'Editar grade',
-                      icon: LucideIcons.slidersHorizontal,
-                      kind: BtnKind.ghost,
-                      expand: false,
-                      height: 44,
-                      onTap: () => _editGrid(context),
+                  if (_editingGrid) ...[
+                    Center(
+                      child: Wrap(
+                        spacing: Space.sm,
+                        runSpacing: Space.sm,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          PillButton(
+                            'Adicionar widget',
+                            icon: LucideIcons.plus,
+                            kind: BtnKind.secondary,
+                            expand: false,
+                            height: 44,
+                            onTap: () => _addWidgetSheet(context),
+                          ),
+                          PillButton(
+                            'Concluir',
+                            icon: LucideIcons.check,
+                            expand: false,
+                            height: 44,
+                            onTap: () => setState(() => _editingGrid = false),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: Space.xs),
+                    Center(
+                      child: CupertinoButton(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Space.sm,
+                          vertical: 4,
+                        ),
+                        onPressed: () {
+                          s.resetDashboardLayout();
+                          toast(context, 'Grade restaurada');
+                        },
+                        child: Text(
+                          'Restaurar padrão',
+                          style: T.small.copyWith(color: c.textSecondary),
+                        ),
+                      ),
+                    ),
+                  ] else
+                    Center(
+                      child: PillButton(
+                        'Editar grade',
+                        icon: LucideIcons.slidersHorizontal,
+                        kind: BtnKind.ghost,
+                        expand: false,
+                        height: 44,
+                        onTap: () => setState(() => _editingGrid = true),
+                      ),
+                    ),
                 ],
               ),
             ),
           ],
         ),
-      ],
     );
   }
 
@@ -524,6 +592,73 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 summary,
               ],
             ),
+    );
+  }
+
+  Future<void> _addWidgetSheet(BuildContext context) {
+    final s = context.storeRead;
+    final hasCards = s.data.cards.isNotEmpty;
+    final all = _allIds(s.data.widgetOrder, hasCards: hasCards);
+    return showSheet<void>(
+      context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) {
+          final c = ctx.c;
+          final hidden = _effectiveHidden(s);
+          final order = _allIds(s.data.widgetOrder, hasCards: hasCards);
+          return SheetBody(
+            bottom: PillButton('Fechar', onTap: () => Navigator.pop(ctx)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Widgets da Carteira',
+                  style: T.title.copyWith(color: c.text),
+                ),
+                const SizedBox(height: Space.xs),
+                Text(
+                  'Toque para mostrar ou ocultar cards. Arraste os cards na tela inicial para reordenar.',
+                  style: T.small.copyWith(color: c.textSecondary),
+                ),
+                const SizedBox(height: Space.base),
+                ListGroup(
+                  bg: c.isDark ? c.cardAlt : c.surfaceLow,
+                  children: [
+                    for (final id in all)
+                      ListRow(
+                        leading: Icon(
+                          _widgetMeta[id]?.$2 ?? LucideIcons.layoutGrid,
+                          size: 20,
+                          color: hidden.contains(id)
+                              ? c.textTertiary
+                              : c.primary,
+                        ),
+                        title: _widgetMeta[id]?.$1 ?? id,
+                        trailing: CupertinoSwitch(
+                          value: !hidden.contains(id),
+                          activeTrackColor: c.primary,
+                          onChanged: (on) {
+                            set(() {
+                              if (on) {
+                                hidden.remove(id);
+                              } else {
+                                hidden.add(id);
+                              }
+                            });
+                            s.setDashboardLayout(
+                              order: order,
+                              hidden: hidden.toList(),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

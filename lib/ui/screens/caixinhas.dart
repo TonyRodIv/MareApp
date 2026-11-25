@@ -182,11 +182,9 @@ class _CaixinhasScreenState extends State<CaixinhasScreen> {
           ],
         );
 
-    final body = Stack(
-      children: [
-        const GlowBackground(height: 440),
-        widget.standalone ? CollapsingTitleScope(child: scroll) : scroll,
-      ],
+    final body = GlowScrollStack(
+      height: 440,
+      child: widget.standalone ? CollapsingTitleScope(child: scroll) : scroll,
     );
     if (!widget.standalone) return body;
     return SheetScaler(

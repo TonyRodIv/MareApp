@@ -59,10 +59,9 @@ class ProfileScreen extends StatelessWidget {
         : 'Sincronizado com o Drive';
     final syncIcon = sync.isConnected ? LucideIcons.cloud : LucideIcons.cloudOff;
 
-    return Stack(
-      children: [
-        const GlowBackground(height: 480),
-        CustomScrollView(
+    return GlowScrollStack(
+      height: 480,
+      child: CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
@@ -453,7 +452,6 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
-      ],
     );
   }
 }
@@ -496,18 +494,143 @@ class SettingsScreen extends StatelessWidget {
     final s = context.store;
     final sync = context.sync;
     final d = s.data;
-    final maxW = isWide(context) ? 820.0 : 640.0;
+    final twoCols = MediaQuery.sizeOf(context).width >= 840;
+    final maxW = twoCols ? 1020.0 : (isWide(context) ? 820.0 : 640.0);
     final pad = sidePadding(context, maxWidth: maxW);
     final currentSeed = d.accentColor ?? accentThemes.first.primary.toARGB32();
     final themeSpec = accentThemeFor(Color(currentSeed));
     final navTabs = effectiveNavTabs(d);
+
+    final appearanceSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Aparência e navegação'),
+        _Group(
+          children: [
+            _Row(
+              icon: LucideIcons.sunMoon,
+              title: 'Modo de cor',
+              value: switch (d.theme) {
+                ThemePref.auto => 'Automático',
+                ThemePref.light => 'Claro',
+                ThemePref.dark => 'Escuro',
+              },
+              onTap: () => _pickTheme(context),
+            ),
+            _Row(
+              icon: LucideIcons.palette,
+              title: 'Tema e destaque',
+              value: themeSpec.name,
+              onTap: () => _pickAccent(context),
+            ),
+            _Row(
+              icon: LucideIcons.panelBottom,
+              title: 'Barra de navegação',
+              value: '${navTabs.length} abas',
+              onTap: () => _editNavBar(context),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    final financeSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Finanças'),
+        _Group(
+          children: [
+            _Row(
+              icon: LucideIcons.calendarSync,
+              title: 'Salário e virada do ciclo',
+              value: 'Dia ${d.cycleStartDay}',
+              onTap: () => editSalaryAndCycle(context),
+            ),
+            _Row(
+              icon: LucideIcons.landmark,
+              title: 'Contas e cartões',
+              value: d.cards.isEmpty ? 'Nenhuma' : '${d.cards.length}',
+              onTap: () => manageCards(context),
+            ),
+          ],
+        ),
+        if (isAndroidNative) ...[
+          const SectionHeader('Automações e tela inicial'),
+          _Group(
+            children: [
+              _Row(
+                icon: LucideIcons.bellRing,
+                title: 'Detectar gastos de bancos',
+                onTap: () => _openBankNotificationsSheet(context),
+              ),
+              _Row(
+                icon: LucideIcons.layoutGrid,
+                title: 'Widgets na tela inicial',
+                onTap: () => _openHomeWidgetsSheet(context),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+
+    final cloudSection = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Nuvem e dados'),
+        _Group(
+          children: [
+            _Row(
+              icon: LucideIcons.cloud,
+              title: 'Google Drive',
+              value: sync.isConnected
+                  ? (sync.pendingConflict != null ? 'Conflito' : 'Ativa')
+                  : 'Desconectada',
+              onTap: () => push(context, const SyncScreen()),
+            ),
+            _Row(
+              icon: LucideIcons.sparkles,
+              title: 'Importar com IA',
+              onTap: () => push(context, const AiImportScreen()),
+            ),
+            _Row(
+              icon: LucideIcons.download,
+              title: 'Exportar backup',
+              onTap: () => exportBackupFlow(context),
+            ),
+            _Row(
+              icon: LucideIcons.upload,
+              title: 'Restaurar backup',
+              onTap: () => importBackupFlow(context),
+            ),
+          ],
+        ),
+        const SectionHeader('Aplicativo'),
+        _Group(
+          children: [
+            _Row(
+              icon: LucideIcons.info,
+              title: 'Sobre o maré',
+              value: 'v1.6',
+              onTap: () => push(context, const AboutScreen()),
+            ),
+            _Row(
+              icon: LucideIcons.logOut,
+              title: 'Sair e limpar aparelho',
+              danger: true,
+              onTap: () => _signOut(context),
+            ),
+          ],
+        ),
+      ],
+    );
 
     return SheetScaler(
       child: CupertinoPageScaffold(
         backgroundColor: c.bg,
         child: Stack(
           children: [
-            const GlowBackground(height: 440),
+            const GlowBackground(height: 440, useHeader: false),
             CollapsingTitleScope(
               child: CustomScrollView(
                 physics: const BouncingScrollPhysics(
@@ -516,7 +639,7 @@ class SettingsScreen extends StatelessWidget {
                 slivers: [
                   PinnedCupertinoBar(
                     height: 60,
-                    maxWidth: 640,
+                    maxWidth: maxW,
                     builder: (ctx, progress) => Row(
                       children: [
                         const BackChevron(),
@@ -532,117 +655,28 @@ class SettingsScreen extends StatelessWidget {
                     sliver: SliverList.list(
                       children: [
                         LargeTitle('Configurações', style: T.pageTitle),
-                        const SectionHeader('Aparência e navegação'),
-                        _Group(
-                          children: [
-                            _Row(
-                              icon: LucideIcons.sunMoon,
-                              title: 'Modo de cor',
-                              value: switch (d.theme) {
-                                ThemePref.auto => 'Automático',
-                                ThemePref.light => 'Claro',
-                                ThemePref.dark => 'Escuro',
-                              },
-                              onTap: () => _pickTheme(context),
-                            ),
-                            _Row(
-                              icon: LucideIcons.palette,
-                              title: 'Tema e destaque',
-                              value: themeSpec.name,
-                              onTap: () => _pickAccent(context),
-                            ),
-                            _Row(
-                              icon: LucideIcons.panelBottom,
-                              title: 'Barra de navegação',
-                              value: '${navTabs.length} abas',
-                              onTap: () => _editNavBar(context),
-                            ),
-                          ],
-                        ),
-                        const SectionHeader('Finanças'),
-                        _Group(
-                          children: [
-                            _Row(
-                              icon: LucideIcons.calendarSync,
-                              title: 'Salário e virada do ciclo',
-                              value: 'Dia ${d.cycleStartDay}',
-                              onTap: () => editSalaryAndCycle(context),
-                            ),
-                            _Row(
-                              icon: LucideIcons.landmark,
-                              title: 'Contas e cartões',
-                              value: d.cards.isEmpty
-                                  ? 'Nenhuma'
-                                  : '${d.cards.length}',
-                              onTap: () => manageCards(context),
-                            ),
-                          ],
-                        ),
-                        if (isAndroidNative) ...[
-                          const SectionHeader('Automações e tela inicial'),
-                          _Group(
+                        if (twoCols)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _Row(
-                                icon: LucideIcons.bellRing,
-                                title: 'Detectar gastos de bancos',
-                                onTap: () =>
-                                    _openBankNotificationsSheet(context),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    appearanceSection,
+                                    financeSection,
+                                  ],
+                                ),
                               ),
-                              _Row(
-                                icon: LucideIcons.layoutGrid,
-                                title: 'Widgets na tela inicial',
-                                onTap: () => _openHomeWidgetsSheet(context),
-                              ),
+                              const SizedBox(width: Space.lg),
+                              Expanded(child: cloudSection),
                             ],
-                          ),
+                          )
+                        else ...[
+                          appearanceSection,
+                          financeSection,
+                          cloudSection,
                         ],
-                        const SectionHeader('Nuvem e dados'),
-                        _Group(
-                          children: [
-                            _Row(
-                              icon: LucideIcons.cloud,
-                              title: 'Google Drive',
-                              value: sync.isConnected
-                                  ? (sync.pendingConflict != null
-                                        ? 'Conflito'
-                                        : 'Ativa')
-                                  : 'Desconectada',
-                              onTap: () => push(context, const SyncScreen()),
-                            ),
-                            _Row(
-                              icon: LucideIcons.sparkles,
-                              title: 'Importar com IA',
-                              onTap: () => push(context, const AiImportScreen()),
-                            ),
-                            _Row(
-                              icon: LucideIcons.download,
-                              title: 'Exportar backup',
-                              onTap: () => exportBackupFlow(context),
-                            ),
-                            _Row(
-                              icon: LucideIcons.upload,
-                              title: 'Restaurar backup',
-                              onTap: () => importBackupFlow(context),
-                            ),
-                          ],
-                        ),
-                        const SectionHeader('Aplicativo'),
-                        _Group(
-                          children: [
-                            _Row(
-                              icon: LucideIcons.info,
-                              title: 'Sobre o maré',
-                              value: 'v1.6',
-                              onTap: () => push(context, const AboutScreen()),
-                            ),
-                            _Row(
-                              icon: LucideIcons.logOut,
-                              title: 'Sair e limpar aparelho',
-                              danger: true,
-                              onTap: () => _signOut(context),
-                            ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -1764,12 +1798,38 @@ class _ProfileFormState extends State<_ProfileForm> {
     text: context.storeRead.data.userName,
   );
   late String? _avatar = context.storeRead.data.avatarPath;
+  late String? _header = context.storeRead.data.headerPath;
   bool _removed = false;
+  bool _headerRemoved = false;
 
   @override
   void dispose() {
     _name.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickHeader() async {
+    try {
+      final x = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 90,
+      );
+      if (x == null || !mounted) return;
+      setState(() {
+        _header = x.path;
+        _headerRemoved = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        toast(
+          context,
+          'Não foi possível usar essa imagem',
+          icon: LucideIcons.triangleAlert,
+        );
+      }
+    }
   }
 
   Future<void> _pick(ImageSource src) async {
@@ -1813,6 +1873,8 @@ class _ProfileFormState extends State<_ProfileForm> {
             name: _name.text,
             avatarPath: _removed ? null : _avatar,
             clearAvatar: _removed,
+            headerPath: _headerRemoved ? null : _header,
+            clearHeader: _headerRemoved,
           );
           Navigator.pop(context);
         },
@@ -1837,77 +1899,209 @@ class _ProfileFormState extends State<_ProfileForm> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          Center(
-            child: Pressable(
-              onTap: () async {
-                final a = await actionSheet<String>(
-                  context,
-                  actions: [
-                    if (hasGooglePhoto)
-                      const SheetAction(
-                        'Usar foto da conta Google',
-                        'google',
-                        icon: LucideIcons.cloud,
+          const SizedBox(height: 16),
+          // Banner de capa por trás da foto de perfil (avatar metade dentro, metade fora)
+          SizedBox(
+            height: 172,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                Pressable(
+                  scale: 0.98,
+                  semanticLabel: 'Alterar imagem de cabeçalho',
+                  onTap: () async {
+                    if (_header == null) {
+                      await _pickHeader();
+                      return;
+                    }
+                    final a = await actionSheet<String>(
+                      context,
+                      actions: const [
+                        SheetAction(
+                          'Trocar imagem de cabeçalho',
+                          'gallery',
+                          icon: LucideIcons.image,
+                        ),
+                        SheetAction(
+                          'Remover cabeçalho',
+                          'remove',
+                          destructive: true,
+                          icon: LucideIcons.trash2,
+                        ),
+                      ],
+                    );
+                    if (!mounted) return;
+                    if (a == 'gallery') await _pickHeader();
+                    if (a == 'remove') {
+                      setState(() {
+                        _header = null;
+                        _headerRemoved = true;
+                      });
+                    }
+                  },
+                  child: Container(
+                    height: 124,
+                    width: double.infinity,
+                    clipBehavior: Clip.antiAlias,
+                    decoration: ShapeDecoration(
+                      color: c.isDark ? c.cardAlt : c.surfaceLow,
+                      shape: RoundedSuperellipseBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: c.border.withValues(alpha: 0.35),
+                        ),
                       ),
-                    const SheetAction(
-                      'Escolher da galeria',
-                      'gallery',
-                      icon: LucideIcons.image,
                     ),
-                    const SheetAction(
-                      'Tirar foto',
-                      'camera',
-                      icon: LucideIcons.camera,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (_header != null && _header!.isNotEmpty)
+                          (_header!.startsWith('http://') ||
+                                  _header!.startsWith('https://') ||
+                                  _header!.startsWith('blob:') ||
+                                  _header!.startsWith('data:')
+                              ? Image.network(_header!, fit: BoxFit.cover)
+                              : Image.file(File(_header!), fit: BoxFit.cover))
+                        else
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  c.primary.withValues(alpha: 0.28),
+                                  c.isDark ? c.cardAlt : c.surfaceLow,
+                                ],
+                              ),
+                            ),
+                          ),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF000000)
+                                .withValues(alpha: _header != null ? 0.24 : 0.0),
+                          ),
+                        ),
+                        Positioned(
+                          right: 12,
+                          top: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: ShapeDecoration(
+                              color: const Color(0xFF000000)
+                                  .withValues(alpha: 0.45),
+                              shape: RoundedSuperellipseBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  LucideIcons.image,
+                                  size: 13,
+                                  color: Palette.neutral0,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  _header != null ? 'Capa' : 'Adicionar capa',
+                                  style: T.micro.copyWith(
+                                    color: Palette.neutral0,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    if (_avatar != null)
-                      const SheetAction(
-                        'Remover foto',
-                        'remove',
-                        destructive: true,
-                        icon: LucideIcons.trash2,
-                      ),
-                  ],
-                );
-                if (!mounted) return;
-                if (a == 'google' && hasGooglePhoto) {
-                  setState(() {
-                    _avatar = googlePhoto;
-                    _removed = false;
-                  });
-                }
-                if (a == 'gallery') _pick(ImageSource.gallery);
-                if (a == 'camera') _pick(ImageSource.camera);
-                if (a == 'remove') {
-                  setState(() {
-                    _avatar = null;
-                    _removed = true;
-                  });
-                }
-              },
-              child: Stack(
-                children: [
-                  Avatar(path: _avatar, name: _name.text, size: 96),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
+                  ),
+                ),
+                Positioned(
+                  top: 78,
+                  child: Pressable(
+                    onTap: () async {
+                      final a = await actionSheet<String>(
+                        context,
+                        actions: [
+                          if (hasGooglePhoto)
+                            const SheetAction(
+                              'Usar foto da conta Google',
+                              'google',
+                              icon: LucideIcons.cloud,
+                            ),
+                          const SheetAction(
+                            'Escolher da galeria',
+                            'gallery',
+                            icon: LucideIcons.image,
+                          ),
+                          const SheetAction(
+                            'Tirar foto',
+                            'camera',
+                            icon: LucideIcons.camera,
+                          ),
+                          if (_avatar != null)
+                            const SheetAction(
+                              'Remover foto',
+                              'remove',
+                              destructive: true,
+                              icon: LucideIcons.trash2,
+                            ),
+                        ],
+                      );
+                      if (!mounted) return;
+                      if (a == 'google' && hasGooglePhoto) {
+                        setState(() {
+                          _avatar = googlePhoto;
+                          _removed = false;
+                        });
+                      }
+                      if (a == 'gallery') _pick(ImageSource.gallery);
+                      if (a == 'camera') _pick(ImageSource.camera);
+                      if (a == 'remove') {
+                        setState(() {
+                          _avatar = null;
+                          _removed = true;
+                        });
+                      }
+                    },
                     child: Container(
-                      width: 32,
-                      height: 32,
+                      padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: c.primary,
+                        color: c.card,
                         shape: BoxShape.circle,
-                        border: Border.all(color: c.card, width: 2),
                       ),
-                      child: Icon(
-                        LucideIcons.camera,
-                        size: 16,
-                        color: c.onPrimary,
+                      child: Stack(
+                        children: [
+                          Avatar(path: _avatar, name: _name.text, size: 86),
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: c.primary,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: c.card, width: 2),
+                              ),
+                              child: Icon(
+                                LucideIcons.camera,
+                                size: 15,
+                                color: c.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           if (hasGooglePhoto && _avatar != googlePhoto) ...[

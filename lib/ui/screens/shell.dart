@@ -494,29 +494,44 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
         child: CupertinoPageScaffold(
           backgroundColor: c.bg,
           child: wide
-              ? Row(
+              ? Stack(
                   children: [
-                    ValueListenableBuilder<String>(
-                      valueListenable: _tabId,
-                      builder: (_, activeId, _) {
-                        final idx = tabs.indexOf(activeId);
-                        final navIndex = idx < 0 ? 0 : idx;
-                        return SideNavRail(
-                          expanded: expandedRail,
-                          index: navIndex,
-                          onTap: (i) => _tabId.value = tabs[i],
-                          onAddExpense: () => openAddExpense(context),
-                          items: [
-                            for (final id in tabs) _buildNavItem(id, s.data),
-                          ],
-                        );
-                      },
+                    Padding(
+                      padding: EdgeInsets.only(
+                        left: mq.padding.left +
+                            (expandedRail ? 232.0 : 100.0),
+                      ),
+                      child: RailInsetScope(
+                        inset: mq.padding.left + (expandedRail ? 232.0 : 100.0),
+                        child: MediaQuery.removePadding(
+                          context: context,
+                          removeLeft: true,
+                          child: pagesStack,
+                        ),
+                      ),
                     ),
-                    Expanded(
-                      child: MediaQuery.removePadding(
-                        context: context,
-                        removeLeft: true,
-                        child: pagesStack,
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ValueListenableBuilder<String>(
+                          valueListenable: _tabId,
+                          builder: (_, activeId, _) {
+                            final idx = tabs.indexOf(activeId);
+                            final navIndex = idx < 0 ? 0 : idx;
+                            return SideNavRail(
+                              expanded: expandedRail,
+                              index: navIndex,
+                              onTap: (i) => _tabId.value = tabs[i],
+                              onAddExpense: () => openAddExpense(context),
+                              items: [
+                                for (final id in tabs) _buildNavItem(id, s.data),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
