@@ -22,6 +22,33 @@ object MareWidgetStore {
     const val PREFS = "mare_native_prefs"
     const val ACTION_OPEN_APP = "com.mare.mare.ACTION_OPEN_APP"
     const val ACTION_ADD_EXPENSE = "com.mare.mare.ACTION_ADD_EXPENSE"
+    const val STYLE_SOLID = "solid"
+    const val STYLE_BLUR = "blur"
+    const val STYLE_CLEAR = "clear"
+
+    fun styleFor(context: Context, widgetId: Int): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("w_style_$widgetId", STYLE_SOLID) ?: STYLE_SOLID
+
+    fun hideFor(context: Context, widgetId: Int): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("w_hide_$widgetId", false)
+
+    fun saveWidgetConfig(context: Context, widgetId: Int, style: String, hideValues: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("w_style_$widgetId", style)
+            .putBoolean("w_hide_$widgetId", hideValues)
+            .apply()
+    }
+
+    fun bgDrawableFor(context: Context, widgetId: Int): Int = when (styleFor(context, widgetId)) {
+        STYLE_BLUR -> R.drawable.widget_bg_blur
+        STYLE_CLEAR -> R.drawable.widget_bg_clear
+        else -> R.drawable.widget_bg
+    }
+
+    fun maskIfNeeded(context: Context, widgetId: Int, value: String): String =
+        if (hideFor(context, widgetId)) "•••••" else value
 
     fun saveSnapshot(
         context: Context,
@@ -259,12 +286,13 @@ class MareBalanceWidgetProvider : AppWidgetProvider() {
                 val shortH = h < 92
                 val narrow = w < 190
                 val views = RemoteViews(context.packageName, R.layout.widget_balance).apply {
+                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
                     setTextViewText(R.id.widget_subtitle, if (narrow) "Saldo livre" else "maré · $cycle")
-                    setTextViewText(R.id.widget_balance, free)
+                    setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
                     setTextViewTextSize(R.id.widget_balance, TypedValue.COMPLEX_UNIT_SP, if (narrow) 18f else 22f)
                     setTextViewText(R.id.widget_caption, caption)
                     setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
-                    setOnClickPendingIntent(R.id.widget_root, openPi)
+                    setOnClickPendingIntent(android.R.id.background, openPi)
                     setOnClickPendingIntent(R.id.widget_add_btn, addPi)
                 }
                 mgr.updateAppWidget(id, views)
@@ -301,20 +329,21 @@ class MareSummaryWidgetProvider : AppWidgetProvider() {
                 val shortH = h < 105
                 val narrow = w < 210
                 val views = RemoteViews(context.packageName, R.layout.widget_summary).apply {
+                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
                     setTextViewText(R.id.widget_cycle, if (narrow) "Saldo livre" else "maré · Saldo livre ($cycle)")
                     setTextViewText(R.id.widget_add_btn, if (narrow) "+" else "+ Gasto")
-                    setTextViewText(R.id.widget_balance, free)
+                    setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
                     setTextViewTextSize(
                         R.id.widget_balance,
                         TypedValue.COMPLEX_UNIT_SP,
                         if (narrow) 20f else (if (shortH) 22f else 26f),
                     )
                     setViewVisibility(R.id.widget_tiles_row, if (shortH) View.GONE else View.VISIBLE)
-                    setTextViewText(R.id.widget_spent, spent)
-                    setTextViewText(R.id.widget_boxes, boxes)
+                    setTextViewText(R.id.widget_spent, MareWidgetStore.maskIfNeeded(context, id, spent))
+                    setTextViewText(R.id.widget_boxes, MareWidgetStore.maskIfNeeded(context, id, boxes))
                     setTextViewTextSize(R.id.widget_spent, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
                     setTextViewTextSize(R.id.widget_boxes, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
-                    setOnClickPendingIntent(R.id.widget_root, openPi)
+                    setOnClickPendingIntent(android.R.id.background, openPi)
                     setOnClickPendingIntent(R.id.widget_add_btn, addPi)
                 }
                 mgr.updateAppWidget(id, views)
@@ -339,8 +368,9 @@ private fun updateMetricWidget(
         val shortH = h < 92
         val narrow = w < 150
         val views = RemoteViews(context.packageName, R.layout.widget_metric).apply {
+            setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
             setTextViewText(R.id.widget_title, title)
-            setTextViewText(R.id.widget_value, value)
+            setTextViewText(R.id.widget_value, MareWidgetStore.maskIfNeeded(context, id, value))
             setTextViewTextSize(
                 R.id.widget_value,
                 TypedValue.COMPLEX_UNIT_SP,
@@ -354,7 +384,7 @@ private fun updateMetricWidget(
             } else {
                 setViewVisibility(R.id.widget_graphic, View.GONE)
             }
-            setOnClickPendingIntent(R.id.widget_root, openPi)
+            setOnClickPendingIntent(android.R.id.background, openPi)
         }
         mgr.updateAppWidget(id, views)
     }
@@ -450,6 +480,7 @@ class MareCategoriesWidgetProvider : AppWidgetProvider() {
                 val shortH = h < 92
                 val narrow = w < 170
                 val views = RemoteViews(context.packageName, R.layout.widget_categories).apply {
+                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
                     setTextViewText(R.id.widget_cat_1, c1)
                     setTextViewText(R.id.widget_cat_2, c2)
                     setTextViewText(R.id.widget_cat_3, c3)
@@ -461,7 +492,7 @@ class MareCategoriesWidgetProvider : AppWidgetProvider() {
                     } else {
                         setViewVisibility(R.id.widget_donut, View.GONE)
                     }
-                    setOnClickPendingIntent(R.id.widget_root, openPi)
+                    setOnClickPendingIntent(android.R.id.background, openPi)
                 }
                 mgr.updateAppWidget(id, views)
             }
@@ -484,9 +515,10 @@ class MareQuickAddWidgetProvider : AppWidgetProvider() {
             for (id in ids) {
                 val (w, _) = MareWidgetStore.sizeDp(mgr, id, 120, 60)
                 val views = RemoteViews(context.packageName, R.layout.widget_quick_add).apply {
+                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
                     setViewVisibility(R.id.widget_quick_label, if (w < 100) View.GONE else View.VISIBLE)
                     setTextViewText(R.id.widget_quick_label, if (w >= 190) "Adicionar gasto" else "Gasto")
-                    setOnClickPendingIntent(R.id.widget_root, addPi)
+                    setOnClickPendingIntent(android.R.id.background, addPi)
                 }
                 mgr.updateAppWidget(id, views)
             }

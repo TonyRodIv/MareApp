@@ -34,6 +34,15 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
+        <activity
+            android:name=".MareWidgetConfigureActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault.DayNight.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".MareNotificationListener"
             android:label="@string/notif_listener_label"
