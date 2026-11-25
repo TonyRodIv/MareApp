@@ -58,6 +58,14 @@ class NativeWidgets {
             ? '?'
             : subs[i].name.trim()[0].toUpperCase(),
     ];
+    final subDomains = <String>[
+      for (var i = 0; i < subs.length && i < 4; i++)
+        brandSpecFor(subs[i].name)?.domain ?? '',
+    ];
+    final subInsets = <String>[
+      for (var i = 0; i < subs.length && i < 4; i++)
+        (brandSpecFor(subs[i].name)?.inset ?? 0.08).toStringAsFixed(2),
+    ];
     final subExtra = subs.length > 4 ? subs.length - 4 : 0;
 
     final catColors = <int>[
@@ -72,7 +80,8 @@ class NativeWidgets {
       if (idx >= cats.length || catTotal <= 0) return '';
       final item = cats[idx];
       final pct = (item.value / catTotal * 100).round();
-      return '${item.key.label} · $pct%';
+      final val = fmtMoney(item.value, hidden: hidden);
+      return '${item.key.label} · $pct% · $val';
     }
     try {
       await _ch.invokeMethod<bool>('updateSnapshot', {
@@ -89,6 +98,7 @@ class NativeWidgets {
         'cat1': cats.isEmpty ? 'Sem gastos neste ciclo' : catLine(0),
         'cat2': catLine(1),
         'cat3': catLine(2),
+        'cat4': catLine(3),
         'cycleLabel': cy.label(),
         'caption': daysLeft == 1
             ? 'Último dia do ciclo'
@@ -99,6 +109,8 @@ class NativeWidgets {
         'boxValuesCsv': boxValues.join(','),
         'subColorsCsv': subColors.join(','),
         'subLabelsCsv': subLabels.join(','),
+        'subDomainsCsv': subDomains.join(','),
+        'subInsetsCsv': subInsets.join(','),
         'subExtra': subExtra,
         'catColorsCsv': catColors.join(','),
         'catValuesCsv': catValues.join(','),

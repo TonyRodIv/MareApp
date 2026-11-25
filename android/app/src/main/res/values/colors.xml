@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0E2835</color>
-    <color name="widget_surface">#FFFFFF</color>
-    <color name="widget_surface_blur">#BDFFFFFF</color>
-    <color name="widget_surface_alt">#F2F2F7</color>
-    <color name="widget_text">#141416</color>
-    <color name="widget_text_secondary">#6B6B72</color>
+    <color name="widget_surface">#F7F7FA</color>
+    <color name="widget_surface_alt">#FFFFFF</color>
+    <color name="widget_text">#1A1A1E</color>
+    <color name="widget_text_secondary">#666670</color>
     <color name="widget_primary">#227D8D</color>
     <color name="widget_primary_soft">#E6F4F7</color>
 </resources>
