@@ -27,6 +27,40 @@ class NativeWidgets {
     final subsTotal = subs.fold<int>(0, (t, e) => t + e.cents);
     final cats = f.byCategory(cy);
     final catTotal = cats.fold<int>(0, (t, e) => t + e.value);
+
+    final spark = <double>[
+      for (final cItem in f.lastCycles(6)) f.expensesTotal(cItem).toDouble(),
+    ];
+    final prevSpent = f.expensesTotal(cy.prev(s.data.cycleStartDay));
+    final spent = f.expensesTotal(cy);
+    final isHigh = prevSpent > 0 ? spent > prevSpent : false;
+
+    final boxColors = <int>[];
+    final boxValues = <int>[];
+    for (final b in openBoxes) {
+      final bal = f.boxBalance(b);
+      if (bal > 0) {
+        boxColors.add(b.color);
+        boxValues.add(bal);
+      }
+    }
+
+    final subColors = <int>[
+      for (var i = 0; i < subs.length && i < 4; i++)
+        (brandSpecFor(subs[i].name)?.accent ??
+                brandSpecFor(subs[i].name)?.bg ??
+                subs[i].category.color)
+            .toARGB32(),
+    ];
+
+    final catColors = <int>[
+      for (var i = 0; i < cats.length && i < 4; i++)
+        cats[i].key.color.toARGB32(),
+    ];
+    final catValues = <int>[
+      for (var i = 0; i < cats.length && i < 4; i++) cats[i].value,
+    ];
+
     String catLine(int idx) {
       if (idx >= cats.length || catTotal <= 0) return '';
       final item = cats[idx];
@@ -36,7 +70,7 @@ class NativeWidgets {
     try {
       await _ch.invokeMethod<bool>('updateSnapshot', {
         'freeBalance': fmtMoney(f.freeBalance(cy), hidden: hidden),
-        'expensesTotal': fmtMoney(f.expensesTotal(cy), hidden: hidden),
+        'expensesTotal': fmtMoney(spent, hidden: hidden),
         'boxesTotal': fmtMoney(f.boxesBalanceTotal(), hidden: hidden),
         'boxesCaption': openBoxes.isEmpty
             ? 'Sem caixinhas ativas'
@@ -52,6 +86,13 @@ class NativeWidgets {
         'caption': daysLeft == 1
             ? 'Último dia do ciclo'
             : 'Faltam $daysLeft dias no ciclo',
+        'sparkCsv': spark.join(','),
+        'sparkColor': isHigh ? 0xFFFF3B30 : 0xFF34C759,
+        'boxColorsCsv': boxColors.join(','),
+        'boxValuesCsv': boxValues.join(','),
+        'subColorsCsv': subColors.join(','),
+        'catColorsCsv': catColors.join(','),
+        'catValuesCsv': catValues.join(','),
       });
     } catch (_) {}
   }

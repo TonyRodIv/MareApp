@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_surface">#1C1C1E</color>
-    <color name="widget_surface_alt">#2C2C2E</color>
-    <color name="widget_border">#38383A</color>
+    <color name="widget_surface">#242426</color>
+    <color name="widget_surface_alt">#303034</color>
+    <color name="widget_border">#14FFFFFF</color>
     <color name="widget_text">#F5F5F7</color>
     <color name="widget_text_secondary">#A0A0A8</color>
     <color name="widget_primary">#30B0C7</color>

@@ -86,6 +86,13 @@ class MainActivity : FlutterActivity() {
                             call.argument<String>("cat3") ?: "",
                             call.argument<String>("cycleLabel") ?: "Ciclo atual",
                             call.argument<String>("caption") ?: "Toque no + para registrar",
+                            call.argument<String>("sparkCsv") ?: "",
+                            call.argument<Number>("sparkColor")?.toInt() ?: 0xFF34C759.toInt(),
+                            call.argument<String>("boxColorsCsv") ?: "",
+                            call.argument<String>("boxValuesCsv") ?: "",
+                            call.argument<String>("subColorsCsv") ?: "",
+                            call.argument<String>("catColorsCsv") ?: "",
+                            call.argument<String>("catValuesCsv") ?: "",
                         )
                         result.success(true)
                     }

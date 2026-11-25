@@ -2,6 +2,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_balance_desc"
     android:initialLayout="@layout/widget_balance"
+    android:previewLayout="@layout/preview_widget_balance"
     android:minWidth="180dp"
     android:minHeight="60dp"
     android:targetCellWidth="3"

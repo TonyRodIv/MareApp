@@ -2,6 +2,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_summary_desc"
     android:initialLayout="@layout/widget_summary"
+    android:previewLayout="@layout/preview_widget_summary"
     android:minWidth="250dp"
     android:minHeight="110dp"
     android:targetCellWidth="4"
