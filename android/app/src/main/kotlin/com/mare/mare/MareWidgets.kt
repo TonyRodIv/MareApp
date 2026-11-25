@@ -13,7 +13,9 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
+import android.os.Build
 import android.os.Bundle
+import android.util.SizeF
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -23,7 +25,6 @@ object MareWidgetStore {
     const val ACTION_OPEN_APP = "com.mare.mare.ACTION_OPEN_APP"
     const val ACTION_ADD_EXPENSE = "com.mare.mare.ACTION_ADD_EXPENSE"
     const val STYLE_SOLID = "solid"
-    const val STYLE_BLUR = "blur"
     const val STYLE_CLEAR = "clear"
 
     fun styleFor(context: Context, widgetId: Int): String =
@@ -42,7 +43,6 @@ object MareWidgetStore {
     }
 
     fun bgDrawableFor(context: Context, widgetId: Int): Int = when (styleFor(context, widgetId)) {
-        STYLE_BLUR -> R.drawable.widget_bg_blur
         STYLE_CLEAR -> R.drawable.widget_bg_clear
         else -> R.drawable.widget_bg
     }
@@ -133,6 +133,31 @@ object MareWidgetStore {
         return Pair(if (w > 0) w else fallbackW, if (h > 0) h else fallbackH)
     }
 
+    @Suppress("DEPRECATION")
+    fun applyResponsive(
+        mgr: AppWidgetManager,
+        id: Int,
+        fallbackW: Float,
+        fallbackH: Float,
+        build: (Float, Float) -> RemoteViews,
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val opts = mgr.getAppWidgetOptions(id)
+            val sizes: ArrayList<SizeF>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                opts.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES, SizeF::class.java)
+            } else {
+                opts.getParcelableArrayList(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+            }
+            if (!sizes.isNullOrEmpty()) {
+                val map = sizes.associateWith { s -> build(s.width, s.height) }
+                mgr.updateAppWidget(id, RemoteViews(map))
+                return
+            }
+        }
+        val (w, h) = sizeDp(mgr, id, fallbackW.toInt(), fallbackH.toInt())
+        mgr.updateAppWidget(id, build(w.toFloat(), h.toFloat()))
+    }
+
     fun parseDoubles(csv: String?): List<Double> =
         csv?.split(',')?.mapNotNull { it.trim().toDoubleOrNull() } ?: emptyList()
 
@@ -196,19 +221,19 @@ private object WidgetGraphics {
     fun segmentedBar(values: List<Double>, colors: List<Int>): Bitmap? {
         val total = values.sum()
         if (values.isEmpty() || total <= 0.0) return null
-        val w = 320
-        val h = 24
+        val w = 400
+        val h = 36
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
-        val gap = 6f
-        val avail = (w - gap * (values.size - 1)).coerceAtLeast(20f)
+        val gap = 7f
+        val avail = (w - gap * (values.size - 1)).coerceAtLeast(24f)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
         var x = 0f
         for (i in values.indices) {
-            val segW = (values[i] / total * avail).toFloat().coerceAtLeast(10f)
+            val segW = (values[i] / total * avail).toFloat().coerceAtLeast(14f)
             paint.color = colors.getOrElse(i) { 0xFF30B0C7.toInt() }
             val rect = RectF(x, 2f, (x + segW).coerceAtMost(w.toFloat()), h - 2f)
-            canvas.drawRoundRect(rect, 10f, 10f, paint)
+            canvas.drawRoundRect(rect, 15f, 15f, paint)
             x += segW + gap
         }
         return bmp
@@ -233,10 +258,10 @@ private object WidgetGraphics {
         if (colors.isEmpty()) return null
         val shown = colors.take(4)
         val count = shown.size + if (extra > 0) 1 else 0
-        val r = 34f
-        val step = 46f
-        val h = 76
-        val w = (r * 2 + (count - 1) * step + 8).toInt()
+        val r = 44f
+        val step = 58f
+        val h = 96
+        val w = (r * 2 + (count - 1) * step + 10).toInt()
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -249,14 +274,14 @@ private object WidgetGraphics {
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textAlign = Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
-            textSize = 28f
+            textSize = 36f
         }
         val cy = h / 2f
         for (i in shown.indices) {
-            val cx = r + 4f + i * step
-            canvas.drawCircle(cx, cy, r + 3.5f, borderPaint)
+            val cx = r + 5f + i * step
+            canvas.drawCircle(cx, cy, r + 4f, borderPaint)
             fillPaint.color = shown[i]
-            canvas.drawCircle(cx, cy, r - 0.5f, fillPaint)
+            canvas.drawCircle(cx, cy, r, fillPaint)
             val label = labels.getOrElse(i) { "" }
             if (label.isNotEmpty()) {
                 textPaint.color = contrastTextColor(shown[i])
@@ -265,12 +290,12 @@ private object WidgetGraphics {
             }
         }
         if (extra > 0) {
-            val cx = r + 4f + shown.size * step
-            canvas.drawCircle(cx, cy, r + 3.5f, borderPaint)
+            val cx = r + 5f + shown.size * step
+            canvas.drawCircle(cx, cy, r + 4f, borderPaint)
             fillPaint.color = badgeBg
-            canvas.drawCircle(cx, cy, r - 0.5f, fillPaint)
+            canvas.drawCircle(cx, cy, r, fillPaint)
             textPaint.color = badgeText
-            textPaint.textSize = 23f
+            textPaint.textSize = 30f
             val baseline = cy - (textPaint.descent() + textPaint.ascent()) / 2f
             canvas.drawText("+$extra", cx, baseline, textPaint)
         }
@@ -280,10 +305,10 @@ private object WidgetGraphics {
     fun donut(values: List<Double>, colors: List<Int>): Bitmap? {
         val total = values.sum()
         if (values.isEmpty() || total <= 0.0) return null
-        val sz = 200
+        val sz = 240
         val bmp = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
-        val stroke = 24f
+        val stroke = 28f
         val rect = RectF(stroke, stroke, sz - stroke, sz - stroke)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
@@ -326,20 +351,26 @@ class MareBalanceWidgetProvider : AppWidgetProvider() {
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 101)
             val addPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_ADD_EXPENSE, 102)
             for (id in ids) {
-                val (w, h) = MareWidgetStore.sizeDp(mgr, id, 220, 80)
-                val shortH = h < 92
-                val narrow = w < 190
-                val views = RemoteViews(context.packageName, R.layout.widget_balance).apply {
-                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
-                    setTextViewText(R.id.widget_subtitle, if (narrow) "Saldo livre" else "maré · $cycle")
-                    setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
-                    setTextViewTextSize(R.id.widget_balance, TypedValue.COMPLEX_UNIT_SP, if (narrow) 20f else 25f)
-                    setTextViewText(R.id.widget_caption, caption)
-                    setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
-                    setOnClickPendingIntent(android.R.id.background, openPi)
-                    setOnClickPendingIntent(R.id.widget_add_btn, addPi)
+                MareWidgetStore.applyResponsive(mgr, id, 260f, 80f) { w, h ->
+                    val shortH = h < 90f
+                    val narrow = w < 190f
+                    RemoteViews(context.packageName, R.layout.widget_balance).apply {
+                        setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
+                        setTextViewText(R.id.widget_subtitle, if (narrow) "Saldo livre" else "maré · $cycle")
+                        setTextViewTextSize(R.id.widget_subtitle, TypedValue.COMPLEX_UNIT_SP, if (narrow) 12f else 14f)
+                        setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
+                        setTextViewTextSize(
+                            R.id.widget_balance,
+                            TypedValue.COMPLEX_UNIT_SP,
+                            if (narrow) 22f else (if (w >= 300f) 30f else 27f),
+                        )
+                        setTextViewText(R.id.widget_caption, caption)
+                        setTextViewTextSize(R.id.widget_caption, TypedValue.COMPLEX_UNIT_SP, if (narrow) 11f else 13f)
+                        setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
+                        setOnClickPendingIntent(android.R.id.background, openPi)
+                        setOnClickPendingIntent(R.id.widget_add_btn, addPi)
+                    }
                 }
-                mgr.updateAppWidget(id, views)
             }
         }
     }
@@ -369,28 +400,31 @@ class MareSummaryWidgetProvider : AppWidgetProvider() {
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 201)
             val addPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_ADD_EXPENSE, 202)
             for (id in ids) {
-                val (w, h) = MareWidgetStore.sizeDp(mgr, id, 260, 140)
-                val shortH = h < 105
-                val narrow = w < 210
-                val views = RemoteViews(context.packageName, R.layout.widget_summary).apply {
-                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
-                    setTextViewText(R.id.widget_cycle, if (narrow) "Saldo livre" else "maré · Saldo livre ($cycle)")
-                    setTextViewText(R.id.widget_add_btn, if (narrow) "+" else "+ Gasto")
-                    setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
-                    setTextViewTextSize(
-                        R.id.widget_balance,
-                        TypedValue.COMPLEX_UNIT_SP,
-                        if (narrow) 22f else (if (shortH) 24f else 29f),
-                    )
-                    setViewVisibility(R.id.widget_tiles_row, if (shortH) View.GONE else View.VISIBLE)
-                    setTextViewText(R.id.widget_spent, MareWidgetStore.maskIfNeeded(context, id, spent))
-                    setTextViewText(R.id.widget_boxes, MareWidgetStore.maskIfNeeded(context, id, boxes))
-                    setTextViewTextSize(R.id.widget_spent, TypedValue.COMPLEX_UNIT_SP, if (narrow) 15f else 18f)
-                    setTextViewTextSize(R.id.widget_boxes, TypedValue.COMPLEX_UNIT_SP, if (narrow) 15f else 18f)
-                    setOnClickPendingIntent(android.R.id.background, openPi)
-                    setOnClickPendingIntent(R.id.widget_add_btn, addPi)
+                MareWidgetStore.applyResponsive(mgr, id, 300f, 160f) { w, h ->
+                    val shortH = h < 110f
+                    val narrow = w < 210f
+                    val tall = h >= 180f
+                    RemoteViews(context.packageName, R.layout.widget_summary).apply {
+                        setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
+                        setTextViewText(R.id.widget_cycle, if (narrow) "Saldo livre" else "maré · Saldo livre ($cycle)")
+                        setTextViewTextSize(R.id.widget_cycle, TypedValue.COMPLEX_UNIT_SP, if (narrow) 13f else 15f)
+                        setTextViewText(R.id.widget_add_btn, if (narrow) "+" else "+ Gasto")
+                        setTextViewText(R.id.widget_balance, MareWidgetStore.maskIfNeeded(context, id, free))
+                        setTextViewTextSize(
+                            R.id.widget_balance,
+                            TypedValue.COMPLEX_UNIT_SP,
+                            if (narrow) 24f else (if (shortH) 26f else (if (tall) 36f else 32f)),
+                        )
+                        setViewVisibility(R.id.widget_tiles_row, if (shortH) View.GONE else View.VISIBLE)
+                        setTextViewText(R.id.widget_spent, MareWidgetStore.maskIfNeeded(context, id, spent))
+                        setTextViewText(R.id.widget_boxes, MareWidgetStore.maskIfNeeded(context, id, boxes))
+                        val tileValSize = if (narrow) 16f else (if (tall) 22f else 20f)
+                        setTextViewTextSize(R.id.widget_spent, TypedValue.COMPLEX_UNIT_SP, tileValSize)
+                        setTextViewTextSize(R.id.widget_boxes, TypedValue.COMPLEX_UNIT_SP, tileValSize)
+                        setOnClickPendingIntent(android.R.id.background, openPi)
+                        setOnClickPendingIntent(R.id.widget_add_btn, addPi)
+                    }
                 }
-                mgr.updateAppWidget(id, views)
             }
         }
     }
@@ -408,29 +442,41 @@ private fun updateMetricWidget(
 ) {
     val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, reqCode)
     for (id in ids) {
-        val (w, h) = MareWidgetStore.sizeDp(mgr, id, 150, 110)
-        val shortH = h < 92
-        val narrow = w < 150
-        val views = RemoteViews(context.packageName, R.layout.widget_metric).apply {
-            setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
-            setTextViewText(R.id.widget_title, title)
-            setTextViewText(R.id.widget_value, MareWidgetStore.maskIfNeeded(context, id, value))
-            setTextViewTextSize(
-                R.id.widget_value,
-                TypedValue.COMPLEX_UNIT_SP,
-                if (narrow) 21f else (if (w >= 240) 27f else 24f),
-            )
-            setTextViewText(R.id.widget_caption, caption)
-            setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
-            if (graphic != null && !shortH) {
-                setImageViewBitmap(R.id.widget_graphic, graphic)
-                setViewVisibility(R.id.widget_graphic, View.VISIBLE)
-            } else {
-                setViewVisibility(R.id.widget_graphic, View.GONE)
+        MareWidgetStore.applyResponsive(mgr, id, 165f, 165f) { w, h ->
+            val shortH = h < 100f
+            val wide = w >= 240f
+            val tall = h >= 160f
+            RemoteViews(context.packageName, R.layout.widget_metric).apply {
+                setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
+                setTextViewText(R.id.widget_title, title)
+                setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, if (shortH) 14f else (if (wide) 19f else 17f))
+                setTextViewText(R.id.widget_value, MareWidgetStore.maskIfNeeded(context, id, value))
+                setTextViewTextSize(
+                    R.id.widget_value,
+                    TypedValue.COMPLEX_UNIT_SP,
+                    when {
+                        shortH -> 23f
+                        wide -> 32f
+                        tall -> 28f
+                        else -> 25f
+                    },
+                )
+                setTextViewText(R.id.widget_caption, caption)
+                setTextViewTextSize(R.id.widget_caption, TypedValue.COMPLEX_UNIT_SP, if (wide) 15f else 14f)
+                setViewVisibility(R.id.widget_caption, if (shortH) View.GONE else View.VISIBLE)
+                if (graphic != null && !shortH) {
+                    setImageViewBitmap(R.id.widget_graphic, graphic)
+                    setViewVisibility(R.id.widget_graphic, View.VISIBLE)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        val gHeight = if (tall) 60f else 44f
+                        setViewLayoutHeight(R.id.widget_graphic, gHeight, TypedValue.COMPLEX_UNIT_DIP)
+                    }
+                } else {
+                    setViewVisibility(R.id.widget_graphic, View.GONE)
+                }
+                setOnClickPendingIntent(android.R.id.background, openPi)
             }
-            setOnClickPendingIntent(android.R.id.background, openPi)
         }
-        mgr.updateAppWidget(id, views)
     }
 }
 
@@ -534,25 +580,36 @@ class MareCategoriesWidgetProvider : AppWidgetProvider() {
             val l3 = formatCatLine(c3, cols.getOrNull(2))
             val openPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_OPEN_APP, 601)
             for (id in ids) {
-                val (w, h) = MareWidgetStore.sizeDp(mgr, id, 200, 120)
-                val shortH = h < 92
-                val narrow = w < 170
-                val views = RemoteViews(context.packageName, R.layout.widget_categories).apply {
-                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
-                    setTextViewText(R.id.widget_cat_1, l1)
-                    setTextViewText(R.id.widget_cat_2, l2)
-                    setTextViewText(R.id.widget_cat_3, l3)
-                    setViewVisibility(R.id.widget_cat_2, if (c2.isEmpty()) View.GONE else View.VISIBLE)
-                    setViewVisibility(R.id.widget_cat_3, if (shortH || c3.isEmpty()) View.GONE else View.VISIBLE)
-                    if (donutBmp != null && !narrow && !shortH) {
-                        setImageViewBitmap(R.id.widget_donut, donutBmp)
-                        setViewVisibility(R.id.widget_donut, View.VISIBLE)
-                    } else {
-                        setViewVisibility(R.id.widget_donut, View.GONE)
+                MareWidgetStore.applyResponsive(mgr, id, 280f, 160f) { w, h ->
+                    val shortH = h < 100f
+                    val narrow = w < 175f
+                    val wide = w >= 260f
+                    val tall = h >= 165f
+                    RemoteViews(context.packageName, R.layout.widget_categories).apply {
+                        setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
+                        setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, if (wide) 18f else 16f)
+                        setTextViewText(R.id.widget_cat_1, l1)
+                        setTextViewText(R.id.widget_cat_2, l2)
+                        setTextViewText(R.id.widget_cat_3, l3)
+                        setTextViewTextSize(R.id.widget_cat_1, TypedValue.COMPLEX_UNIT_SP, if (wide) 18f else 15f)
+                        setTextViewTextSize(R.id.widget_cat_2, TypedValue.COMPLEX_UNIT_SP, if (wide) 16f else 14f)
+                        setTextViewTextSize(R.id.widget_cat_3, TypedValue.COMPLEX_UNIT_SP, if (wide) 16f else 14f)
+                        setViewVisibility(R.id.widget_cat_2, if (c2.isEmpty()) View.GONE else View.VISIBLE)
+                        setViewVisibility(R.id.widget_cat_3, if (shortH || c3.isEmpty()) View.GONE else View.VISIBLE)
+                        if (donutBmp != null && !narrow && !shortH) {
+                            setImageViewBitmap(R.id.widget_donut, donutBmp)
+                            setViewVisibility(R.id.widget_donut, View.VISIBLE)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                                val dSize = if (wide && tall) 108f else (if (wide) 92f else 68f)
+                                setViewLayoutWidth(R.id.widget_donut, dSize, TypedValue.COMPLEX_UNIT_DIP)
+                                setViewLayoutHeight(R.id.widget_donut, dSize, TypedValue.COMPLEX_UNIT_DIP)
+                            }
+                        } else {
+                            setViewVisibility(R.id.widget_donut, View.GONE)
+                        }
+                        setOnClickPendingIntent(android.R.id.background, openPi)
                     }
-                    setOnClickPendingIntent(android.R.id.background, openPi)
                 }
-                mgr.updateAppWidget(id, views)
             }
         }
     }
@@ -571,14 +628,15 @@ class MareQuickAddWidgetProvider : AppWidgetProvider() {
         fun update(context: Context, mgr: AppWidgetManager, ids: IntArray) {
             val addPi = MareWidgetStore.launchIntent(context, MareWidgetStore.ACTION_ADD_EXPENSE, 701)
             for (id in ids) {
-                val (w, _) = MareWidgetStore.sizeDp(mgr, id, 120, 60)
-                val views = RemoteViews(context.packageName, R.layout.widget_quick_add).apply {
-                    setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
-                    setViewVisibility(R.id.widget_quick_label, if (w < 100) View.GONE else View.VISIBLE)
-                    setTextViewText(R.id.widget_quick_label, if (w >= 190) "Adicionar gasto" else "Gasto")
-                    setOnClickPendingIntent(android.R.id.background, addPi)
+                MareWidgetStore.applyResponsive(mgr, id, 140f, 70f) { w, _ ->
+                    RemoteViews(context.packageName, R.layout.widget_quick_add).apply {
+                        setInt(android.R.id.background, "setBackgroundResource", MareWidgetStore.bgDrawableFor(context, id))
+                        setViewVisibility(R.id.widget_quick_label, if (w < 105f) View.GONE else View.VISIBLE)
+                        setTextViewText(R.id.widget_quick_label, if (w >= 200f) "Adicionar gasto" else "Gasto")
+                        setTextViewTextSize(R.id.widget_quick_label, TypedValue.COMPLEX_UNIT_SP, if (w >= 200f) 17f else 15f)
+                        setOnClickPendingIntent(android.R.id.background, addPi)
+                    }
                 }
-                mgr.updateAppWidget(id, views)
             }
         }
     }

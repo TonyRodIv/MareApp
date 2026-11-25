@@ -2,7 +2,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_categories_desc"
     android:initialLayout="@layout/widget_categories"
-    android:previewLayout="@layout/preview_widget_categories"
+    android:previewImage="@drawable/preview_img_categories"
     android:minWidth="180dp"
     android:minHeight="100dp"
     android:targetCellWidth="3"

@@ -41,7 +41,9 @@ class MareWidgetConfigureActivity : Activity() {
         val accent = Color.parseColor("#30B0C7")
         val accentSoft = if (isDark) Color.parseColor("#173A42") else Color.parseColor("#E6F4F7")
 
-        selectedStyle = MareWidgetStore.styleFor(this, appWidgetId)
+        selectedStyle = MareWidgetStore.styleFor(this, appWidgetId).let {
+            if (it == MareWidgetStore.STYLE_CLEAR) it else MareWidgetStore.STYLE_SOLID
+        }
         val initialHide = MareWidgetStore.hideFor(this, appWidgetId)
 
         fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
@@ -83,7 +85,6 @@ class MareWidgetConfigureActivity : Activity() {
 
         val options = listOf(
             Triple(MareWidgetStore.STYLE_SOLID, "Padrão (sólido)", "Mesmo visual dos cards do app"),
-            Triple(MareWidgetStore.STYLE_BLUR, "Translúcido (Blur One UI)", "Fundo fosco compatível com o desfoque do launcher"),
             Triple(MareWidgetStore.STYLE_CLEAR, "Transparente", "Apenas textos e gráficos sobre o papel de parede"),
         )
 
