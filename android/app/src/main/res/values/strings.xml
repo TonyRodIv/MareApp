@@ -12,6 +12,8 @@
     <string name="widget_subs_desc">Mostra o custo mensal das suas assinaturas.</string>
     <string name="widget_categories_label">Por categoria</string>
     <string name="widget_categories_desc">Mostra as principais categorias de gastos do ciclo.</string>
+    <string name="widget_split_label">Dividir gastos</string>
+    <string name="widget_split_desc">Mostra o total em aberto das suas divisões entre pessoas.</string>
     <string name="widget_quick_add_label">Adicionar gasto rápido</string>
     <string name="widget_quick_add_desc">Atalho direto para registrar um novo gasto.</string>
     <string name="notif_listener_label">Detectar gastos de bancos (maré)</string>

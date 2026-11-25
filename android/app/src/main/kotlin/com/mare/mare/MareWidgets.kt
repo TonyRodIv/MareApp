@@ -80,6 +80,8 @@ object MareWidgetStore {
         subExtra: Int = 0,
         catColorsCsv: String = "",
         catValuesCsv: String = "",
+        splitTotal: String = "R\$ 0,00",
+        splitCaption: String = "Tudo quitado",
     ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString("w_free", freeBalance)
@@ -105,6 +107,8 @@ object MareWidgetStore {
             .putInt("w_sub_extra", subExtra)
             .putString("w_cat_colors", catColorsCsv)
             .putString("w_cat_values", catValuesCsv)
+            .putString("w_split_total", splitTotal)
+            .putString("w_split_cap", splitCaption)
             .apply()
         updateAllWidgets(context)
     }
@@ -121,6 +125,7 @@ object MareWidgetStore {
         upd(MareBoxesWidgetProvider::class.java, MareBoxesWidgetProvider::update)
         upd(MareSubsWidgetProvider::class.java, MareSubsWidgetProvider::update)
         upd(MareCategoriesWidgetProvider::class.java, MareCategoriesWidgetProvider::update)
+        upd(MareSplitWidgetProvider::class.java, MareSplitWidgetProvider::update)
         upd(MareQuickAddWidgetProvider::class.java, MareQuickAddWidgetProvider::update)
     }
 
@@ -779,6 +784,25 @@ class MareQuickAddWidgetProvider : AppWidgetProvider() {
                     }
                 }
             }
+        }
+    }
+}
+
+class MareSplitWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        update(context, appWidgetManager, appWidgetIds)
+    }
+
+    override fun onAppWidgetOptionsChanged(context: Context, mgr: AppWidgetManager, id: Int, opts: Bundle) {
+        update(context, mgr, intArrayOf(id))
+    }
+
+    companion object {
+        fun update(context: Context, mgr: AppWidgetManager, ids: IntArray) {
+            val prefs = context.getSharedPreferences(MareWidgetStore.PREFS, Context.MODE_PRIVATE)
+            val total = prefs.getString("w_split_total", "R\$ 0,00") ?: "R\$ 0,00"
+            val cap = prefs.getString("w_split_cap", "Tudo quitado") ?: "Tudo quitado"
+            updateMetricWidget(context, mgr, ids, "Dividir gastos", total, cap, null, 801)
         }
     }
 }

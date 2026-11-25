@@ -83,6 +83,15 @@ class NativeWidgets {
       final val = fmtMoney(item.value, hidden: hidden);
       return '${item.key.label} · $pct% · $val';
     }
+    final openSplits = [
+      for (final b in s.data.splitBills)
+        if (!b.isFullySettled) b,
+    ];
+    final splitTotal = openSplits.fold<int>(0, (t, b) => t + b.totalCents);
+    final splitCaption = openSplits.isEmpty
+        ? 'Tudo quitado'
+        : '${openSplits.length} ${openSplits.length == 1 ? 'conta em aberto' : 'contas em aberto'}';
+
     try {
       await _ch.invokeMethod<bool>('updateSnapshot', {
         'freeBalance': fmtMoney(f.freeBalance(cy), hidden: hidden),
@@ -114,6 +123,8 @@ class NativeWidgets {
         'subExtra': subExtra,
         'catColorsCsv': catColors.join(','),
         'catValuesCsv': catValues.join(','),
+        'splitTotal': fmtMoney(splitTotal, hidden: hidden),
+        'splitCaption': splitCaption,
       });
     } catch (_) {}
   }

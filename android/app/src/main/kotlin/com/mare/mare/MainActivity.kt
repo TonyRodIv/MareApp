@@ -98,6 +98,8 @@ class MainActivity : FlutterActivity() {
                             call.argument<Number>("subExtra")?.toInt() ?: 0,
                             call.argument<String>("catColorsCsv") ?: "",
                             call.argument<String>("catValuesCsv") ?: "",
+                            call.argument<String>("splitTotal") ?: "R\$ 0,00",
+                            call.argument<String>("splitCaption") ?: "Tudo quitado",
                         )
                         result.success(true)
                     }
@@ -118,6 +120,7 @@ class MainActivity : FlutterActivity() {
                             "boxes" -> MareBoxesWidgetProvider::class.java
                             "subs" -> MareSubsWidgetProvider::class.java
                             "categories" -> MareCategoriesWidgetProvider::class.java
+                            "split" -> MareSplitWidgetProvider::class.java
                             "quick_add" -> MareQuickAddWidgetProvider::class.java
                             else -> MareBalanceWidgetProvider::class.java
                         }

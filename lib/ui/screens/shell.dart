@@ -20,6 +20,7 @@ import 'extrato.dart';
 import 'home.dart';
 import 'insights.dart';
 import 'profile.dart';
+import 'split.dart';
 
 /// Destino configurável da barra de navegação inferior.
 class NavDestination {
@@ -74,6 +75,12 @@ const navDestinations = <NavDestination>[
     label: 'Histórico',
     subtitle: 'Evolução dos últimos ciclos',
     icon: LucideIcons.chartColumn,
+  ),
+  NavDestination(
+    id: 'dividir',
+    label: 'Dividir',
+    subtitle: 'Dividir contas entre pessoas',
+    icon: LucideIcons.users,
   ),
   NavDestination(
     id: 'perfil',
@@ -205,6 +212,7 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
         'categorias' => const CategoriesScreen(embedded: true),
         'assinaturas' => const SubscriptionsScreen(embedded: true),
         'historico' => const HistoryScreen(embedded: true),
+        'dividir' => const SplitScreen(embedded: true),
         'perfil' => const ProfileScreen(),
         _ => const HomeScreen(),
       },

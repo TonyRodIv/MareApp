@@ -142,6 +142,39 @@ class Store extends ChangeNotifier {
     _commit();
   }
 
+  void setExperimental({bool? splitExpenses, bool? profileHeader}) {
+    if (splitExpenses != null) data.expSplitExpenses = splitExpenses;
+    if (profileHeader != null) data.expProfileHeader = profileHeader;
+    _commit();
+  }
+
+  void addSplitBill(SplitBill bill) {
+    data.splitBills.insert(0, bill);
+    _commit();
+  }
+
+  void updateSplitBill(SplitBill bill) {
+    final i = data.splitBills.indexWhere((b) => b.id == bill.id);
+    if (i >= 0) {
+      data.splitBills[i] = bill;
+      _commit();
+    }
+  }
+
+  void deleteSplitBill(String id) {
+    data.splitBills.removeWhere((b) => b.id == id);
+    _commit();
+  }
+
+  void toggleSplitSettled(String billId, String participantId) {
+    final bill = data.splitBills.where((b) => b.id == billId).firstOrNull;
+    if (bill == null) return;
+    final p = bill.participants.where((x) => x.id == participantId).firstOrNull;
+    if (p == null) return;
+    p.settled = !p.settled;
+    _commit();
+  }
+
   void dismissBoxTip() {
     if (data.dismissedBoxTip) return;
     data.dismissedBoxTip = true;

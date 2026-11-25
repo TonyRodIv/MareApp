@@ -21,6 +21,7 @@ import 'extrato.dart';
 import 'insights.dart';
 import 'profile.dart';
 import 'shell.dart';
+import 'split.dart';
 
 enum HeroView { free, expenses, boxes }
 
@@ -76,9 +77,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final hasCards = s.data.cards.isNotEmpty;
     final hasSubs = f.subscriptions(cy).isNotEmpty;
 
-    return GlowScrollStack(
-      height: 560,
-      child: CustomScrollView(
+    return Stack(
+      children: [
+        const GlowBackground(height: 560),
+        CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
@@ -347,6 +349,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
           ],
         ),
+      ],
     );
   }
 
@@ -354,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     'gastos': ('Seus Gastos', LucideIcons.receipt, 1),
     'caixinhas': ('Caixinhas', LucideIcons.piggyBank, 1),
     'assinaturas': ('Assinaturas', LucideIcons.tv, 1),
+    'dividir': ('Dividir gastos', LucideIcons.users, 1),
     'categorias': ('Por categoria', LucideIcons.chartPie, 2),
     'historico': ('Histórico visual', LucideIcons.chartColumn, 2),
     'contas': ('Contas', LucideIcons.landmark, 2),
@@ -363,6 +367,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     'gastos',
     'assinaturas',
     'caixinhas',
+    'dividir',
     'categorias',
     'historico',
     'contas',
@@ -372,6 +377,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     'gastos',
     'assinaturas',
     'caixinhas',
+    'dividir',
     'categorias',
     'contas',
     'historico',
@@ -420,6 +426,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (hiddenSet.contains(id)) continue;
       // Somente Caixinhas fica oculto automaticamente quando não há caixinhas ativas.
       if (id == 'caixinhas' && !hasOpenBoxes) continue;
+      if (id == 'dividir' && !s.data.expSplitExpenses) continue;
 
       final defSpan = _defaultSpanFor(id);
 
@@ -432,6 +439,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               builder: (ctx, w, span) => _AccountsDashCard(
                 cards: s.data.cards,
                 compact: span == 1 || w < 240,
+              ),
+            ),
+          );
+        case 'dividir':
+          final openSplits = [
+            for (final b in s.data.splitBills)
+              if (!b.isFullySettled) b,
+          ];
+          var openTotal = 0;
+          for (final b in openSplits) {
+            openTotal += b.totalCents;
+          }
+          tiles.add(
+            DashTile(
+              id: id,
+              defaultSpan: defSpan,
+              builder: (ctx, w, span) => _statCard(
+                ctx,
+                'Dividir gastos',
+                openTotal,
+                openSplits.isEmpty
+                    ? 'Tudo quitado'
+                    : '${openSplits.length} ${openSplits.length == 1 ? 'conta em aberto' : 'contas em aberto'}',
+                hidden,
+                onTap: () => push(context, const SplitScreen()),
               ),
             ),
           );

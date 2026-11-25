@@ -573,6 +573,88 @@ enum ThemePref { auto, light, dark }
 
 // ── Raiz ────────────────────────────────────────────────────
 
+class SplitParticipant {
+  String id;
+  String name;
+  Cents paidCents;
+  bool settled;
+  bool isMe;
+
+  SplitParticipant({
+    required this.id,
+    required this.name,
+    this.paidCents = 0,
+    this.settled = false,
+    this.isMe = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'paidCents': paidCents,
+    'settled': settled,
+    'isMe': isMe,
+  };
+
+  factory SplitParticipant.fromJson(Map<String, dynamic> j) => SplitParticipant(
+    id: '${j['id'] ?? ''}',
+    name: '${j['name'] ?? ''}',
+    paidCents: (j['paidCents'] as num?)?.toInt() ?? 0,
+    settled: j['settled'] == true,
+    isMe: j['isMe'] == true,
+  );
+}
+
+class SplitBill {
+  String id;
+  String title;
+  Cents totalCents;
+  DateTime date;
+  List<SplitParticipant> participants;
+
+  SplitBill({
+    required this.id,
+    required this.title,
+    required this.totalCents,
+    required this.date,
+    List<SplitParticipant>? participants,
+  }) : participants = participants ?? [];
+
+  Cents shareFor(int index) {
+    if (participants.isEmpty) return 0;
+    final n = participants.length;
+    final base = totalCents ~/ n;
+    final rem = totalCents % n;
+    return base + (index < rem ? 1 : 0);
+  }
+
+  /// Quanto a pessoa deve receber (+) ou pagar (-).
+  Cents netFor(int index) => participants[index].paidCents - shareFor(index);
+
+  bool get isFullySettled => participants.every((p) {
+    final idx = participants.indexOf(p);
+    return p.settled || netFor(idx) >= 0;
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'totalCents': totalCents,
+    'date': _iso(date),
+    'participants': participants.map((e) => e.toJson()).toList(),
+  };
+
+  factory SplitBill.fromJson(Map<String, dynamic> j) => SplitBill(
+    id: '${j['id'] ?? ''}',
+    title: '${j['title'] ?? ''}',
+    totalCents: (j['totalCents'] as num?)?.toInt() ?? 0,
+    date: _date(j['date']) ?? DateTime.now(),
+    participants: ((j['participants'] as List?) ?? [])
+        .map((e) => SplitParticipant.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList(),
+  );
+}
+
 class AppData {
   String userName;
   String? avatarPath;
@@ -603,6 +685,13 @@ class AppData {
   /// Se o usuário dispensou o card de sugestão de primeira caixinha no Perfil.
   bool dismissedBoxTip;
 
+  /// Recursos experimentais ativados nas Configurações.
+  bool expSplitExpenses;
+  bool expProfileHeader;
+
+  /// Divisões de gastos entre pessoas.
+  List<SplitBill> splitBills;
+
   /// Última alteração local (UTC), usada para sincronização com o Google Drive.
   DateTime? updatedAt;
 
@@ -617,10 +706,13 @@ class AppData {
     this.hideValues = false,
     this.onboardingDone = false,
     this.dismissedBoxTip = false,
+    this.expSplitExpenses = false,
+    this.expProfileHeader = false,
     List<SalaryEntry>? salaries,
     List<Expense>? expenses,
     List<Caixinha>? boxes,
     List<PayCard>? cards,
+    List<SplitBill>? splitBills,
     Map<String, int>? cardSpans,
     List<String>? widgetOrder,
     List<String>? hiddenWidgets,
@@ -634,7 +726,8 @@ class AppData {
        salaries = salaries ?? [],
        expenses = expenses ?? [],
        boxes = boxes ?? [],
-       cards = cards ?? [];
+       cards = cards ?? [],
+       splitBills = splitBills ?? [];
 
   static const schemaVersion = 1;
 
@@ -651,10 +744,13 @@ class AppData {
     'hideValues': hideValues,
     'onboardingDone': onboardingDone,
     'dismissedBoxTip': dismissedBoxTip,
+    'expSplitExpenses': expSplitExpenses,
+    'expProfileHeader': expProfileHeader,
     'salaries': salaries.map((e) => e.toJson()).toList(),
     'expenses': expenses.map((e) => e.toJson()).toList(),
     'boxes': boxes.map((e) => e.toJson()).toList(),
     'cards': cards.map((e) => e.toJson()).toList(),
+    'splitBills': splitBills.map((e) => e.toJson()).toList(),
     'cardSpans': cardSpans,
     'widgetOrder': widgetOrder,
     'hiddenWidgets': hiddenWidgets,
@@ -680,10 +776,13 @@ class AppData {
       hideValues: j['hideValues'] == true,
       onboardingDone: j['onboardingDone'] == true,
       dismissedBoxTip: j['dismissedBoxTip'] == true,
+      expSplitExpenses: j['expSplitExpenses'] == true,
+      expProfileHeader: j['expProfileHeader'] == true,
       salaries: list('salaries', SalaryEntry.fromJson),
       expenses: list('expenses', Expense.fromJson),
       boxes: list('boxes', Caixinha.fromJson),
       cards: list('cards', PayCard.fromJson),
+      splitBills: list('splitBills', SplitBill.fromJson),
       cardSpans:
           (j['cardSpans'] as Map?)?.map(
             (k, v) => MapEntry('$k', (v as num).toInt().clamp(1, 2)),

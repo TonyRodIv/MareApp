@@ -1298,8 +1298,9 @@ class GlowBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.c;
-    final headerPath = useHeader
-        ? StoreScope.maybeOf(context)?.data.headerPath
+    final storeData = StoreScope.maybeOf(context)?.data;
+    final headerPath = (useHeader && (storeData?.expProfileHeader ?? false))
+        ? storeData?.headerPath
         : null;
     if (headerPath != null && headerPath.isNotEmpty) {
       final isUrl = headerPath.startsWith('http://') ||
@@ -1336,11 +1337,11 @@ class GlowBackground extends StatelessWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      const Color(0xFF000000).withValues(alpha: 0.52),
-                      const Color(0xFF000000).withValues(alpha: 0.16),
-                      const Color(0x00000000),
+                      const Color(0xFF000000).withValues(alpha: 0.68),
+                      const Color(0xFF000000).withValues(alpha: 0.34),
+                      const Color(0xFF000000).withValues(alpha: 0.14),
                     ],
-                    stops: const [0.0, 0.36, 0.72],
+                    stops: const [0.0, 0.42, 1.0],
                   ),
                 ),
               ),
@@ -1349,25 +1350,30 @@ class GlowBackground extends StatelessWidget {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: height * 0.50,
+                height: height * 0.58,
                 child: ProgressiveBlur(
                   direction: AxisDirection.up,
-                  maxSigma: 22,
+                  maxSigma: 26,
                   tint: c.bg,
-                  tintOpacity: 1.0,
+                  tintOpacity: 0.96,
                 ),
               ),
               Positioned(
                 left: 0,
                 right: 0,
                 bottom: 0,
-                height: height * 0.32,
+                height: height * 0.46,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [c.bg.withValues(alpha: 0.0), c.bg],
+                      colors: [
+                        c.bg.withValues(alpha: 0.0),
+                        c.bg.withValues(alpha: 0.55),
+                        c.bg,
+                      ],
+                      stops: const [0.0, 0.55, 1.0],
                     ),
                   ),
                 ),

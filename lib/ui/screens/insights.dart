@@ -82,9 +82,11 @@ class _DetailPage extends StatelessWidget {
         ),
       ],
     );
-    final content = GlowScrollStack(
-      height: 460,
-      child: embedded ? scroll : CollapsingTitleScope(child: scroll),
+    final content = Stack(
+      children: [
+        const GlowBackground(height: 460),
+        embedded ? scroll : CollapsingTitleScope(child: scroll),
+      ],
     );
     if (embedded) return content;
     return SheetScaler(

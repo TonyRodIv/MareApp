@@ -59,9 +59,10 @@ class ProfileScreen extends StatelessWidget {
         : 'Sincronizado com o Drive';
     final syncIcon = sync.isConnected ? LucideIcons.cloud : LucideIcons.cloudOff;
 
-    return GlowScrollStack(
-      height: 480,
-      child: CustomScrollView(
+    return Stack(
+      children: [
+        const GlowBackground(height: 480),
+        CustomScrollView(
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
@@ -452,6 +453,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
+      ],
     );
   }
 }
@@ -605,6 +607,31 @@ class SettingsScreen extends StatelessWidget {
             ),
           ],
         ),
+        const SectionHeader('Recursos experimentais'),
+        _Group(
+          children: [
+            _Row(
+              icon: LucideIcons.users,
+              title: 'Dividir gastos',
+              trailing: CupertinoSwitch(
+                value: d.expSplitExpenses,
+                activeTrackColor: c.primary,
+                onChanged: (v) => s.setExperimental(splitExpenses: v),
+              ),
+              onTap: () => s.setExperimental(splitExpenses: !d.expSplitExpenses),
+            ),
+            _Row(
+              icon: LucideIcons.image,
+              title: 'Cabeçalho personalizado',
+              trailing: CupertinoSwitch(
+                value: d.expProfileHeader,
+                activeTrackColor: c.primary,
+                onChanged: (v) => s.setExperimental(profileHeader: v),
+              ),
+              onTap: () => s.setExperimental(profileHeader: !d.expProfileHeader),
+            ),
+          ],
+        ),
         const SectionHeader('Aplicativo'),
         _Group(
           children: [
@@ -708,7 +735,8 @@ class SettingsScreen extends StatelessWidget {
             if (ctx.mounted) set(() {});
           }
 
-          return SheetBody(
+          final expHeader = context.storeRead.data.expProfileHeader;
+    return SheetBody(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -813,7 +841,8 @@ class SettingsScreen extends StatelessWidget {
       builder: (ctx) {
         final c = ctx.c;
         final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
-        return SheetBody(
+        final expHeader = context.storeRead.data.expProfileHeader;
+    return SheetBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -938,7 +967,8 @@ class SettingsScreen extends StatelessWidget {
           final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
           void commit() => s.setNavTabs(pinned);
 
-          return SheetBody(
+          final expHeader = context.storeRead.data.expProfileHeader;
+    return SheetBody(
             bottom: PillButton('Concluir', onTap: () => Navigator.pop(ctx)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1232,7 +1262,8 @@ class SettingsScreen extends StatelessWidget {
               LucideIcons.moon,
             ),
           ];
-          return SheetBody(
+          final expHeader = context.storeRead.data.expProfileHeader;
+    return SheetBody(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1304,7 +1335,8 @@ class SettingsScreen extends StatelessWidget {
         final seed =
             s.data.accentColor ?? accentThemes.first.primary.toARGB32();
         final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
-        return SheetBody(
+        final expHeader = context.storeRead.data.expProfileHeader;
+    return SheetBody(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1454,12 +1486,14 @@ class _Row extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? value;
+  final Widget? trailing;
   final VoidCallback? onTap;
   final bool danger;
   const _Row({
     required this.icon,
     required this.title,
     this.value,
+    this.trailing,
     this.onTap,
     this.danger = false,
   });
@@ -1477,7 +1511,8 @@ class _Row extends StatelessWidget {
       ),
       title: title,
       value: value,
-      arrow: onTap != null,
+      trailing: trailing,
+      arrow: trailing == null && onTap != null,
       onTap: onTap,
     );
   }
@@ -1537,6 +1572,7 @@ class _SalaryCycleSheetState extends State<_SalaryCycleSheet> {
     final wellBg = c.isDark ? c.cardAlt : c.surfaceLow;
     final keyBg = c.isDark ? c.surfaceHigh : c.card;
 
+    final expHeader = context.storeRead.data.expProfileHeader;
     return SheetBody(
       bottom: PillButton(
         'Salvar',
@@ -1717,7 +1753,8 @@ Future<void> manageCards(BuildContext context) {
       final c = ctx.c;
       final s = ctx.store;
       final cards = s.data.cards;
-      return SheetBody(
+      final expHeader = context.storeRead.data.expProfileHeader;
+    return SheetBody(
         bottom: PillButton(
           'Adicionar conta ou cartão',
           icon: LucideIcons.plus,
@@ -1865,6 +1902,7 @@ class _ProfileFormState extends State<_ProfileForm> {
     final googlePhoto = sync.accountPhotoUrl;
     final hasGooglePhoto = googlePhoto != null && googlePhoto.isNotEmpty;
 
+    final expHeader = context.storeRead.data.expProfileHeader;
     return SheetBody(
       bottom: PillButton(
         'Salvar',
@@ -1900,6 +1938,7 @@ class _ProfileFormState extends State<_ProfileForm> {
             ],
           ),
           const SizedBox(height: 16),
+          if (expHeader)
           // Banner de capa por trás da foto de perfil (avatar metade dentro, metade fora)
           SizedBox(
             height: 172,
@@ -2103,7 +2142,80 @@ class _ProfileFormState extends State<_ProfileForm> {
                 ),
               ],
             ),
-          ),
+          )
+          else
+            Center(
+              child: Pressable(
+                onTap: () async {
+                  final a = await actionSheet<String>(
+                    context,
+                    actions: [
+                      if (hasGooglePhoto)
+                        const SheetAction(
+                          'Usar foto da conta Google',
+                          'google',
+                          icon: LucideIcons.cloud,
+                        ),
+                      const SheetAction(
+                        'Escolher da galeria',
+                        'gallery',
+                        icon: LucideIcons.image,
+                      ),
+                      const SheetAction(
+                        'Tirar foto',
+                        'camera',
+                        icon: LucideIcons.camera,
+                      ),
+                      if (_avatar != null)
+                        const SheetAction(
+                          'Remover foto',
+                          'remove',
+                          destructive: true,
+                          icon: LucideIcons.trash2,
+                        ),
+                    ],
+                  );
+                  if (!mounted) return;
+                  if (a == 'google' && hasGooglePhoto) {
+                    setState(() {
+                      _avatar = googlePhoto;
+                      _removed = false;
+                    });
+                  }
+                  if (a == 'gallery') _pick(ImageSource.gallery);
+                  if (a == 'camera') _pick(ImageSource.camera);
+                  if (a == 'remove') {
+                    setState(() {
+                      _avatar = null;
+                      _removed = true;
+                    });
+                  }
+                },
+                child: Stack(
+                  children: [
+                    Avatar(path: _avatar, name: _name.text, size: 96),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: c.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: c.card, width: 2),
+                        ),
+                        child: Icon(
+                          LucideIcons.camera,
+                          size: 16,
+                          color: c.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           if (hasGooglePhoto && _avatar != googlePhoto) ...[
             const SizedBox(height: Space.md),
             Center(

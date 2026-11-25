@@ -122,9 +122,8 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
 
     final body = Stack(
       children: [
-        GlowScrollStack(
-          height: 440,
-          child: CollapsingTitleScope(
+        const GlowBackground(height: 440),
+        CollapsingTitleScope(
           child: CustomScrollView(
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
@@ -399,7 +398,6 @@ class _ExtratoScreenState extends State<ExtratoScreen> {
               ),
           ],
           ),
-        ),
         ),
         // Botão flutuante no modo standalone (quando na navbar, o Shell desenha acima do blur)
         if (widget.standalone)
